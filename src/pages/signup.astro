@@ -1,5 +1,6 @@
 ---
 import { club } from '../data/club';
+import regions from '../data/regions.json'; // scripts/make-regions.mjs 로 법정동 CSV에서 생성
 import '../styles/ride.css';
 
 const base = import.meta.env.BASE_URL;
@@ -72,10 +73,18 @@ const base = import.meta.env.BASE_URL;
 						</div>
 					</fieldset>
 
-					<label>
-						거주지
-						<input name="area" type="text" maxlength="20" placeholder="ex) 마포구, 춘천" required />
-					</label>
+					<fieldset>
+						<legend>거주지</legend>
+						<div class="area">
+							<select name="sido" aria-label="시도" required>
+								<option value="">시도</option>
+								{Object.keys(regions).map((sido) => <option value={sido}>{sido}</option>)}
+							</select>
+							<select name="sigungu" aria-label="시군구" required disabled>
+								<option value="">시군구</option>
+							</select>
+						</div>
+					</fieldset>
 
 					<label>
 						연락처
@@ -124,7 +133,8 @@ const base = import.meta.env.BASE_URL;
 		</footer>
 
 		<script>
-			import { call } from '../scripts/session';
+			import { busy, call } from '../scripts/session';
+			import regions from '../data/regions.json';
 
 			const form = document.querySelector<HTMLFormElement>('.signup')!;
 			const error = form.querySelector<HTMLElement>('.mem-error')!;
@@ -132,8 +142,17 @@ const base = import.meta.env.BASE_URL;
 			const thisYear = new Date().getFullYear();
 
 			// 서버(Apps Script)도 같은 검사를 하지만, 먼저 화면에서 알려줌
+			// 시도 고르면 그 시도의 시군구 목록 채우기
+			const sigungu = form.sigungu as HTMLSelectElement;
+			form.sido.addEventListener('change', () => {
+				const list: string[] = (regions as Record<string, string[]>)[form.sido.value] ?? [];
+				sigungu.replaceChildren(new Option('시군구', ''), ...list.map((g) => new Option(g, g)));
+				sigungu.disabled = !list.length;
+				if (list.length === 1) sigungu.value = list[0]; // 세종처럼 하나뿐이면 자동 선택
+			});
+
 			const check = (d: FormData) => {
-				if (!String(d.get('name')).trim() || !d.get('gender') || !String(d.get('area')).trim()) return '빈 칸을 모두 채워 주세요.';
+				if (!String(d.get('name')).trim() || !d.get('gender') || !d.get('sido') || !d.get('sigungu')) return '빈 칸을 모두 채워 주세요.';
 				const y = Number(d.get('year'));
 				if (!(y >= 1930 && y <= thisYear) || !d.get('month') || !d.get('day')) return '생년월일을 확인해 주세요.';
 				if (!/^01[016789]\d{7,8}$/.test(String(d.get('phone')).replace(/\D/g, ''))) return '연락처를 확인해 주세요.';
@@ -148,8 +167,7 @@ const base = import.meta.env.BASE_URL;
 				error.textContent = msg;
 				if (msg) return;
 
-				const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
-				btn.disabled = true;
+				busy(form, true, '신청 중…');
 				const res = await call({
 					action: 'signup',
 					name: d.get('name'),
@@ -157,12 +175,13 @@ const base = import.meta.env.BASE_URL;
 					year: d.get('year'),
 					month: d.get('month'),
 					day: d.get('day'),
-					area: d.get('area'),
+					sido: d.get('sido'),
+					sigungu: d.get('sigungu'),
 					phone: d.get('phone'),
 					website: d.get('website'),
 					agree: d.get('agree') === 'on',
 				}).catch(() => null);
-				btn.disabled = false;
+				busy(form, false, '');
 				if (!res?.ok) {
 					error.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
 					return;
@@ -218,6 +237,12 @@ const base = import.meta.env.BASE_URL;
 		font: inherit;
 		font-size: 17px;
 		font-weight: 400;
+	}
+	.area {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+		width: 100%;
 	}
 	.birth {
 		display: grid;

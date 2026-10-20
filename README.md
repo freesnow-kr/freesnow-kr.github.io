@@ -29,6 +29,7 @@ npm run build   # dist/ 생성
 
 - **오픈채팅 링크, 시즌 일정, FAQ** → `src/data/club.ts` (모든 페이지 공통)
 - **스키장 웹캠 목록** → `src/pages/webcam.astro` 맨 위 `regions`
+- **가입 거주지 목록(시도·시군구)** → 법정동 CSV를 `data/`에 두고 `node scripts/make-regions.mjs data/파일.csv` (→ `src/data/regions.json`)
 - **메인 영상** → `public/hero.mp4`, `public/hero.jpg` 교체 (`scripts/make-hero.swift`로 변환)
 
 ## 배포
@@ -49,5 +50,5 @@ npm run build   # dist/ 생성
 
 - 시트 공유는 **"제한됨"**(운영진만). 링크 공개·웹에 게시 금지.
 - `Code.gs`를 고치면 Apps Script에 다시 붙여넣고 **배포 → 배포 관리 → 새 버전**.
-- **회원가입:** `/signup` 신청서는 같은 시트의 **'가입신청'** 탭에 쌓여요(없으면 자동 생성, 상태 '대기'). 운영진이 확인 후 회원명부 탭으로 옮기면 그때부터 로그인돼요.
+- **회원가입:** `/signup` 신청서는 같은 시트의 **'가입신청'** 탭에 쌓여요(없으면 자동 생성, 시도·거주지 따로, 상태는 대기/승인 드롭다운). 상태를 **'승인'**으로 바꾸면 **회원현황** 탭에 **구분 = 시도**로, 같은 시도·같은 거주지 아래에 자동 추가돼요. **운영진·마스터 행은 건드리지 않아요.** 그때부터 로그인돼요.
 - 로직 테스트: `node apps-script/Code.test.mjs`

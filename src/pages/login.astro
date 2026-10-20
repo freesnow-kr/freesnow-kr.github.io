@@ -75,7 +75,7 @@ const base = import.meta.env.BASE_URL;
 		</footer>
 
 		<script>
-			import { call, membersUrl, store } from '../scripts/session';
+			import { busy, call, membersUrl, store } from '../scripts/session';
 
 			const form = document.querySelector<HTMLFormElement>('.login')!;
 			const error = form.querySelector<HTMLElement>('.mem-error')!;
@@ -87,13 +87,12 @@ const base = import.meta.env.BASE_URL;
 
 			form.addEventListener('submit', async (e) => {
 				e.preventDefault();
-				const btn = form.querySelector('button')!;
-				btn.disabled = true;
 				error.textContent = '';
+				busy(form, true, '로그인 중…');
 				const data = new FormData(form);
 				const res = await call({ action: 'login', phone: data.get('phone'), birth: data.get('birth') }).catch(() => null);
-				btn.disabled = false;
 				if (!res?.ok) {
+					busy(form, false, '');
 					error.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
 					return;
 				}

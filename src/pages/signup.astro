@@ -1,0 +1,276 @@
+---
+import { club } from '../data/club';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="robots" content="noindex" />
+		<title>{club.name} — Sign up</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/#ride`}>RIDE</a>
+				<a href={`${base}/#faq`}>FAQ</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/members/`}>MEMBERS</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">JOIN FREE SNOW</p>
+				<h1>SIGN UP.</h1>
+			</section>
+
+			<section class="mem-body">
+				{!club.membersApi && <p class="mem-msg">회원가입 준비 중이에요.</p>}
+
+				<form class="signup" hidden={!club.membersApi} novalidate>
+					<h2>회원가입</h2>
+
+					<label>
+						이름
+						<input name="name" type="text" autocomplete="name" maxlength="20" required />
+					</label>
+
+					<fieldset>
+						<legend>성별</legend>
+						<label class="choice"><input type="radio" name="gender" value="남" required /> 남</label>
+						<label class="choice"><input type="radio" name="gender" value="여" /> 여</label>
+					</fieldset>
+
+					<fieldset>
+						<legend>생년월일</legend>
+						<div class="birth">
+							<input name="year" type="text" inputmode="numeric" maxlength="4" aria-label="출생연도" placeholder="연도" required />
+							<select name="month" aria-label="월" required>
+								<option value="">월</option>
+								{Array.from({ length: 12 }, (_, i) => <option value={i + 1}>{i + 1}월</option>)}
+							</select>
+							<select name="day" aria-label="일" required>
+								<option value="">일</option>
+								{Array.from({ length: 31 }, (_, i) => <option value={i + 1}>{i + 1}일</option>)}
+							</select>
+						</div>
+					</fieldset>
+
+					<label>
+						거주지
+						<input name="area" type="text" maxlength="20" placeholder="ex) 마포구, 춘천" required />
+					</label>
+
+					<label>
+						연락처
+						<input name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="010-0000-0000" required />
+					</label>
+
+					<!-- 봇 방지: 사람에겐 안 보이는 칸 -->
+					<label class="hp" aria-hidden="true">
+						website
+						<input name="website" type="text" tabindex="-1" autocomplete="off" />
+					</label>
+
+					<details class="privacy">
+						<summary>개인정보 수집·이용 안내</summary>
+						<ul>
+							<li><b>수집 항목</b> 이름, 성별, 생년월일, 거주지, 연락처</li>
+							<li><b>이용 목적</b> 가입 확인, 회원 로그인, 정모·비상 연락</li>
+							<li><b>보유 기간</b> 탈퇴 또는 가입 거절 시 지체 없이 삭제</li>
+							<li>동의하지 않을 수 있지만, 동의하지 않으면 가입할 수 없어요.</li>
+						</ul>
+					</details>
+					<label class="choice agree">
+						<input name="agree" type="checkbox" required />
+						개인정보 수집·이용에 동의해요 (필수)
+					</label>
+
+					<button class="btn btn-ink" type="submit">가입 신청</button>
+					<p class="mem-error" role="alert"></p>
+				</form>
+
+				<div class="done" hidden>
+					<h2>신청이 접수됐어요</h2>
+					<p>운영진이 확인한 뒤 연락처로 안내해 드릴게요.</p>
+					<a class="btn btn-line-dark" href={`${base}/`}>메인으로</a>
+				</div>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<a href={club.joinUrl} target="_blank" rel="noopener">오픈채팅 참여 →</a>
+				<a href={`${base}/`}>메인으로</a>
+				<span>© {new Date().getFullYear()} {club.name}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { call } from '../scripts/session';
+
+			const form = document.querySelector<HTMLFormElement>('.signup')!;
+			const error = form.querySelector<HTMLElement>('.mem-error')!;
+			const done = document.querySelector<HTMLElement>('.done')!;
+			const thisYear = new Date().getFullYear();
+
+			// 서버(Apps Script)도 같은 검사를 하지만, 먼저 화면에서 알려줌
+			const check = (d: FormData) => {
+				if (!String(d.get('name')).trim() || !d.get('gender') || !String(d.get('area')).trim()) return '빈 칸을 모두 채워 주세요.';
+				const y = Number(d.get('year'));
+				if (!(y >= 1930 && y <= thisYear) || !d.get('month') || !d.get('day')) return '생년월일을 확인해 주세요.';
+				if (!/^01[016789]\d{7,8}$/.test(String(d.get('phone')).replace(/\D/g, ''))) return '연락처를 확인해 주세요.';
+				if (!d.get('agree')) return '개인정보 수집·이용에 동의해 주세요.';
+				return '';
+			};
+
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const d = new FormData(form);
+				const msg = check(d);
+				error.textContent = msg;
+				if (msg) return;
+
+				const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+				btn.disabled = true;
+				const res = await call({
+					action: 'signup',
+					name: d.get('name'),
+					gender: d.get('gender'),
+					year: d.get('year'),
+					month: d.get('month'),
+					day: d.get('day'),
+					area: d.get('area'),
+					phone: d.get('phone'),
+					website: d.get('website'),
+					agree: d.get('agree') === 'on',
+				}).catch(() => null);
+				btn.disabled = false;
+				if (!res?.ok) {
+					error.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+					return;
+				}
+				form.hidden = true;
+				done.hidden = false;
+				scrollTo({ top: 0 });
+			});
+		</script>
+	</body>
+</html>
+
+<style>
+	.signup,
+	.done {
+		display: grid;
+		gap: 20px;
+		max-width: 480px;
+	}
+	.signup h2,
+	.done h2 {
+		font-size: clamp(1.6rem, 3vw, 2.2rem);
+		font-weight: 900;
+		letter-spacing: -0.03em;
+	}
+	.signup label,
+	.signup legend {
+		display: grid;
+		gap: 8px;
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.signup fieldset {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 20px;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+	.signup legend {
+		margin-bottom: 8px;
+	}
+	.signup input[type='text'],
+	.signup input[type='tel'],
+	.signup select {
+		min-height: 52px;
+		padding: 0 16px;
+		border: 1.5px solid var(--black);
+		border-radius: 0;
+		background: var(--white);
+		color: var(--black);
+		font: inherit;
+		font-size: 17px;
+		font-weight: 400;
+	}
+	.birth {
+		display: grid;
+		grid-template-columns: 1.2fr 1fr 1fr;
+		gap: 8px;
+		width: 100%;
+	}
+	.choice {
+		display: flex !important;
+		align-items: center;
+		gap: 8px !important;
+		font-size: 16px !important;
+		font-weight: 400 !important;
+		cursor: pointer;
+	}
+	.choice input {
+		width: 18px;
+		height: 18px;
+		accent-color: var(--black);
+	}
+	.agree {
+		font-weight: 700 !important;
+	}
+	.hp {
+		position: absolute;
+		left: -9999px;
+	}
+	.privacy {
+		border: 1px solid var(--line);
+		padding: 14px 16px;
+		font-size: 14px;
+		color: #4a4d55;
+	}
+	.privacy summary {
+		cursor: pointer;
+		font-weight: 700;
+		color: var(--black);
+	}
+	.privacy ul {
+		margin: 10px 0 0;
+		padding-left: 18px;
+		display: grid;
+		gap: 4px;
+	}
+	.mem-error {
+		color: #c4320a;
+		font-weight: 700;
+		min-height: 1.6em;
+	}
+	.done p {
+		color: #4a4d55;
+	}
+	.done .btn {
+		justify-self: start;
+	}
+</style>

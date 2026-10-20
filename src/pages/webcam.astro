@@ -56,8 +56,9 @@ const regions = [
 				<a href={`${base}/#ride`}>RIDE</a>
 				<a href={`${base}/#faq`}>FAQ</a>
 				<a href={`${base}/webcam/`} aria-current="page">WEBCAM</a>
+				<a href={`${base}/members/`}>MEMBERS</a>
 			</nav>
-			<a class="nav-join" href={club.joinUrl} target="_blank" rel="noopener">JOIN</a>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
 		</header>
 
 		<main>
@@ -112,10 +113,8 @@ const regions = [
 			<p class="giant" aria-hidden="true">FREE SNOW</p>
 		</footer>
 		<script>
-			const nav = document.querySelector('.nav')!;
-			const onScroll = () => nav.classList.toggle('is-solid', scrollY > 40);
-			addEventListener('scroll', onScroll, { passive: true });
-			onScroll();
+			import '../scripts/session';
+
 			// 펼칠 때만 웹캠 로드, 접으면 about:blank로 재생 중지
 			document.querySelectorAll<HTMLDetailsElement>('.cam-item').forEach((item) => {
 				const frame = item.querySelector('iframe')!;
@@ -128,10 +127,6 @@ const regions = [
 </html>
 
 <style>
-	.nav nav a[aria-current='page'] {
-		text-decoration: underline;
-		text-underline-offset: 6px;
-	}
 	.cam-intro {
 		background: var(--black);
 		color: var(--white);

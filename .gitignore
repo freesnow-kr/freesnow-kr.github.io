@@ -22,3 +22,6 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# 원본 영상 (72MB, 배포 안 함 — public/hero.mp4가 잘라낸 버전)
+public/2526_season.mp4

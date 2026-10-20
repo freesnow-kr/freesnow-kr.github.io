@@ -1,0 +1,156 @@
+---
+import { club } from '../data/club';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="robots" content="noindex" />
+		<title>{club.name} — Login</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/#ride`}>RIDE</a>
+				<a href={`${base}/#faq`}>FAQ</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/members/`}>MEMBERS</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`} aria-current="page">LOGIN</a>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">MEMBERS ONLY</p>
+				<h1>LOGIN.</h1>
+			</section>
+
+			<section class="mem-body">
+				{!club.membersApi && <p class="mem-msg">회원 로그인 준비 중이에요.</p>}
+
+				<form class="login" hidden={!club.membersApi}>
+					<h2>회원 로그인</h2>
+					<label>
+						아이디
+						<input name="phone" type="text" inputmode="numeric" autocomplete="username" placeholder="ex) 010 제외" required />
+					</label>
+					<label>
+						비밀번호
+						<input name="birth" type="password" inputmode="numeric" autocomplete="current-password" required />
+					</label>
+					<button class="btn btn-ink" type="submit">로그인</button>
+					<p class="mem-error" role="alert"></p>
+				</form>
+
+				<div class="join-box">
+					<p>아직 회원이 아니신가요?</p>
+					<a class="btn btn-line-dark" href={`${base}/signup/`}>회원가입</a>
+					<p class="mem-hint">가입 신청 후 운영진이 확인하면 로그인할 수 있어요.</p>
+				</div>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<a href={club.joinUrl} target="_blank" rel="noopener">오픈채팅 참여 →</a>
+				<a href={`${base}/`}>메인으로</a>
+				<span>© {new Date().getFullYear()} {club.name}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { call, membersUrl, store } from '../scripts/session';
+
+			const form = document.querySelector<HTMLFormElement>('.login')!;
+			const error = form.querySelector<HTMLElement>('.mem-error')!;
+
+			// 이미 로그인돼 있으면 회원 페이지로
+			if (store.get()) location.replace(membersUrl);
+			// 회원 페이지에서 토큰 만료로 돌아온 경우
+			if (new URLSearchParams(location.search).has('expired')) error.textContent = '다시 로그인해 주세요.';
+
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const btn = form.querySelector('button')!;
+				btn.disabled = true;
+				error.textContent = '';
+				const data = new FormData(form);
+				const res = await call({ action: 'login', phone: data.get('phone'), birth: data.get('birth') }).catch(() => null);
+				btn.disabled = false;
+				if (!res?.ok) {
+					error.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+					return;
+				}
+				store.set(res.token);
+				location.href = membersUrl;
+			});
+		</script>
+	</body>
+</html>
+
+<style>
+	.login {
+		display: grid;
+		gap: 18px;
+		max-width: 420px;
+	}
+	.login h2 {
+		font-size: clamp(1.6rem, 3vw, 2.2rem);
+		font-weight: 900;
+		letter-spacing: -0.03em;
+	}
+	.login label {
+		display: grid;
+		gap: 8px;
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.login input {
+		min-height: 52px;
+		padding: 0 16px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+		font: inherit;
+		font-size: 17px;
+		font-weight: 400;
+	}
+	.mem-error {
+		color: #c4320a;
+		font-weight: 700;
+		min-height: 1.6em;
+	}
+	.join-box {
+		display: grid;
+		gap: 12px;
+		max-width: 420px;
+		margin-top: 16px;
+		padding-top: 28px;
+		border-top: 1px solid var(--line);
+	}
+	.join-box > p:first-child {
+		font-weight: 700;
+	}
+	.join-box .btn {
+		justify-content: center;
+	}
+	.mem-hint {
+		font-size: 14px;
+		color: #4a4d55;
+	}
+</style>

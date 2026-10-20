@@ -10,6 +10,10 @@
 * {
 	box-sizing: border-box;
 }
+/* display 지정한 요소도 hidden 이면 숨김 */
+[hidden] {
+	display: none !important;
+}
 html {
 	scroll-padding-top: 80px; /* 고정 헤더에 앵커 제목이 가리지 않게 */
 }
@@ -450,4 +454,53 @@ a {
 :focus-visible {
 	outline: 2px solid var(--accent);
 	outline-offset: 3px;
+}
+
+/* 현재 페이지 메뉴 밑줄 */
+.nav nav a[aria-current='page'] {
+	text-decoration: underline;
+	text-underline-offset: 6px;
+}
+
+/* 로그인·회원 페이지 공통 */
+.mem-intro {
+	background: var(--black);
+	color: var(--white);
+	padding: 160px clamp(20px, 4vw, 56px) clamp(48px, 6vw, 80px);
+}
+.mem-intro h1 {
+	font-family: var(--display);
+	font-weight: 400;
+	font-size: clamp(4rem, 13vw, 10rem);
+	line-height: 0.9;
+	margin-top: 16px;
+}
+.mem-body {
+	padding: clamp(48px, 8vw, 96px) clamp(20px, 4vw, 56px) clamp(64px, 10vw, 120px);
+	min-height: 50vh;
+}
+.mem-msg {
+	color: #4a4d55;
+}
+.btn-ink {
+	justify-content: center;
+	border: 0;
+	background: var(--black);
+	color: var(--white);
+	cursor: pointer;
+}
+.btn-ink:hover {
+	background: var(--accent);
+}
+.btn-ink:disabled {
+	opacity: 0.5;
+}
+.btn-line-dark {
+	border: 1.5px solid var(--black);
+	background: transparent;
+	cursor: pointer;
+}
+.btn-line-dark:hover {
+	background: var(--black);
+	color: var(--white);
 }

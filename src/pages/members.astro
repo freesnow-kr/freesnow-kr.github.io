@@ -1,0 +1,113 @@
+---
+import { club } from '../data/club';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="robots" content="noindex" />
+		<title>{club.name} — Members</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/#ride`}>RIDE</a>
+				<a href={`${base}/#faq`}>FAQ</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/members/`} aria-current="page">MEMBERS</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">MEMBERS ONLY</p>
+				<h1>MEMBERS.</h1>
+			</section>
+
+			<section class="mem-body">
+				<p class="mem-msg loading">불러오는 중…</p>
+				<div class="dash" hidden>
+					<div class="me">
+						<div>
+							<p class="kicker">MY INFO</p>
+							<h2 class="me-name"></h2>
+							<p class="me-meta"></p>
+						</div>
+						<button class="btn btn-line-dark logout" type="button">로그아웃</button>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<a href={club.joinUrl} target="_blank" rel="noopener">오픈채팅 참여 →</a>
+				<a href={`${base}/`}>메인으로</a>
+				<span>© {new Date().getFullYear()} {club.name}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { base, call, loginUrl, store } from '../scripts/session';
+
+			const dash = document.querySelector<HTMLElement>('.dash')!;
+			const token = store.get();
+
+			// 로그인 안 했으면 로그인 화면으로
+			if (!token) location.replace(loginUrl);
+			else {
+				const res = await call({ action: 'me', token }).catch(() => null);
+				if (!res?.ok) {
+					store.clear();
+					location.replace(res ? `${loginUrl}?expired` : loginUrl);
+				} else {
+					document.querySelector('.loading')!.remove();
+					dash.hidden = false;
+					// 시트 값은 textContent로만 넣음 (HTML 주입 방지)
+					dash.querySelector('.me-name')!.textContent = `${res.me.name}님`;
+					dash.querySelector('.me-meta')!.textContent = [res.me.grade, res.me.area, res.me.phone].filter(Boolean).join(' · ');
+				}
+			}
+
+			dash.querySelector('.logout')!.addEventListener('click', () => {
+				store.clear();
+				location.href = `${base}/`;
+			});
+		</script>
+	</body>
+</html>
+
+<style>
+	.me {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-end;
+		gap: 16px;
+		padding-bottom: 32px;
+	}
+	.me-name {
+		font-size: clamp(1.6rem, 3vw, 2.2rem);
+		font-weight: 900;
+		letter-spacing: -0.03em;
+	}
+	.me-meta {
+		color: #4a4d55;
+	}
+</style>

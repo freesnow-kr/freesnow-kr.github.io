@@ -2,6 +2,8 @@
 export const club = {
 	name: 'Free Snow',
 	joinUrl: 'https://open.kakao.com/o/gkiI7dQb',
+	// Apps Script 웹앱 배포 URL (apps-script/Code.gs). 비어 있으면 회원 페이지는 '준비 중'
+	membersApi: 'https://script.google.com/macros/s/AKfycbwLMPOxtBqyoYwp6B-s6PQOL4iA0Xeo0snrFmzl7tQFH0uB2kWp1uy0-UXkVhIbhyxk-A/exec',
 };
 
 export const trips = [

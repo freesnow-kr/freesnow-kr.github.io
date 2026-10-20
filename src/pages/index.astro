@@ -35,8 +35,9 @@ const disciplines = [
 				<a href="#ride">RIDE</a>
 				<a href="#faq">FAQ</a>
 				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/members/`}>MEMBERS</a>
 			</nav>
-			<a class="nav-join" href={club.joinUrl} target="_blank" rel="noopener">JOIN</a>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
 		</header>
 
 		<main>
@@ -58,7 +59,7 @@ const disciplines = [
 					<h1>RIDE<br />TOGETHER.</h1>
 					<p class="lede">스키어와 보더가 함께 타는 동호회. 첫 리프트부터 마지막 런까지, 이번 시즌은 같이.</p>
 					<div class="actions">
-						<a class="btn btn-solid" href={club.joinUrl} target="_blank" rel="noopener">JOIN THE TEAM</a>
+						<a class="btn btn-solid" href={club.joinUrl} target="_blank" rel="noopener">KAKAO OPEN CHAT</a>
 						<a class="btn btn-line" href="#season">SEE THE SEASON</a>
 					</div>
 				</div>
@@ -130,10 +131,8 @@ const disciplines = [
 			<p class="giant" aria-hidden="true">FREE SNOW</p>
 		</footer>
 		<script>
-			const nav = document.querySelector('.nav')!;
-			const onScroll = () => nav.classList.toggle('is-solid', scrollY > 40);
-			addEventListener('scroll', onScroll, { passive: true });
-			onScroll();
+			import '../scripts/session';
+
 			const video = document.querySelector<HTMLVideoElement>('.hero-art')!;
 			const btn = document.querySelector<HTMLButtonElement>('.hero-pause')!;
 			const sync = () => {

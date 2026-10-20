@@ -1,0 +1,274 @@
+---
+import { club } from '../data/club';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL;
+
+// 각 스키장 공식 웹캠 페이지 (2026-10 확인). 주소 바뀌면 여기만 수정
+// embed: 펼치면 공식 페이지를 그 자리에 띄움 (지산은 사이트가 iframe을 막아서 링크로)
+const regions = [
+	{
+		name: '강원',
+		resorts: [
+			{ name: '모나 용평', embed: true, url: 'https://www.yongpyong.co.kr/kor/guide/realTimeNews/ypResortWebcam.do', note: 'HD 웹캠 5곳' },
+			{ name: '하이원', embed: true, url: 'https://www.high1.com/ski/slopeView.do?key=748&mode=p', note: '슬로프별 웹캠 · 30초 후 자동 종료' },
+			{ name: '휘닉스 평창', embed: true, url: 'https://phoenixhnr.co.kr/', note: '홈페이지 메뉴에서 웹캠 선택' },
+			{ name: '비발디파크', embed: true, url: 'https://mice.sonohotelsresorts.com/daemyung.vp.utill.09_02_02_01.ds/dmparse.dm?areaType=S', note: '온라인캠 · 20초 후 자동 종료' },
+			{ name: '웰리힐리파크', embed: true, url: 'https://wellihillipark.com/home/customer/webcam', note: '실시간 HD 웹캠' },
+			{ name: '엘리시안 강촌', embed: true, url: 'https://www.elysian.co.kr/about-gangchon/ski#guide-to-using-slopes', note: '슬로프 이용안내 · 유튜브 라이브' },
+			{ name: '오크밸리', embed: true, url: 'https://oakvalley.co.kr/ski/introduction/realtime', note: '스키광장 · 슬로프별 실시간' },
+		],
+	},
+	{
+		name: '경기',
+		resorts: [
+			{ name: '곤지암', embed: true, url: 'https://m.konjiamresort.co.kr/ski/skiLveCam.dev', note: '라이브캠 5곳 · 24시간' },
+			{ name: '지산 포레스트', url: 'https://www.jisanresort.co.kr/m/ski/slopes/webcam.asp', note: '탑승장 · 슬로프 웹캠' },
+		],
+	},
+	{
+		name: '전북',
+		resorts: [{ name: '무주 덕유산', embed: true, url: 'https://www.mdysresort.com/guide/webcam.asp', note: '1분 후 자동 종료' }],
+	},
+];
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{club.name} — Live Cams</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/#ride`}>RIDE</a>
+				<a href={`${base}/#faq`}>FAQ</a>
+				<a href={`${base}/webcam/`} aria-current="page">WEBCAM</a>
+			</nav>
+			<a class="nav-join" href={club.joinUrl} target="_blank" rel="noopener">JOIN</a>
+		</header>
+
+		<main>
+			<section class="cam-intro">
+				<p class="kicker"><span class="live-dot"></span>LIVE</p>
+				<h1>SLOPE<br />CAMS.</h1>
+				<p class="lede">출발 전에 슬로프 상태 먼저. 각 스키장 공식 웹캠으로 바로 연결돼요.</p>
+			</section>
+
+			{regions.map((r) => (
+				<section class="cam-region">
+					<h2>{r.name}</h2>
+					<ul class="cam-list">
+						{r.resorts.toSorted((a, b) => a.name.localeCompare(b.name, 'ko')).map((c) => (
+							<li>
+								{'embed' in c ? (
+									<details class="cam-item">
+										<summary>
+											<span class="cam-name">{c.name}</span>
+											<span class="cam-note">{c.note}</span>
+											<span class="cam-go cam-toggle" aria-hidden="true"></span>
+										</summary>
+										<div class="cam-screen">
+											<iframe data-src={c.url} title={`${c.name} 공식 웹캠`} allow="autoplay; fullscreen"></iframe>
+										</div>
+										<a class="cam-open" href={c.url} target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
+									</details>
+								) : (
+									<a href={c.url} target="_blank" rel="noopener">
+										<span class="cam-name">{c.name}</span>
+										<span class="cam-note">{c.note}</span>
+										<span class="cam-go" aria-hidden="true">↗</span>
+									</a>
+								)}
+							</li>
+						))}
+					</ul>
+				</section>
+			))}
+
+			<p class="cam-fine">
+				웹캠은 각 스키장이 운영하며, 시즌 외 기간이나 야간에는 꺼져 있거나 어둡게 보일 수 있어요.
+			</p>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<a href={club.joinUrl} target="_blank" rel="noopener">오픈채팅 참여 →</a>
+				<a href={`${base}/`}>메인으로</a>
+				<span>© {new Date().getFullYear()} {club.name}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+		<script>
+			const nav = document.querySelector('.nav')!;
+			const onScroll = () => nav.classList.toggle('is-solid', scrollY > 40);
+			addEventListener('scroll', onScroll, { passive: true });
+			onScroll();
+			// 펼칠 때만 웹캠 로드, 접으면 about:blank로 재생 중지
+			document.querySelectorAll<HTMLDetailsElement>('.cam-item').forEach((item) => {
+				const frame = item.querySelector('iframe')!;
+				item.addEventListener('toggle', () => {
+					frame.src = item.open ? frame.dataset.src! : 'about:blank';
+				});
+			});
+		</script>
+	</body>
+</html>
+
+<style>
+	.nav nav a[aria-current='page'] {
+		text-decoration: underline;
+		text-underline-offset: 6px;
+	}
+	.cam-intro {
+		background: var(--black);
+		color: var(--white);
+		padding: 160px clamp(20px, 4vw, 56px) clamp(56px, 8vw, 96px);
+	}
+	.cam-intro h1 {
+		font-family: var(--display);
+		font-weight: 400;
+		font-size: clamp(4rem, 13vw, 10rem);
+		line-height: 0.9;
+		margin: 16px 0 24px;
+	}
+	.cam-intro .lede {
+		max-width: 30em;
+		color: rgb(255 255 255 / 0.8);
+	}
+	.live-dot {
+		display: inline-block;
+		width: 8px;
+		height: 8px;
+		margin-right: 8px;
+		border-radius: 50%;
+		background: var(--accent);
+		vertical-align: 1px;
+		animation: blink 1.4s ease-in-out infinite;
+	}
+	@keyframes blink {
+		50% {
+			opacity: 0.25;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.live-dot {
+			animation: none;
+		}
+	}
+	.cam-region {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+		gap: 24px;
+		padding: clamp(40px, 6vw, 72px) clamp(20px, 4vw, 56px) 0;
+	}
+	.cam-region h2 {
+		font-size: clamp(1.6rem, 3vw, 2.4rem);
+		font-weight: 900;
+		letter-spacing: -0.03em;
+	}
+	.cam-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		border-top: 1.5px solid var(--black);
+	}
+	.cam-list > li > a,
+	.cam-list summary {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto auto;
+		align-items: center;
+		gap: 24px;
+		padding: 22px 0;
+		border-bottom: 1px solid var(--line);
+		text-decoration: none;
+		transition: padding 0.25s, color 0.2s;
+	}
+	.cam-list > li > a:hover,
+	.cam-list summary:hover {
+		padding-left: 16px;
+		color: var(--accent);
+	}
+	.cam-name {
+		font-size: clamp(1.2rem, 2.2vw, 1.7rem);
+		font-weight: 900;
+		letter-spacing: -0.02em;
+	}
+	.cam-note {
+		font-size: 14px;
+		color: #4a4d55;
+		text-align: right;
+	}
+	.cam-go {
+		font-size: 1.4rem;
+	}
+	.cam-list summary {
+		cursor: pointer;
+		list-style: none;
+	}
+	.cam-list summary::-webkit-details-marker {
+		display: none;
+	}
+	.cam-toggle::before {
+		content: '+';
+		font-weight: 400;
+	}
+	.cam-item[open] .cam-toggle::before {
+		content: '−';
+	}
+	.cam-item[open] summary {
+		border-bottom-color: transparent;
+	}
+	.cam-screen {
+		height: min(75vh, 760px);
+		background: var(--black);
+		border: 1.5px solid var(--black);
+	}
+	.cam-screen iframe {
+		width: 100%;
+		height: 100%;
+		border: 0;
+		background: var(--white);
+	}
+	.cam-open {
+		display: inline-block;
+		margin: 12px 0 24px;
+		font-size: 14px;
+	}
+	.cam-fine {
+		padding: 48px clamp(20px, 4vw, 56px) clamp(64px, 10vw, 120px);
+		font-size: 14px;
+		color: var(--gray);
+	}
+	@media (max-width: 720px) {
+		.cam-region {
+			grid-template-columns: 1fr;
+			gap: 12px;
+		}
+		.cam-list > li > a,
+		.cam-list summary {
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 4px 16px;
+		}
+		.cam-note {
+			grid-row: 2;
+			text-align: left;
+		}
+		.cam-go {
+			grid-row: 1 / 3;
+			grid-column: 2;
+		}
+	}
+</style>

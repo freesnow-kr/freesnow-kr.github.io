@@ -26,3 +26,6 @@ pnpm-debug.log*
 # 원본 영상 (72MB, 배포 안 함 — public/hero.mp4가 잘라낸 버전)
 public/2526_season.mp4
 public/2526_main.mp4
+
+# 법정동 원본 (scripts/make-regions.mjs 입력, 배포 안 함)
+data/*.csv

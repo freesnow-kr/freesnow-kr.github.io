@@ -495,6 +495,33 @@ a {
 .btn-ink:disabled {
 	opacity: 0.5;
 }
+/* 제출 중 (scripts/session.ts busy) */
+.btn.is-loading {
+	gap: 10px;
+	cursor: progress;
+}
+.btn-ink.is-loading:disabled {
+	opacity: 0.85;
+}
+.btn.is-loading::before {
+	content: '';
+	width: 14px;
+	height: 14px;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.btn.is-loading::before {
+		animation-duration: 2s;
+	}
+}
 .btn-line-dark {
 	border: 1.5px solid var(--black);
 	background: transparent;

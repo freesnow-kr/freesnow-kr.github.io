@@ -17,6 +17,17 @@ export const store = {
 export const call = async (body: object) =>
 	(await fetch(club.membersApi, { method: 'POST', body: JSON.stringify(body) })).json();
 
+// 제출 중 표시: 버튼 글자·스피너, 폼 잠금(inert라 입력칸의 disabled 상태는 그대로 둠)
+export const busy = (form: HTMLFormElement, on: boolean, label: string) => {
+	const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+	btn.dataset.label ??= btn.textContent!.trim();
+	btn.textContent = on ? label : btn.dataset.label;
+	btn.disabled = on;
+	btn.classList.toggle('is-loading', on);
+	form.inert = on;
+	form.setAttribute('aria-busy', String(on));
+};
+
 const nav = document.querySelector('.nav');
 if (nav) {
 	// 스크롤 내리면 검은 배경

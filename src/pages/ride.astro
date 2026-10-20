@@ -39,32 +39,11 @@ const disciplines = [
 
 		<main>
 			<section class="hero">
-				<!-- 실제 사진이 생기면 이 svg 대신 <img class="hero-art" src=...> -->
-				<svg class="hero-art" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-					<defs>
-						<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0" stop-color="#05070d" />
-							<stop offset="0.55" stop-color="#1b2540" />
-							<stop offset="1" stop-color="#5a5f7a" />
-						</linearGradient>
-						<linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0" stop-color="#8a90a8" />
-							<stop offset="1" stop-color="#3a4058" />
-						</linearGradient>
-						<linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0" stop-color="#e9edf5" />
-							<stop offset="0.5" stop-color="#9aa3b8" />
-							<stop offset="1" stop-color="#2a2f40" />
-						</linearGradient>
-					</defs>
-					<rect width="1600" height="900" fill="url(#sky)" />
-					<circle cx="1180" cy="210" r="46" fill="#f3efe6" opacity="0.9" />
-					<path d="M0 560 L180 420 L300 500 L470 330 L620 470 L760 380 L900 500 L1080 300 L1260 460 L1420 360 L1600 480 V900 H0 Z" fill="url(#far)" opacity="0.7" />
-					<path d="M0 700 L220 520 L360 600 L560 400 L700 520 L820 470 L1000 640 L1160 500 L1340 620 L1600 520 V900 H0 Z" fill="url(#near)" />
-					<path d="M560 400 L640 470 L600 465 L585 500 L540 455 L510 470 Z M1160 500 L1230 548 L1195 545 L1180 575 L1140 535 L1110 545 Z" fill="#fff" opacity="0.85" />
-					<path d="M0 900 L0 780 Q400 700 800 760 T1600 720 V900 Z" fill="#0b0d12" />
-				</svg>
+				<video class="hero-art" autoplay muted loop playsinline poster={`${base}/hero.jpg`} aria-hidden="true">
+					<source src={`${base}/hero.mp4`} type="video/mp4" />
+				</video>
 				<div class="hero-shade"></div>
+				<button class="hero-pause" type="button" aria-label="배경 영상 일시정지">❚❚</button>
 				<div class="hero-copy">
 					<p class="kicker">2026 — 27 SEASON</p>
 					<h1>RIDE<br />TOGETHER.</h1>
@@ -141,6 +120,19 @@ const disciplines = [
 			</div>
 			<p class="giant" aria-hidden="true">FREE SNOW</p>
 		</footer>
+		<script>
+			const video = document.querySelector<HTMLVideoElement>('.hero-art')!;
+			const btn = document.querySelector<HTMLButtonElement>('.hero-pause')!;
+			const sync = () => {
+				btn.textContent = video.paused ? '▶' : '❚❚';
+				btn.ariaLabel = video.paused ? '배경 영상 재생' : '배경 영상 일시정지';
+			};
+			if (matchMedia('(prefers-reduced-motion: reduce)').matches) video.pause();
+			btn.addEventListener('click', () => (video.paused ? video.play() : video.pause()));
+			video.addEventListener('play', sync);
+			video.addEventListener('pause', sync);
+			sync();
+		</script>
 	</body>
 </html>
 
@@ -246,10 +238,28 @@ const disciplines = [
 		height: 100%;
 		object-fit: cover;
 	}
+	.hero-pause {
+		position: absolute;
+		right: clamp(20px, 4vw, 56px);
+		bottom: clamp(48px, 8vh, 96px);
+		z-index: 2;
+		width: 44px;
+		height: 44px;
+		border: 1.5px solid rgb(255 255 255 / 0.6);
+		border-radius: 50%;
+		background: rgb(0 0 0 / 0.25);
+		color: var(--white);
+		font-size: 12px;
+		cursor: pointer;
+	}
+	.hero-pause:hover {
+		background: var(--white);
+		color: var(--black);
+	}
 	.hero-shade {
 		position: absolute;
 		inset: 0;
-		background: linear-gradient(180deg, rgb(0 0 0 / 0.35), transparent 30%, transparent 55%, rgb(0 0 0 / 0.6));
+		background: linear-gradient(180deg, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.15) 30%, rgb(0 0 0 / 0.35) 55%, rgb(0 0 0 / 0.8));
 	}
 	.hero-copy {
 		position: relative;

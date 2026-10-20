@@ -1,7 +1,7 @@
 // 일정·링크는 여기만 고치면 모든 페이지에 반영됨
 export const club = {
 	name: 'Free Snow',
-	joinUrl: 'https://open.kakao.com/', // 오픈채팅 or 구글폼 링크로 교체
+	joinUrl: 'https://open.kakao.com/o/gkiI7dQb',
 };
 
 export const trips = [

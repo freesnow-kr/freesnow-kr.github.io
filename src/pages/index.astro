@@ -1,0 +1,256 @@
+---
+// 일정·링크는 여기만 고치면 됨
+const club = {
+	name: 'Free Snow',
+	tagline: '같이 타면 더 재밌다. 스키 & 스노우보드 동호회',
+	joinUrl: 'https://open.kakao.com/', // 오픈채팅 or 구글폼 링크로 교체
+};
+
+const steps = [
+	{ title: '오픈채팅 입장', desc: '링크로 들어와서 간단히 인사만 하면 끝.' },
+	{ title: '정모 신청', desc: '공지된 일정에 투표하고 카풀·숙소 같이 정해요.' },
+	{ title: '같이 타기', desc: '실력별로 조 나눠서 타고, 끝나면 뒤풀이.' },
+];
+
+const trips = [
+	{ date: '2026-12-13', place: '하이원 리조트', note: '시즌 오픈 첫 정모' },
+	{ date: '2027-01-10', place: '용평 리조트', note: '1박 2일 · 숙소 공동 예약' },
+	{ date: '2027-02-07', place: '휘닉스 평창', note: '초보 강습 데이' },
+];
+
+const faqs = [
+	{ q: '완전 초보도 가입할 수 있나요?', a: '네. 초보 강습 데이가 따로 있고, 상급자 회원이 기초부터 같이 봐드려요.' },
+	{ q: '회비가 있나요?', a: '정기 회비는 없고, 정모 때 리프트·숙소·카풀 비용만 나눠 내요.' },
+	{ q: '장비가 없어요.', a: '리조트 렌탈로 충분해요. 렌탈 할인되는 샵도 공유해 드려요.' },
+	{ q: '스키, 보드 둘 다 되나요?', a: '둘 다 환영해요. 슬로프에서는 다 같이 탑니다.' },
+];
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}/favicon.svg`} />
+		<link rel="icon" href={`${import.meta.env.BASE_URL}/favicon.ico`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{club.name} | 스키·보드 동호회</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:wght@600;800&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<nav>
+			<a class="logo" href="#">❄ {club.name}</a>
+			<div>
+				<a href="#how">활동 방식</a>
+				<a href="#trips">일정</a>
+				<a href="#faq">FAQ</a>
+			</div>
+		</nav>
+
+		<header class="hero">
+			<h1>{club.name}</h1>
+			<p>{club.tagline}</p>
+			<a class="btn" href={club.joinUrl} target="_blank" rel="noopener">지금 참여하기</a>
+		</header>
+
+		<main>
+			<section id="how">
+				<h2>이렇게 활동해요</h2>
+				<ol class="cards">
+					{steps.map((s, i) => (
+						<li class="card">
+							<span class="num">{i + 1}</span>
+							<h3>{s.title}</h3>
+							<p>{s.desc}</p>
+						</li>
+					))}
+				</ol>
+			</section>
+
+			<section id="trips">
+				<h2>시즌 일정</h2>
+				<ul class="cards">
+					{trips.map((t) => (
+						<li class="card">
+							<time datetime={t.date}>{t.date}</time>
+							<h3>{t.place}</h3>
+							<p>{t.note}</p>
+						</li>
+					))}
+				</ul>
+			</section>
+
+			<section id="faq">
+				<h2>자주 묻는 질문</h2>
+				{faqs.map((f) => (
+					<details>
+						<summary>{f.q}</summary>
+						<p>{f.a}</p>
+					</details>
+				))}
+			</section>
+
+			<section class="cta">
+				<h2>이번 시즌, 같이 타요</h2>
+				<p>오픈채팅으로 편하게 문의 주세요.</p>
+				<a class="btn" href={club.joinUrl} target="_blank" rel="noopener">오픈채팅 참여</a>
+			</section>
+		</main>
+
+		<footer>© {new Date().getFullYear()} {club.name}</footer>
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		--snow: #fffdf7;
+		--pine: #1f4d3a;
+		--gold: #f2b632;
+		--sand: #f6ecd2;
+		--ink: #1d2a24;
+	}
+	body {
+		margin: 0;
+		font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+		color: var(--ink);
+		background: var(--snow);
+		line-height: 1.6;
+	}
+	h1,
+	h2,
+	h3,
+	.logo {
+		font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+	}
+	a {
+		color: inherit;
+	}
+	nav {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem;
+		background: var(--snow);
+		border-bottom: 2px solid var(--sand);
+	}
+	nav a {
+		text-decoration: none;
+		margin-left: 1rem;
+	}
+	nav .logo {
+		margin: 0;
+		font-weight: 800;
+		color: var(--pine);
+	}
+	.hero {
+		min-height: 60vh;
+		display: grid;
+		place-content: center;
+		text-align: center;
+		padding: 2rem 1rem;
+		/* 사진 넣으려면: url('/hero.jpg') center/cover 추가 */
+		background: linear-gradient(180deg, var(--sand), var(--snow));
+	}
+	.hero h1 {
+		font-size: clamp(2.5rem, 9vw, 5.5rem);
+		margin: 0;
+		color: var(--pine);
+	}
+	main {
+		max-width: 960px;
+		margin: 0 auto;
+		padding: 2rem 1rem;
+	}
+	section {
+		margin-bottom: 4rem;
+	}
+	h2 {
+		font-size: 2rem;
+		color: var(--pine);
+	}
+	.cards {
+		list-style: none;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+		gap: 1rem;
+	}
+	.card {
+		background: #fff;
+		border: 2px solid var(--sand);
+		border-radius: 20px;
+		padding: 1.5rem;
+	}
+	.card h3 {
+		margin: 0.5rem 0 0.25rem;
+	}
+	.card p {
+		margin: 0;
+		color: #4b5a52;
+	}
+	.num {
+		display: inline-grid;
+		place-items: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 50%;
+		background: var(--gold);
+		font-weight: 700;
+	}
+	time {
+		font-weight: 700;
+		color: var(--pine);
+	}
+	details {
+		background: #fff;
+		border: 2px solid var(--sand);
+		border-radius: 16px;
+		padding: 1rem 1.25rem;
+		margin-bottom: 0.75rem;
+	}
+	summary {
+		cursor: pointer;
+		font-weight: 700;
+	}
+	details p {
+		margin: 0.75rem 0 0;
+	}
+	.cta {
+		text-align: center;
+		background: var(--pine);
+		color: var(--snow);
+		border-radius: 28px;
+		padding: 3rem 1rem;
+	}
+	.cta h2 {
+		color: var(--snow);
+		margin-top: 0;
+	}
+	.btn {
+		display: inline-block;
+		margin-top: 1rem;
+		padding: 0.85rem 1.75rem;
+		border-radius: 999px;
+		background: var(--gold);
+		color: var(--ink);
+		font-weight: 700;
+		text-decoration: none;
+		box-shadow: 0 4px 0 #c38f1c;
+	}
+	.btn:active {
+		transform: translateY(2px);
+		box-shadow: 0 2px 0 #c38f1c;
+	}
+	footer {
+		text-align: center;
+		padding: 2rem;
+		color: #4b5a52;
+	}
+</style>

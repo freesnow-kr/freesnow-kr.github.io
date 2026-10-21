@@ -86,9 +86,56 @@ a {
 	background: var(--white);
 	color: var(--black);
 }
+.nav-menu {
+	display: none;
+}
 @media (max-width: 640px) {
 	.nav nav {
 		display: none;
+	}
+	/* 모바일: LOGIN/LOGOUT 과 ☰ 를 붙여서 (로고와는 margin-left:auto 로 벌어짐) */
+	.nav {
+		gap: 8px;
+	}
+	/* LOGIN/LOGOUT 과 ☰ 높이 맞춤 */
+	.nav-join {
+		display: inline-flex;
+		align-items: center;
+		height: 42px;
+		padding-block: 0;
+	}
+	/* 모바일 ☰ 메뉴 */
+	.nav-menu {
+		display: inline-grid;
+		place-items: center;
+		width: 42px;
+		height: 42px;
+		border: 1.5px solid currentColor;
+		background: transparent;
+		color: inherit;
+		font-size: 18px;
+		cursor: pointer;
+	}
+	.nav.is-open {
+		background: var(--black);
+	}
+	.nav.is-open nav {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		margin: 0;
+		padding: 8px clamp(20px, 4vw, 56px) 24px;
+		background: var(--black);
+		border-top: 1px solid rgb(255 255 255 / 0.15);
+	}
+	.nav.is-open nav a {
+		padding: 14px 0;
+		font-size: 15px;
+		border-bottom: 1px solid rgb(255 255 255 / 0.1);
 	}
 	.nav-join {
 		margin-left: auto;
@@ -289,6 +336,17 @@ a {
 .trip-list time {
 	font-family: var(--display);
 	font-size: 28px;
+}
+.trip-fee {
+	font-size: 13px;
+	color: var(--gray) !important;
+}
+.season-more {
+	display: inline-block;
+	margin-top: 20px;
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
 }
 .trip-end {
 	display: block;

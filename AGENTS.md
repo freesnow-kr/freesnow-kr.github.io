@@ -16,7 +16,7 @@
 | `/` | `src/pages/index.astro` | 에디토리얼(Burton 느낌): 영상 히어로, 티커, THE SEASON, SKI/SNOWBOARD, FAQ |
 | `/gallery/` | `src/pages/gallery.astro` | 사진 갤러리 — **구글 드라이브 폴더**에서 실시간으로 불러옴, 클릭하면 `<dialog>`로 크게 보기(←/→, Esc) |
 | `/webcam/` | `src/pages/webcam.astro` | 같은 에디토리얼 스타일 |
-| `/login/` | `src/pages/login.astro` | 로그인 폼 + 회원가입 버튼. 이미 로그인 상태면 `/members`로 |
+| `/login/` | `src/pages/login.astro` | 로그인 폼 + 회원가입 버튼. 로그인 후(또는 이미 로그인 상태면) **메인으로**, `?next=` 있으면 거기로 |
 | `/signup/` | `src/pages/signup.astro` | 회원가입 신청 폼 (개인정보 동의 필수) |
 | `/members/` | `src/pages/members.astro` | 회원 전용, **본인 정보만**. 토큰 없거나 만료면 `/login`(`?expired`)으로 |
 | `/cute/` | `src/pages/cute.astro` | 픽셀아트(Kizupi 느낌), 자체 `<style is:global>` |
@@ -63,7 +63,15 @@
 - 사진 목록은 `src/scripts/session.ts`의 `galleryPhotos()`로 받음: 브라우저 `localStorage`에 10분 캐시(서버 실패 시 예전 목록 사용). 이미지 주소는 `driveImg(id, w)`. 새 사진 반영은 최대 약 15분(서버 5분 + 브라우저 10분).
 - 메인 `#ride` 섹션 = **두 줄 사진 띠**(사용자 선택 '시안 C'): 최근 20장을 두 줄로 나눠 윗줄 왼쪽·아랫줄 오른쪽으로 무한 흐름(같은 묶음 2번 이어붙임, 두 번째는 aria-hidden). 높이만 고정·가로 원래 비율(잘림 없음). hover·멈춤 버튼으로 정지, 모션 줄이기면 정지+가로 스크롤. 사진 클릭 → `/gallery`.
 
-## 모임 참석 (`/` THE SEASON + `apps-script` events·rsvp)
+## THE SEASON = 소모임 정모 (`/` + `apps-script` somoim)
+
+- 사용자 결정(2026-10-21): THE SEASON은 **소모임 모임 공개 페이지의 '정모 일정'**을 보여주고, 참석은 소모임에서 받음. 사이트의 참석/취소 UI는 쓰지 않음(아래 events·rsvp 서버 코드는 남아 있지만 현재 화면에서 호출 안 함).
+- `action:'somoim'`: `UrlFetchApp`으로 `SOMOIM_URL`(=`club.somoimUrl`) 공개 페이지를 읽어 `parseSomoim` → `[{title, date, time, start, place, fee, count, cap}]`. **1시간 `CacheService` 캐시** → 소모임에는 시간당 1회만 접근. 참석자 얼굴·이름은 가져오지 않음.
+- 파싱: '정모 일정' 이후 `<div class="flex space-x-3">` 단위로 나눔. 날짜는 정모 이미지 파일명의 `yyyymmddHHMM`(예 `…202611071300s1.png`), 없으면 화면의 `11/7(토) 오후 1:00`에서 연도 추정. 장소·회비는 `i_location`·`i_currency` 아이콘 다음 `<p>`, 인원은 끝의 `18 / 30`.
+- 공식 API 아님 → 소모임이 페이지 구조를 바꾸면 빈 목록/오류 → 화면엔 '정모 일정을 불러오지 못했어요' + '소모임에서 전체 일정 보기 ↗' 링크. 고칠 땐 공개 페이지 HTML을 다시 보고 `parseSomoim`만 수정 + `Code.test.mjs` 7번 픽스처 갱신.
+- 권한: `appsscript.json`에 `script.external_request` 추가(재승인 필요).
+
+## (현재 미사용) 모임 참석 (`/` THE SEASON + `apps-script` events·rsvp)
 
 - 모임은 시트 **'모임'** 탭(`ID | 시작일 | 종료일 | 장소 | 내용 | 태그 | 정원`, 없으면 자동 생성; 예전 `날짜` 열은 시작일로 읽음, 종료일 비우면 하루짜리)에서 관리. 운영진이 한 줄 추가하면 메인 THE SEASON에 표시(배포 불필요). ID 비우면 첫 조회 때 자동으로 채움(참석 기록과 잇는 키라 바꾸지 말 것). 정원 비우면 제한 없음. 종료일(없으면 시작일)이 오늘보다 이전이면 표시·신청 안 됨. 화면엔 시작일 + 아래 작게 '~ 종료일', 참석 탭 날짜는 '01.10 토 ~ 01.11 일'. 날짜는 날짜 셀 또는 `2026-12-13`.
 - 참석 기록은 **'참석'** 탭(`모임ID | 날짜 | 장소 | 이름 | 연락처 | 상태(참석/취소) | 변경일시`). 회원·모임당 한 줄, 다시 신청하면 같은 줄의 상태만 바꿈.

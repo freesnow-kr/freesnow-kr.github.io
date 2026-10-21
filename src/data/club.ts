@@ -2,6 +2,8 @@
 export const club = {
 	name: 'Free Snow',
 	joinUrl: 'https://open.kakao.com/o/gkiI7dQb',
+	// 소모임 모임 페이지 (THE SEASON 정모 일정·참석). Apps Script SOMOIM_URL 과 같게
+	somoimUrl: 'https://www.somoim.co.kr/821b9cba-c97a-11e8-9395-0a16433fdfe81',
 	// Apps Script 웹앱 배포 URL (apps-script/Code.gs). 비어 있으면 회원 페이지는 '준비 중'
 	membersApi: 'https://script.google.com/macros/s/AKfycbwLMPOxtBqyoYwp6B-s6PQOL4iA0Xeo0snrFmzl7tQFH0uB2kWp1uy0-UXkVhIbhyxk-A/exec',
 };

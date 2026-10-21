@@ -31,6 +31,10 @@ const PROFILE_HEAD = ['연락처', '사진ID', '변경일시', '사진데이터'
 const AVATAR_FOLDER = '프리스노우 프로필사진';
 const AVATAR_MAX = 400000; // base64 글자 수 상한 (브라우저에서 256px로 줄여서 보냄 ≈ 20~60KB)
 const SMALL_MAX = 40000; // 시트 칸에 넣는 작은 사진 상한 (칸 한도 5만 자)
+// 소모임: 프리스노우 모임 공개 페이지에서 '정모 일정'을 1시간에 한 번 읽어 THE SEASON에 표시 (참석은 소모임에서)
+// 공식 API가 아니라 페이지 구조가 바뀌면 못 읽을 수 있음 → 사이트는 안내 + 링크로 대체
+const SOMOIM_URL = 'https://www.somoim.co.kr/821b9cba-c97a-11e8-9395-0a16433fdfe81';
+const SOMOIM_CACHE_SEC = 60 * 60;
 const MAX_FAILS = 5; // 번호당 연속 실패 허용 횟수
 const LOCK_SEC = 60 * 60; // 초과 시 잠금 시간
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 로그인 유지 시간
@@ -57,6 +61,7 @@ function doPost(e) {
 		if (body.action === 'events') return json(events(body.token));
 		if (body.action === 'rsvp') return json(rsvp(body));
 		if (body.action === 'avatar') return json(avatar(body));
+		if (body.action === 'somoim') return json(somoim());
 	} catch (err) {
 		console.error(body.action, err); // Apps Script 편집기 > 실행 기록에서 확인
 		return json({ ok: false, error: '서버 오류가 났어요. 잠시 뒤 다시 시도해 주세요.' });
@@ -163,6 +168,73 @@ function signup(b) {
 	}
 }
 
+// ── 소모임 정모 ──
+// [{title, date: '11.07 토', time: '오후 1:00', start: ISO, place, fee, count, cap}] — 참석자 얼굴·이름은 안 가져옴
+function somoim() {
+	const cache = CacheService.getScriptCache();
+	const hit = cache.get('somoim');
+	if (hit) return JSON.parse(hit);
+	const res = UrlFetchApp.fetch(SOMOIM_URL, { muteHttpExceptions: true, followRedirects: true });
+	if (res.getResponseCode() !== 200) return { ok: false, url: SOMOIM_URL, error: '소모임 페이지를 열 수 없어요.' };
+	const meetups = parseSomoim(res.getContentText(), new Date());
+	const out = { ok: true, url: SOMOIM_URL, meetups };
+	cache.put('somoim', JSON.stringify(out), SOMOIM_CACHE_SEC);
+	return out;
+}
+
+// 공개 모임 페이지 HTML → 정모 목록 (지난 정모 제외, 날짜순)
+function parseSomoim(htmlText, now) {
+	const i = htmlText.indexOf('정모 일정');
+	if (i < 0) return [];
+	const j = htmlText.indexOf('</section>', i);
+	const sec = htmlText.slice(i, j < 0 ? undefined : j);
+	const text = (s) => decodeHtml(String(s || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+	const after = (it, icon) => { const m = new RegExp(icon + '[^]*?<p[^>]*>([^]*?)</p>').exec(it); return m ? text(m[1]) : ''; };
+	const today = new Date(now);
+	today.setHours(0, 0, 0, 0);
+	const list = [];
+	for (const it of sec.split('<div class="flex space-x-3">').slice(1)) {
+		const title = text((/<h3[^>]*>([^]*?)<\/h3>/.exec(it) || [])[1]);
+		if (!title) continue;
+		const flat = text(it);
+		// 날짜: 이미지 파일 이름의 yyyymmddHHMM → 없으면 '11/7(토) 오후 1:00' 에서 (연도 추정)
+		let start = null;
+		const stamp = /(\d{12})s\d+\.png/.exec(it);
+		if (stamp) {
+			const d = stamp[1];
+			start = new Date(Number(d.slice(0, 4)), Number(d.slice(4, 6)) - 1, Number(d.slice(6, 8)), Number(d.slice(8, 10)), Number(d.slice(10, 12)));
+		} else {
+			const md = /(\d{1,2})\/(\d{1,2})\(/.exec(flat);
+			const hm = /(오전|오후)\s*(\d{1,2}):(\d{2})/.exec(flat);
+			if (md) {
+				let y = today.getFullYear();
+				const guess = new Date(y, Number(md[1]) - 1, Number(md[2]));
+				if (guess < new Date(today - 60 * 864e5)) y++; // 두 달 넘게 지난 날짜면 내년
+				let h = hm ? Number(hm[2]) % 12 + (hm[1] === '오후' ? 12 : 0) : 0;
+				start = new Date(y, Number(md[1]) - 1, Number(md[2]), h, hm ? Number(hm[3]) : 0);
+			}
+		}
+		if (!start || start < today) continue;
+		const nums = /(\d+)\s*\/\s*(\d+)\s*$/.exec(flat);
+		const hm = /(오전|오후)\s*\d{1,2}:\d{2}/.exec(flat);
+		list.push({
+			title,
+			date: dayLabel(start),
+			time: hm ? hm[0] : '',
+			start: start.toISOString(),
+			place: after(it, 'i_location'),
+			fee: after(it, 'i_currency'),
+			count: nums ? Number(nums[1]) : null,
+			cap: nums ? Number(nums[2]) : null,
+		});
+	}
+	return list.sort((a, b) => (a.start < b.start ? -1 : 1));
+}
+
+function decodeHtml(s) {
+	return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&nbsp;/g, ' ');
+}
+
 // ── 프로필 사진 ──
 // {token, data: 256px JPG, small: 96px JPG} 저장 / {token, remove: true} 삭제
 // 드라이브 폴더에 저장, 드라이브가 안 되면(권한 등) 작은 사진을 '프로필' 탭에. 예전 드라이브 사진은 휴지통으로
@@ -182,8 +254,9 @@ function avatar(b) {
 			try {
 				file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 			} catch (err) {
-				// 계정·조직 정책으로 링크 공유를 못 바꿔도 파일은 씀 → 폴더를 '링크가 있는 모든 사용자 보기'로 공유해 두면 보임
-				console.error('avatar share (폴더 공유 설정을 따름)', err);
+				// 계정·조직 정책으로 링크 공유가 막혀도 원본은 폴더에 두고, 화면엔 시트의 작은 사진을 씀 (항상 보이게)
+				console.error('avatar share 거부 → 시트 작은 사진으로 표시', err);
+				small = jpeg(b.small, SMALL_MAX) ? String(b.small) : '';
 			}
 		} catch (err) {
 			// 대개 드라이브 쓰기 권한 미승인 또는 폴더 편집 권한 없음 → 시트에 작은 사진으로
@@ -220,17 +293,17 @@ function avatar(b) {
 	} finally {
 		lock.releaseLock();
 	}
-	return { ok: true, photo: id || small };
+	return { ok: true, photo: small || id };
 }
 
-// 연락처 → 사진 (드라이브 파일 id 또는 시트에 저장한 'data:image/jpeg…')
+// 연락처 → 사진: 시트 작은 사진이 있으면 그것(드라이브 링크 공유가 막힌 경우 등), 없으면 드라이브 파일 id
 function profilePhotos() {
 	const book = SpreadsheetApp.getActiveSpreadsheet();
 	const sheet = book.getSheetByName(PROFILE_SHEET);
 	const out = {};
 	if (!sheet) return out;
 	for (const r of applyTable(sheet).rows) {
-		const photo = String(r['사진ID'] || '').trim() || String(r['사진데이터'] || '').trim();
+		const photo = String(r['사진데이터'] || '').trim() || String(r['사진ID'] || '').trim();
 		if (photo) out[normPhone(r['연락처'])] = photo;
 	}
 	return out;

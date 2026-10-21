@@ -14,6 +14,7 @@
 | 라우트 | 파일 | 스타일 |
 |---|---|---|
 | `/` | `src/pages/index.astro` | 에디토리얼(Burton 느낌): 영상 히어로, 티커, THE SEASON, SKI/SNOWBOARD, FAQ |
+| `/gallery/` | `src/pages/gallery.astro` | 사진 갤러리 — **구글 드라이브 폴더**에서 실시간으로 불러옴, 클릭하면 `<dialog>`로 크게 보기(←/→, Esc) |
 | `/webcam/` | `src/pages/webcam.astro` | 같은 에디토리얼 스타일 |
 | `/login/` | `src/pages/login.astro` | 로그인 폼 + 회원가입 버튼. 이미 로그인 상태면 `/members`로 |
 | `/signup/` | `src/pages/signup.astro` | 회원가입 신청 폼 (개인정보 동의 필수) |
@@ -53,6 +54,35 @@
 - 하이원 30초 / 비발디 20초 / 무주 1분 자동 종료는 각 스키장 설정(변경 불가).
 - 주소 확인 날짜: 2026-10. 깨지면 해당 스키장 사이트에서 새 주소 확인.
 
+## 갤러리 (`/gallery`)
+
+- 운영진이 드라이브 폴더(`Code.gs`의 `GALLERY_FOLDER_ID`)에 사진을 올리면 사이트에 반영 — 코드 수정·배포 불필요. 폴더는 '링크가 있는 모든 사용자' 보기 권한이어야 이미지가 보임.
+- `action:'gallery'` → `DriveApp`으로 폴더의 이미지 파일만 최신순(생성일) `[{id, caption}]`. 5분 `CacheService` 캐시(새 사진은 최대 5분 뒤). caption = 파일 이름(확장자 제외, `_`→공백), 휴대폰 기본 이름(IMG_…, KakaoTalk… 등)이면 ''.
+- 이미지 주소 `https://lh3.googleusercontent.com/d/{id}=w720`(격자) / `=w1800`(크게) — 드라이브가 크기 조절. 비공식 주소라 막히면 `https://drive.google.com/thumbnail?id={id}&sz=w720`로 바꿔 볼 것.
+- 파일 이름은 `textContent`·속성으로만 렌더링(HTML 주입 방지). 하위 폴더는 읽지 않음.
+- 사진 목록은 `src/scripts/session.ts`의 `galleryPhotos()`로 받음: 브라우저 `localStorage`에 10분 캐시(서버 실패 시 예전 목록 사용). 이미지 주소는 `driveImg(id, w)`. 새 사진 반영은 최대 약 15분(서버 5분 + 브라우저 10분).
+- 메인 `#ride` 섹션 = **두 줄 사진 띠**(사용자 선택 '시안 C'): 최근 20장을 두 줄로 나눠 윗줄 왼쪽·아랫줄 오른쪽으로 무한 흐름(같은 묶음 2번 이어붙임, 두 번째는 aria-hidden). 높이만 고정·가로 원래 비율(잘림 없음). hover·멈춤 버튼으로 정지, 모션 줄이기면 정지+가로 스크롤. 사진 클릭 → `/gallery`.
+
+## 모임 참석 (`/` THE SEASON + `apps-script` events·rsvp)
+
+- 모임은 시트 **'모임'** 탭(`ID | 시작일 | 종료일 | 장소 | 내용 | 태그 | 정원`, 없으면 자동 생성; 예전 `날짜` 열은 시작일로 읽음, 종료일 비우면 하루짜리)에서 관리. 운영진이 한 줄 추가하면 메인 THE SEASON에 표시(배포 불필요). ID 비우면 첫 조회 때 자동으로 채움(참석 기록과 잇는 키라 바꾸지 말 것). 정원 비우면 제한 없음. 종료일(없으면 시작일)이 오늘보다 이전이면 표시·신청 안 됨. 화면엔 시작일 + 아래 작게 '~ 종료일', 참석 탭 날짜는 '01.10 토 ~ 01.11 일'. 날짜는 날짜 셀 또는 `2026-12-13`.
+- 참석 기록은 **'참석'** 탭(`모임ID | 날짜 | 장소 | 이름 | 연락처 | 상태(참석/취소) | 변경일시`). 회원·모임당 한 줄, 다시 신청하면 같은 줄의 상태만 바꿈.
+- `action:'events'`(token 선택): 다가오는 모임 + 인원(`count`). **회원 토큰일 때만** `mine`과 참석자 이름 `names`(사용자 요구) — 비회원에겐 이름 안 보냄, 연락처는 누구에게도 안 보냄.
+- `action:'rsvp'` {token, id, go}: 회원만(토큰 검증), `LockService` 잠금 안에서 정원 확인 → 정원 넘으면 '정원이 다 찼어요.' 응답은 갱신된 `events` 전체.
+- 참석 인원 UI: 정원 바(남은 2자리 이하 '마감 임박' 주황, 다 차면 '마감'), 회원에겐 참석자 칩(이름 끝 두 글자 원 + 이름, 내 칩 주황 '(나)' 맨 앞, 12명 넘으면 +N), 비회원에겐 '참석자 명단은 회원에게만 보여요.' 행 스타일은 `.trip-list > li`(칩 `li`에 번지지 않게 자식 선택자 유지).
+- 화면: 비회원 '로그인 후 참석'(`/login/?next=/free-snow/#season` → 로그인 후 돌아옴; `next`는 base로 시작하는 사이트 내부 주소만 허용), 회원 '참석' / '참석 중 ✓ · 취소', 정원 차면 '마감'. 모임 목록은 캐시하지 않음(인원이 최신이어야 함). `src/data/club.ts`의 `trips`는 이제 `/cute`에서만 씀.
+
+## 프로필 사진 (`/members` + `apps-script` avatar)
+
+- 회원이 `/members`에서 사진을 고르면 브라우저가 가운데 정사각형 256px JPG(약 10~60KB)로 줄여 `action:'avatar'` {token, data}로 보냄. 삭제는 {token, remove:true}.
+- **권한(scope)**: 사진 저장엔 `https://www.googleapis.com/auth/drive` 필요. 자동 감지가 예전 `drive.readonly`에 머물러 `createFile` 권한 오류가 났었음 → `apps-script/appsscript.json`에 `oauthScopes`를 직접 적어 둠(spreadsheets, drive, userinfo.email). 이 파일을 Apps Script 프로젝트 매니페스트에 그대로 넣고 `authorizeDrive` 실행으로 재승인. 명시하면 자동 감지가 꺼지므로 새 서비스(예: UrlFetchApp) 쓰면 여기에 scope 추가.
+- 저장: `Code.gs`의 `AVATAR_FOLDER_ID` 드라이브 폴더(운영진 지정, 현재 `1l4luKl_nTyDSTvtnxxNsbdbI0kR7M4J-`; 비우면 '프리스노우 프로필사진' 자동 생성). 파일은 '링크가 있는 사용자 보기'로 공유, 파일 이름에 번호 안 넣음(`avatar-xxxx.jpg`). 바꾸면 예전 사진은 휴지통.
+- 누가 어떤 사진인지는 **'프로필'** 탭(`연락처 | 사진ID | 변경일시 | 사진데이터`) — 회원현황 탭은 안 건드림.
+- **대체 저장**: 브라우저는 256px(드라이브용)과 96px(`small`, ≈4~8KB)을 같이 보냄. 드라이브에 파일 만들기가 실패하면(쓰기 권한 미승인 등) 96px를 '사진데이터' 칸에 `data:image/jpeg…`로 저장. 링크 공유(`setSharing`)만 실패하면 파일은 그대로 씀(폴더를 '링크가 있는 모든 사용자' 공유하면 보임). 드라이브가 다시 되면 다음 업로드부터 드라이브로, 사진데이터는 비움.
+- 사진 값은 드라이브 id 또는 data URL → 화면은 `photoSrc(photo, w)`로 표시.
+- `me`는 `photo`(파일 id)를, `events`는 회원에게 `people: [{name, photo}]`(예전 `names`도 같이)를 줌. 참석자 칩 동그라미에 사진(없으면 이름 끝 두 글자). 사진 주소는 `driveImg(id, w)`.
+- 이미지 주소를 아는 사람은 사진을 볼 수 있음(드라이브 링크 공유 방식의 한계).
+
 ## 회원 로그인 (`/members` + `apps-script/`)
 
 흐름:
@@ -73,7 +103,8 @@
   - **다른 회원 정보(명단)는 어떤 형태로도 응답하지 않음** (사용자 결정, 2026-10-20). 응답은 `{ok, me:{name, grade, area, phone}}`뿐. 화면에서 숨기는 것으론 부족하므로 서버(Code.gs)에서 막음.
   - 실패 메시지는 번호/생일 중 무엇이 틀렸는지 구분하지 않음.
   - 번호당 5회 실패 → 1시간 잠금 (`CacheService`).
-  - 토큰 = `base64(phone|exp).HMAC-SHA256`, 비밀키는 스크립트 속성 `TOKEN_SECRET`(코드·저장소에 넣지 않음), 12시간 유효. 시트에서 지운 회원은 즉시 차단.
+  - 토큰 = `base64(phone|exp).HMAC-SHA256`, 비밀키는 스크립트 속성 `TOKEN_SECRET`(코드·저장소에 넣지 않음). 기본 12시간, 로그인 화면 **'로그인 상태 유지'**(기본 체크) 시 30일(`keep: true`). 시트에서 지운 회원은 즉시 차단.
+  - '로그인 상태 유지'면 아이디(`fs-member-id`)를 기억해 다음 로그인 때 채움. 비밀번호는 저장 안 함. 내 이름(`fs-member-name`)은 참석자 칩의 '(나)' 표시용일 뿐 권한 판단엔 안 씀.
   - 클라이언트는 시트 값을 `textContent`로만 렌더링(HTML 주입 방지). 토큰은 `localStorage`(try/catch).
   - Content-Type 헤더를 붙이지 않은 `fetch` POST(text/plain) → CORS 사전요청 없이 Apps Script 호출. 헤더 추가 금지.
 - 저장소가 public이므로 API 키·비밀값·실제 회원 데이터를 코드에 넣지 말 것. 테스트는 가짜 데이터만.

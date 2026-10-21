@@ -1,15 +1,11 @@
 ---
-import { club, trips, faqs } from '../data/club';
+import { club, faqs } from '../data/club';
 import '../styles/ride.css';
 
 const base = import.meta.env.BASE_URL;
 
 const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CHAIR'];
 
-const disciplines = [
-	{ name: 'SKI', ko: '스키', desc: '정설된 슬로프에서 카빙, 상급자는 모글까지.', tone: 'ice' },
-	{ name: 'SNOWBOARD', ko: '스노우보드', desc: '그라운드 트릭부터 파크까지, 실력별로 조를 나눠요.', tone: 'dusk' },
-];
 ---
 
 <html lang="ko">
@@ -34,6 +30,7 @@ const disciplines = [
 				<a href="#season">SEASON</a>
 				<a href="#ride">RIDE</a>
 				<a href="#faq">FAQ</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
 				<a href={`${base}/webcam/`}>WEBCAM</a>
 				<a href={`${base}/members/`}>MEMBERS</a>
 			</nav>
@@ -74,31 +71,25 @@ const disciplines = [
 			<section id="season" class="season">
 				<div class="head">
 					<h2>THE SEASON</h2>
-					<p>이번 시즌 정모 일정. 일정마다 오픈채팅에서 투표로 인원을 받아요.</p>
+					<p>이번 시즌 정모 일정. 회원은 로그인 후 바로 참석 신청할 수 있어요.</p>
 				</div>
-				<ol class="trip-list">
-					{trips.map((t, i) => (
-						<li>
-							<span class="idx">{String(i + 1).padStart(2, '0')}</span>
-							<time>{t.date}</time>
-							<div class="trip-main">
-								<h3>{t.place}</h3>
-								<p>{t.note}</p>
-							</div>
-							<span class="trip-tag">{t.tag}</span>
-						</li>
-					))}
-				</ol>
+				<!-- 시트 '모임' 탭에서 불러옴 (apps-script/Code.gs events·rsvp) -->
+				<p class="mem-msg season-msg" role="status">모임 불러오는 중…</p>
+				<ol class="trip-list"></ol>
 			</section>
 
-			<section id="ride" class="split">
-				{disciplines.map((d) => (
-					<article class={`panel ${d.tone}`}>
-						<p class="kicker">{d.ko}</p>
-						<h2>{d.name}</h2>
-						<p>{d.desc}</p>
-					</article>
-				))}
+			<!-- 갤러리(드라이브 폴더) 최근 사진이 옆으로 흘러가는 띠. 사진 없으면 숨김 -->
+			<section id="ride" class="reel" aria-label="갤러리 사진" hidden>
+				<div class="reel-head">
+					<h2>ON THE SLOPE.</h2>
+					<div class="reel-ctrl">
+						<button class="s-btn reel-pause" type="button" aria-label="사진 흐름 멈춤">❚❚</button>
+						<a class="reel-all" href={`${base}/gallery/`}>갤러리 전체 보기 →</a>
+					</div>
+				</div>
+				<!-- 두 줄: 윗줄은 왼쪽, 아랫줄은 오른쪽으로 흐름 -->
+				<div class="reel-view"><div class="reel-track"></div></div>
+				<div class="reel-view"><div class="reel-track reverse"></div></div>
 			</section>
 
 			<section class="manifesto">
@@ -124,8 +115,6 @@ const disciplines = [
 
 		<footer class="footer">
 			<div class="footer-row">
-				<a href={club.joinUrl} target="_blank" rel="noopener">오픈채팅 참여 →</a>
-				<a href={`${base}/cute/`}>픽셀 버전 보기</a>
 				<span>© {new Date().getFullYear()} {club.name}</span>
 			</div>
 			<p class="giant" aria-hidden="true">FREE SNOW</p>
@@ -152,6 +141,185 @@ const disciplines = [
 			video.addEventListener('play', sync);
 			video.addEventListener('pause', sync);
 			sync();
+		</script>
+		<script>
+			// THE SEASON: 모임 목록 + 회원 참석/취소
+			import { base, call, photoSrc, store } from '../scripts/session';
+
+			type Person = { name: string; photo: string };
+			type Ev = { id: string; date: string; end?: string; place: string; note: string; tag: string; cap: number; count: number; mine: boolean; names?: string[]; people?: Person[] };
+			const list = document.querySelector<HTMLOListElement>('.trip-list')!;
+			const msg = document.querySelector<HTMLElement>('.season-msg')!;
+			const loginHref = `${base}/login/?next=${encodeURIComponent(`${base}/#season`)}`;
+			let token = store.get();
+
+			const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = '') => {
+				const e = document.createElement(tag);
+				e.className = cls;
+				e.textContent = text; // 시트 값은 textContent로만
+				return e;
+			};
+
+			const render = (events: Ev[], member: boolean) => {
+				msg.textContent = events.length ? '' : '예정된 모임이 아직 없어요.';
+				msg.hidden = !msg.textContent;
+				list.replaceChildren(
+					...events.map((e, i) => {
+						const li = document.createElement('li');
+						const main = el('div', 'trip-main');
+						main.append(el('h3', '', e.place), el('p', '', e.note));
+						const full = e.cap > 0 && e.count >= e.cap;
+						const box = el('div', 'trip-rsvp');
+						if (!member) {
+							if (full) box.append(el('span', 'btn-rsvp is-full', '마감'));
+							else { const a = el('a', 'btn-rsvp', '로그인 후 참석'); a.href = loginHref; box.append(a); }
+						} else if (e.mine) {
+							box.append(el('span', 'rsvp-mine', '참석 중 ✓'), rsvpButton(e, false, '취소'));
+						} else if (full) {
+							const b = el('button', 'btn-rsvp is-full', '마감'); b.disabled = true; box.append(b);
+						} else {
+							box.append(rsvpButton(e, true, '참석'));
+						}
+						// 날짜: 시작일, 여러 날이면 아래에 '~ 종료일'
+						const when = el('time', '', e.date);
+						if (e.end) when.append(el('small', 'trip-end', `~ ${e.end}`));
+						li.append(el('span', 'idx', String(i + 1).padStart(2, '0')), when, main, el('span', 'trip-tag', e.tag), box, el('p', 'rsvp-err'), attendees(e, member));
+						if (!e.tag) li.querySelector('.trip-tag')!.remove();
+						return li;
+					}),
+				);
+			};
+
+			// 정원 진행 바 + 참석자 칩 (이름은 서버가 회원에게만 보내줌)
+			const SHOW = 12;
+			const attendees = (e: Ev, member: boolean) => {
+				const wrap = el('div', 'att');
+				const left = e.cap ? e.cap - e.count : Infinity;
+				const state = left <= 0 ? 'full' : left <= 2 ? 'soon' : '';
+				const head = el('div', 'att-head');
+				head.append(el('span', 'att-num', e.cap ? `${e.count} / ${e.cap}명` : `${e.count}명 참석`));
+				if (e.cap) head.append(el('span', `att-left ${state}`, state === 'full' ? '마감' : state === 'soon' ? `마감 임박 · ${left}자리 남음` : `${left}자리 남음`));
+				wrap.append(head);
+				if (e.cap) {
+					const bar = el('div', `att-bar ${state}`);
+					bar.setAttribute('role', 'progressbar');
+					bar.ariaValueNow = String(e.count);
+					bar.ariaValueMax = String(e.cap);
+					bar.ariaLabel = '참석 인원';
+					const fill = el('span', '');
+					fill.style.width = `${Math.min(100, (e.count / e.cap) * 100)}%`;
+					bar.append(fill);
+					wrap.append(bar);
+				}
+				// 예전 서버는 names만 보냄 → 사진 없이
+				const people: Person[] | undefined = e.people ?? e.names?.map((name) => ({ name, photo: '' }));
+				if (people) {
+					if (people.length) {
+						const me = store.name();
+						let meMarked = false;
+						const chips = el('ul', 'att-chips');
+						const list = [...people];
+						// 내 이름은 맨 앞으로
+						const mi = e.mine && me ? list.findIndex((p) => p.name === me) : -1;
+						if (mi > 0) list.unshift(...list.splice(mi, 1));
+						for (const p of list.slice(0, SHOW)) {
+							const isMe = e.mine && !meMarked && p.name === me;
+							if (isMe) meMarked = true;
+							const chip = el('li', isMe ? 'chip me' : 'chip');
+							const av = el('span', 'av', p.photo ? '' : p.name.slice(-2));
+							if (p.photo) {
+								const img = document.createElement('img');
+								img.src = photoSrc(p.photo, 96);
+								img.alt = '';
+								img.loading = 'lazy';
+								img.referrerPolicy = 'no-referrer';
+								av.append(img);
+							}
+							chip.append(av, el('span', 'nm', isMe ? `${p.name} (나)` : p.name));
+							chips.append(chip);
+						}
+						if (list.length > SHOW) chips.append(el('li', 'chip more', `+${list.length - SHOW}`));
+						wrap.append(chips);
+					}
+				} else if (!member && e.count) {
+					wrap.append(el('p', 'att-hint', '참석자 명단은 회원에게만 보여요.'));
+				}
+				return wrap;
+			};
+
+			const rsvpButton = (e: Ev, go: boolean, label: string) => {
+				const b = el('button', go ? 'btn-rsvp go' : 'btn-rsvp', label);
+				b.type = 'button';
+				b.addEventListener('click', async () => {
+					const err = b.closest('li')!.querySelector('.rsvp-err')!;
+					b.disabled = true;
+					b.textContent = '처리 중…';
+					const res = await call({ action: 'rsvp', token, id: e.id, go }).catch(() => null);
+					if (res?.expired) { store.clear(); token = null; return load('다시 로그인해 주세요.'); }
+					// 응답을 못 받았어도 시트엔 기록됐을 수 있음 → 목록을 다시 불러와 실제 상태로
+					if (!res) return load('응답이 늦어 다시 불러왔어요. 참석 여부를 확인해 주세요.');
+					if (!res.ok) {
+						b.disabled = false;
+						b.textContent = label;
+						err.textContent = res.error ?? '잠시 뒤 다시 시도해 주세요.';
+						if (res.error?.includes('정원')) load(); // 인원 최신으로
+						return;
+					}
+					render(res.events, res.member);
+				});
+				return b;
+			};
+
+			const load = async (note = '') => {
+				const res = await call({ action: 'events', token }).catch(() => null);
+				if (!res?.ok) { msg.textContent = '모임을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.'; msg.hidden = false; return; }
+				if (res.expired) { store.clear(); token = null; }
+				render(res.events, res.member);
+				if (note) { msg.textContent = note; msg.hidden = false; }
+			};
+			load();
+		</script>
+		<script>
+			// 사진 띠 (히어로 스크립트와 따로 — 사진 목록 기다리는 동안 영상 버튼이 막히지 않게)
+			import { base, driveImg, galleryPhotos } from '../scripts/session';
+
+			const MAX = 20; // 메인에는 최근 사진만
+			const sec = document.querySelector<HTMLElement>('.reel')!;
+			const photos = ((await galleryPhotos()) ?? []).slice(0, MAX);
+
+			if (photos.length) {
+				// 두 줄로 나눔. 사진이 적으면 두 줄 다 전체를 쓰되 아랫줄은 순서를 돌려서
+				const half = Math.ceil(photos.length / 2);
+				const rows = photos.length >= 8
+					? [photos.slice(0, half), photos.slice(half)]
+					: [photos, [...photos.slice(half), ...photos.slice(0, half)]];
+				// 같은 묶음을 두 번 이어 붙여서 끊김 없이 반복 (두 번째 묶음은 화면 읽기 프로그램에서 숨김)
+				const set = (list: typeof photos, copy: boolean) =>
+					list.map((p, i) => {
+						const a = document.createElement('a');
+						a.href = `${base}/gallery/`;
+						if (copy) { a.tabIndex = -1; a.ariaHidden = 'true'; }
+						const img = document.createElement('img');
+						img.src = driveImg(p.id, 800);
+						img.alt = copy ? '' : p.caption || `프리스노우 사진 ${i + 1}`;
+						img.referrerPolicy = 'no-referrer';
+						img.decoding = 'async';
+						a.append(img);
+						return a;
+					});
+				sec.querySelectorAll<HTMLElement>('.reel-track').forEach((track, r) => {
+					track.replaceChildren(...set(rows[r], false), ...set(rows[r], true));
+					track.style.setProperty('--dur', `${rows[r].length * 6}s`); // 사진 한 장에 약 6초
+				});
+				sec.hidden = false;
+
+				const btn = sec.querySelector<HTMLButtonElement>('.reel-pause')!;
+				btn.addEventListener('click', () => {
+					const paused = sec.classList.toggle('is-paused');
+					btn.textContent = paused ? '▶' : '❚❚';
+					btn.ariaLabel = paused ? '사진 흐름 재생' : '사진 흐름 멈춤';
+				});
+			}
 		</script>
 	</body>
 </html>

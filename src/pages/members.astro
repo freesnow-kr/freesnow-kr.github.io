@@ -28,6 +28,7 @@ const base = import.meta.env.BASE_URL;
 				<a href={`${base}/#season`}>SEASON</a>
 				<a href={`${base}/#ride`}>RIDE</a>
 				<a href={`${base}/#faq`}>FAQ</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
 				<a href={`${base}/webcam/`}>WEBCAM</a>
 				<a href={`${base}/members/`} aria-current="page">MEMBERS</a>
 			</nav>
@@ -44,7 +45,21 @@ const base = import.meta.env.BASE_URL;
 				<p class="mem-msg loading">불러오는 중…</p>
 				<div class="dash" hidden>
 					<div class="me">
-						<div>
+						<div class="me-left">
+							<!-- 프로필 사진: 참석자 배지에도 나옴 -->
+							<div class="avatar-wrap">
+								<span class="avatar"><img alt="내 프로필 사진" referrerpolicy="no-referrer" hidden /><span class="avatar-ini" aria-hidden="true"></span></span>
+								<div class="avatar-btns">
+									<label class="btn-mini">
+										사진 변경
+										<input class="avatar-file" type="file" accept="image/*" hidden />
+									</label>
+									<button class="btn-mini avatar-del" type="button" hidden>삭제</button>
+								</div>
+							</div>
+							<p class="avatar-msg" role="status"></p>
+						</div>
+						<div class="me-info">
 							<p class="kicker">MY INFO</p>
 							<h2 class="me-name"></h2>
 							<p class="me-meta"></p>
@@ -57,7 +72,6 @@ const base = import.meta.env.BASE_URL;
 
 		<footer class="footer">
 			<div class="footer-row">
-				<a href={club.joinUrl} target="_blank" rel="noopener">오픈채팅 참여 →</a>
 				<a href={`${base}/`}>메인으로</a>
 				<span>© {new Date().getFullYear()} {club.name}</span>
 			</div>
@@ -65,7 +79,7 @@ const base = import.meta.env.BASE_URL;
 		</footer>
 
 		<script>
-			import { base, call, loginUrl, store } from '../scripts/session';
+			import { base, call, loginUrl, photoSrc, store } from '../scripts/session';
 
 			const dash = document.querySelector<HTMLElement>('.dash')!;
 			const token = store.get();
@@ -81,9 +95,79 @@ const base = import.meta.env.BASE_URL;
 					document.querySelector('.loading')!.remove();
 					dash.hidden = false;
 					// 시트 값은 textContent로만 넣음 (HTML 주입 방지)
+					store.setName(res.me.name);
 					dash.querySelector('.me-name')!.textContent = `${res.me.name}님`;
 					dash.querySelector('.me-meta')!.textContent = [res.me.grade, res.me.area, res.me.phone].filter(Boolean).join(' · ');
+					setupAvatar(res.me.name, res.me.photo || '');
 				}
+			}
+
+			// 프로필 사진: 브라우저에서 정사각형 256px JPG(드라이브용) + 96px JPG(드라이브가 안 될 때 시트용)로 줄여서 올림
+			function setupAvatar(name: string, photo: string) {
+				const img = dash.querySelector<HTMLImageElement>('.avatar img')!;
+				const ini = dash.querySelector<HTMLElement>('.avatar-ini')!;
+				const file = dash.querySelector<HTMLInputElement>('.avatar-file')!;
+				const del = dash.querySelector<HTMLButtonElement>('.avatar-del')!;
+				const msg = dash.querySelector<HTMLElement>('.avatar-msg')!;
+				const wrap = dash.querySelector<HTMLElement>('.avatar-wrap')!;
+				const show = (id: string) => {
+					img.hidden = !id;
+					if (id) img.src = photoSrc(id, 256);
+					ini.hidden = !!id;
+					ini.textContent = name.slice(-2);
+					del.hidden = !id;
+				};
+				const toJpeg = (f: File) =>
+					new Promise<{ data: string; small: string }>((ok, bad) => {
+						const url = URL.createObjectURL(f);
+						const pic = new Image();
+						pic.onload = () => {
+							const side = Math.min(pic.naturalWidth, pic.naturalHeight);
+							// 가운데 정사각형만 잘라 S px JPG로
+							const square = (S: number, q: number) => {
+								const c = document.createElement('canvas');
+								c.width = c.height = S;
+								c.getContext('2d')!.drawImage(pic, (pic.naturalWidth - side) / 2, (pic.naturalHeight - side) / 2, side, side, 0, 0, S, S);
+								return c.toDataURL('image/jpeg', q);
+							};
+							URL.revokeObjectURL(url);
+							ok({ data: square(256, 0.85), small: square(96, 0.8) });
+						};
+						pic.onerror = () => {
+							URL.revokeObjectURL(url);
+							bad(new Error('decode'));
+						};
+						pic.src = url;
+					});
+				const send = async (body: object, doing: string, done: string) => {
+					wrap.setAttribute('aria-busy', 'true');
+					msg.textContent = doing;
+					const r = await call({ action: 'avatar', token, ...body }).catch(() => null);
+					wrap.setAttribute('aria-busy', 'false');
+					if (r?.expired) {
+						store.clear();
+						return location.replace(`${loginUrl}?expired`);
+					}
+					if (!r?.ok) {
+						msg.textContent = r?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+						return;
+					}
+					show(r.photo);
+					msg.textContent = done;
+				};
+				show(photo);
+				file.addEventListener('change', async () => {
+					const f = file.files?.[0];
+					file.value = '';
+					if (!f) return;
+					const pics = await toJpeg(f).catch(() => null);
+					if (!pics) {
+						msg.textContent = '이 사진은 열 수 없어요. 다른 사진(JPG·PNG)으로 해 주세요.';
+						return;
+					}
+					send(pics, '사진 올리는 중…', '프로필 사진을 바꿨어요.');
+				});
+				del.addEventListener('click', () => send({ remove: true }, '지우는 중…', '프로필 사진을 지웠어요.'));
 			}
 
 			dash.querySelector('.logout')!.addEventListener('click', () => {
@@ -95,12 +179,90 @@ const base = import.meta.env.BASE_URL;
 </html>
 
 <style>
+	/* 사진(+아래 버튼) | 이름·정보 | 로그아웃 — 세로 가운데 정렬 */
 	.me {
 		display: flex;
-		justify-content: space-between;
-		align-items: flex-end;
-		gap: 16px;
+		align-items: center;
+		gap: 24px 32px;
 		padding-bottom: 32px;
+	}
+	.me-left {
+		display: grid;
+		justify-items: center;
+		gap: 8px;
+		width: 160px;
+	}
+	.me-info {
+		margin-right: auto;
+	}
+	/* 사진 아래에 버튼 */
+	.avatar-wrap {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+		width: max-content;
+	}
+	.avatar-wrap[aria-busy='true'] {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+	.avatar {
+		display: grid;
+		place-items: center;
+		width: 96px;
+		height: 96px;
+		border-radius: 50%;
+		overflow: hidden;
+		background: var(--black);
+		color: var(--white);
+		flex: none;
+	}
+	.avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.avatar-ini {
+		font-size: 26px;
+		font-weight: 900;
+	}
+	.avatar-btns {
+		display: flex;
+		gap: 6px;
+	}
+	.btn-mini {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 34px;
+		padding: 0 12px;
+		border: 1.5px solid var(--black);
+		background: transparent;
+		font: 700 13px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.btn-mini:hover {
+		background: var(--black);
+		color: var(--white);
+	}
+	.btn-mini:focus-within {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.avatar-msg {
+		min-height: 1.4em;
+		font-size: 12px;
+		color: #4a4d55;
+		text-align: center;
+	}
+	@media (max-width: 640px) {
+		.me {
+			flex-wrap: wrap;
+		}
+		.me .logout {
+			width: 100%;
+		}
 	}
 	.me-name {
 		font-size: clamp(1.6rem, 3vw, 2.2rem);

@@ -1,0 +1,234 @@
+---
+import { club } from '../data/club';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL;
+// 사진은 드라이브 폴더에서 실시간으로 (apps-script/Code.gs 의 GALLERY_FOLDER_ID)
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{club.name} — Gallery</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/#ride`}>RIDE</a>
+				<a href={`${base}/#faq`}>FAQ</a>
+				<a href={`${base}/gallery/`} aria-current="page">GALLERY</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/members/`}>MEMBERS</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">ON THE SLOPE</p>
+				<h1>GALLERY.</h1>
+			</section>
+
+			<section class="mem-body">
+				<p class="mem-msg g-msg" role="status">사진 불러오는 중…</p>
+				<ul class="grid"></ul>
+			</section>
+		</main>
+
+		<dialog class="viewer" aria-label="사진 크게 보기">
+			<figure>
+				<img alt="" referrerpolicy="no-referrer" />
+				<figcaption></figcaption>
+			</figure>
+			<button class="v-btn v-close" type="button" aria-label="닫기">✕</button>
+			<button class="v-btn v-prev" type="button" aria-label="이전 사진">←</button>
+			<button class="v-btn v-next" type="button" aria-label="다음 사진">→</button>
+		</dialog>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<a href={`${base}/`}>메인으로</a>
+				<span>© {new Date().getFullYear()} {club.name}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { driveImg, galleryPhotos } from '../scripts/session';
+
+			const grid = document.querySelector<HTMLUListElement>('.grid')!;
+			const msg = document.querySelector<HTMLElement>('.g-msg')!;
+			const list = await galleryPhotos();
+			const photos = list ?? [];
+			msg.textContent = !list ? '사진을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' : photos.length ? '' : '사진 준비 중이에요.';
+			msg.hidden = !msg.textContent;
+			// 파일 이름은 textContent·속성으로만 넣음 (HTML 주입 방지)
+			grid.replaceChildren(
+				...photos.map((p, i) => {
+					const li = document.createElement('li');
+					const a = document.createElement('a');
+					a.href = driveImg(p.id, 1800);
+					a.dataset.caption = p.caption;
+					const img = document.createElement('img');
+					img.src = driveImg(p.id, 720);
+					img.alt = p.caption || `프리스노우 사진 ${i + 1}`;
+					img.loading = i < 8 ? 'eager' : 'lazy';
+					img.referrerPolicy = 'no-referrer';
+					a.append(img);
+					li.append(a);
+					return li;
+				}),
+			);
+
+			const links = [...grid.querySelectorAll<HTMLAnchorElement>('a')];
+			const dialog = document.querySelector<HTMLDialogElement>('.viewer')!;
+			const img = dialog.querySelector('img')!;
+			const caption = dialog.querySelector('figcaption')!;
+			let at = 0;
+
+			const show = (i: number) => {
+				at = (i + links.length) % links.length;
+				img.src = links[at].href;
+				img.alt = links[at].querySelector('img')!.alt;
+				caption.textContent = links[at].dataset.caption ?? '';
+			};
+			links.forEach((a, i) =>
+				a.addEventListener('click', (e) => {
+					e.preventDefault();
+					show(i);
+					dialog.showModal();
+				}),
+			);
+			dialog.querySelector('.v-close')!.addEventListener('click', () => dialog.close());
+			dialog.querySelector('.v-prev')!.addEventListener('click', () => show(at - 1));
+			dialog.querySelector('.v-next')!.addEventListener('click', () => show(at + 1));
+			// 사진 바깥(검은 배경) 누르면 닫기, ←/→ 넘기기 (Esc는 dialog 기본)
+			dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+			dialog.addEventListener('keydown', (e) => {
+				if (e.key === 'ArrowLeft') show(at - 1);
+				if (e.key === 'ArrowRight') show(at + 1);
+			});
+		</script>
+	</body>
+</html>
+
+<style>
+	/* 벽돌형: 사진 원래 비율 그대로 (잘리지 않음). 열마다 위→아래로 채움 */
+	.grid {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		columns: 4 240px;
+		column-gap: 6px;
+	}
+	@media (max-width: 640px) {
+		.grid {
+			columns: 2;
+			column-gap: 4px;
+		}
+	}
+	.grid :global(li) {
+		break-inside: avoid;
+		margin-bottom: 6px;
+	}
+	.grid :global(a) {
+		display: block;
+		overflow: hidden;
+		background: var(--black);
+	}
+	.grid :global(img) {
+		display: block;
+		width: 100%;
+		height: auto;
+		transition: transform 0.4s, opacity 0.2s;
+	}
+	.grid :global(a:hover img) {
+		transform: scale(1.03);
+		opacity: 0.9;
+	}
+
+	.viewer {
+		width: 100vw;
+		height: 100dvh;
+		max-width: none;
+		max-height: none;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: rgb(11 13 18 / 0.96);
+		color: var(--white);
+	}
+	.viewer::backdrop {
+		background: rgb(0 0 0 / 0.6);
+	}
+	.viewer figure {
+		height: 100%;
+		margin: 0;
+		display: grid;
+		grid-template-rows: 1fr auto;
+		place-items: center;
+		padding: 56px clamp(16px, 6vw, 96px) 24px;
+		pointer-events: none;
+	}
+	.viewer img {
+		max-width: 100%;
+		max-height: calc(100dvh - 140px);
+		object-fit: contain;
+		pointer-events: auto;
+	}
+	.viewer figcaption {
+		margin-top: 14px;
+		font-size: 14px;
+		color: rgb(255 255 255 / 0.75);
+	}
+	.v-btn {
+		position: absolute;
+		width: 48px;
+		height: 48px;
+		border: 1.5px solid rgb(255 255 255 / 0.5);
+		border-radius: 50%;
+		background: rgb(0 0 0 / 0.3);
+		color: var(--white);
+		font-size: 18px;
+		cursor: pointer;
+	}
+	.v-btn:hover {
+		background: var(--white);
+		color: var(--black);
+	}
+	.v-close {
+		top: 16px;
+		right: 16px;
+	}
+	.v-prev,
+	.v-next {
+		top: 50%;
+		transform: translateY(-50%);
+	}
+	.v-prev {
+		left: 16px;
+	}
+	.v-next {
+		right: 16px;
+	}
+	@media (max-width: 640px) {
+		.v-prev,
+		.v-next {
+			top: auto;
+			bottom: 16px;
+			transform: none;
+		}
+	}
+</style>

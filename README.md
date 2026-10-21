@@ -11,6 +11,7 @@
 |---|---|---|
 | `/` | `src/pages/index.astro` | 메인 (영상 히어로, 시즌 일정, FAQ) |
 | `/cute/` | `src/pages/cute.astro` | 픽셀 펭귄 버전 |
+| `/gallery/` | `src/pages/gallery.astro` | 사진 갤러리 (구글 드라이브 폴더 연동) |
 | `/webcam/` | `src/pages/webcam.astro` | 스키장 공식 웹캠 (아코디언) |
 | `/login/` | `src/pages/login.astro` | 회원 로그인 (아이디 + 비밀번호) |
 | `/signup/` | `src/pages/signup.astro` | 회원가입 신청 → 시트 '가입신청' 탭 |
@@ -27,7 +28,9 @@ npm run build   # dist/ 생성
 
 ## 자주 고치는 곳
 
-- **오픈채팅 링크, 시즌 일정, FAQ** → `src/data/club.ts` (모든 페이지 공통)
+- **모임(THE SEASON)** → 구글 시트 **'모임'** 탭에 한 줄 추가 (`시작일 | 종료일 | 장소 | 내용 | 태그 | 정원`, 종료일·ID는 비워도 됨). 회원 참석/취소는 **'참석'** 탭에 자동 기록
+- **오픈채팅 링크, FAQ** → `src/data/club.ts` (모든 페이지 공통)
+- **갤러리 사진** → 드라이브 폴더에 올리기만 하면 됨(최대 5분 뒤 반영). 폴더 바꾸려면 `apps-script/Code.gs`의 `GALLERY_FOLDER_ID`
 - **스키장 웹캠 목록** → `src/pages/webcam.astro` 맨 위 `regions`
 - **가입 거주지 목록(시도·시군구)** → 법정동 CSV를 `data/`에 두고 `node scripts/make-regions.mjs data/파일.csv` (→ `src/data/regions.json`)
 - **메인 영상** → `public/hero.mp4`, `public/hero.jpg` 교체 (`scripts/make-hero.swift`로 변환)

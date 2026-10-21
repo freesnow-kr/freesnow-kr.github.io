@@ -60,6 +60,21 @@ if (nav) {
 	addEventListener('scroll', onScroll, { passive: true });
 	onScroll();
 
+	// 모바일 ☰ 메뉴: 열고 닫기 (메뉴 고르기·Esc·데스크톱 폭이 되면 닫힘)
+	const menuBtn = nav.querySelector<HTMLButtonElement>('.nav-menu');
+	if (menuBtn) {
+		const setOpen = (open: boolean) => {
+			nav.classList.toggle('is-open', open);
+			menuBtn.setAttribute('aria-expanded', String(open));
+			menuBtn.ariaLabel = open ? '메뉴 닫기' : '메뉴 열기';
+			menuBtn.textContent = open ? '✕' : '☰';
+		};
+		menuBtn.addEventListener('click', () => setOpen(!nav.classList.contains('is-open')));
+		nav.querySelectorAll('nav a').forEach((a) => a.addEventListener('click', () => setOpen(false)));
+		addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+		matchMedia('(min-width: 641px)').addEventListener('change', () => setOpen(false));
+	}
+
 	// 로그인 상태면 LOGIN → LOGOUT
 	const btn = nav.querySelector<HTMLAnchorElement>('.nav-join');
 	if (btn && store.get()) {

@@ -26,7 +26,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 	<body>
 		<header class="nav">
 			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
-			<nav aria-label="메인">
+			<nav id="site-nav" aria-label="메인">
 				<a href="#season">SEASON</a>
 				<a href="#ride">RIDE</a>
 				<a href="#faq">FAQ</a>
@@ -35,6 +35,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 				<a href={`${base}/members/`}>MEMBERS</a>
 			</nav>
 			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
 		</header>
 
 		<main>
@@ -71,11 +72,12 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 			<section id="season" class="season">
 				<div class="head">
 					<h2>THE SEASON</h2>
-					<p>이번 시즌 정모 일정. 회원은 로그인 후 바로 참석 신청할 수 있어요.</p>
+					<p>소모임 정모 일정이에요. 참석 신청은 소모임에서 해 주세요.</p>
 				</div>
-				<!-- 시트 '모임' 탭에서 불러옴 (apps-script/Code.gs events·rsvp) -->
-				<p class="mem-msg season-msg" role="status">모임 불러오는 중…</p>
+				<!-- 소모임 공개 페이지의 '정모 일정' (apps-script/Code.gs somoim) -->
+				<p class="mem-msg season-msg" role="status">정모 일정 불러오는 중…</p>
 				<ol class="trip-list"></ol>
+				<a class="season-more" href={club.somoimUrl} target="_blank" rel="noopener">소모임에서 전체 일정 보기 ↗</a>
 			</section>
 
 			<!-- 갤러리(드라이브 폴더) 최근 사진이 옆으로 흘러가는 띠. 사진 없으면 숨김 -->
@@ -143,141 +145,68 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 			sync();
 		</script>
 		<script>
-			// THE SEASON: 모임 목록 + 회원 참석/취소
-			import { base, call, photoSrc, store } from '../scripts/session';
+			// THE SEASON: 소모임 '정모 일정'을 Apps Script가 1시간마다 읽어 옴 (참석은 소모임에서)
+			import { call } from '../scripts/session';
 
-			type Person = { name: string; photo: string };
-			type Ev = { id: string; date: string; end?: string; place: string; note: string; tag: string; cap: number; count: number; mine: boolean; names?: string[]; people?: Person[] };
+			type Meetup = { title: string; date: string; time: string; place: string; fee: string; count: number | null; cap: number | null };
 			const list = document.querySelector<HTMLOListElement>('.trip-list')!;
 			const msg = document.querySelector<HTMLElement>('.season-msg')!;
-			const loginHref = `${base}/login/?next=${encodeURIComponent(`${base}/#season`)}`;
-			let token = store.get();
+			const more = document.querySelector<HTMLAnchorElement>('.season-more')!;
 
 			const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = '') => {
 				const e = document.createElement(tag);
 				e.className = cls;
-				e.textContent = text; // 시트 값은 textContent로만
+				e.textContent = text; // 소모임 글은 textContent로만
 				return e;
 			};
 
-			const render = (events: Ev[], member: boolean) => {
-				msg.textContent = events.length ? '' : '예정된 모임이 아직 없어요.';
-				msg.hidden = !msg.textContent;
-				list.replaceChildren(
-					...events.map((e, i) => {
-						const li = document.createElement('li');
-						const main = el('div', 'trip-main');
-						main.append(el('h3', '', e.place), el('p', '', e.note));
-						const full = e.cap > 0 && e.count >= e.cap;
-						const box = el('div', 'trip-rsvp');
-						if (!member) {
-							if (full) box.append(el('span', 'btn-rsvp is-full', '마감'));
-							else { const a = el('a', 'btn-rsvp', '로그인 후 참석'); a.href = loginHref; box.append(a); }
-						} else if (e.mine) {
-							box.append(el('span', 'rsvp-mine', '참석 중 ✓'), rsvpButton(e, false, '취소'));
-						} else if (full) {
-							const b = el('button', 'btn-rsvp is-full', '마감'); b.disabled = true; box.append(b);
-						} else {
-							box.append(rsvpButton(e, true, '참석'));
-						}
-						// 날짜: 시작일, 여러 날이면 아래에 '~ 종료일'
-						const when = el('time', '', e.date);
-						if (e.end) when.append(el('small', 'trip-end', `~ ${e.end}`));
-						li.append(el('span', 'idx', String(i + 1).padStart(2, '0')), when, main, el('span', 'trip-tag', e.tag), box, el('p', 'rsvp-err'), attendees(e, member));
-						if (!e.tag) li.querySelector('.trip-tag')!.remove();
-						return li;
-					}),
-				);
-			};
-
-			// 정원 진행 바 + 참석자 칩 (이름은 서버가 회원에게만 보내줌)
-			const SHOW = 12;
-			const attendees = (e: Ev, member: boolean) => {
+			const bar = (m: Meetup) => {
 				const wrap = el('div', 'att');
-				const left = e.cap ? e.cap - e.count : Infinity;
+				if (m.count == null) return wrap;
+				const left = m.cap ? m.cap - m.count : Infinity;
 				const state = left <= 0 ? 'full' : left <= 2 ? 'soon' : '';
 				const head = el('div', 'att-head');
-				head.append(el('span', 'att-num', e.cap ? `${e.count} / ${e.cap}명` : `${e.count}명 참석`));
-				if (e.cap) head.append(el('span', `att-left ${state}`, state === 'full' ? '마감' : state === 'soon' ? `마감 임박 · ${left}자리 남음` : `${left}자리 남음`));
+				head.append(el('span', 'att-num', m.cap ? `${m.count} / ${m.cap}명` : `${m.count}명 참석`));
+				if (m.cap) head.append(el('span', `att-left ${state}`, state === 'full' ? '마감' : state === 'soon' ? `마감 임박 · ${left}자리 남음` : `${left}자리 남음`));
 				wrap.append(head);
-				if (e.cap) {
-					const bar = el('div', `att-bar ${state}`);
-					bar.setAttribute('role', 'progressbar');
-					bar.ariaValueNow = String(e.count);
-					bar.ariaValueMax = String(e.cap);
-					bar.ariaLabel = '참석 인원';
+				if (m.cap) {
+					const b = el('div', `att-bar ${state}`);
+					b.setAttribute('role', 'progressbar');
+					b.ariaValueNow = String(m.count);
+					b.ariaValueMax = String(m.cap);
+					b.ariaLabel = '참석 인원';
 					const fill = el('span', '');
-					fill.style.width = `${Math.min(100, (e.count / e.cap) * 100)}%`;
-					bar.append(fill);
-					wrap.append(bar);
-				}
-				// 예전 서버는 names만 보냄 → 사진 없이
-				const people: Person[] | undefined = e.people ?? e.names?.map((name) => ({ name, photo: '' }));
-				if (people) {
-					if (people.length) {
-						const me = store.name();
-						let meMarked = false;
-						const chips = el('ul', 'att-chips');
-						const list = [...people];
-						// 내 이름은 맨 앞으로
-						const mi = e.mine && me ? list.findIndex((p) => p.name === me) : -1;
-						if (mi > 0) list.unshift(...list.splice(mi, 1));
-						for (const p of list.slice(0, SHOW)) {
-							const isMe = e.mine && !meMarked && p.name === me;
-							if (isMe) meMarked = true;
-							const chip = el('li', isMe ? 'chip me' : 'chip');
-							const av = el('span', 'av', p.photo ? '' : p.name.slice(-2));
-							if (p.photo) {
-								const img = document.createElement('img');
-								img.src = photoSrc(p.photo, 96);
-								img.alt = '';
-								img.loading = 'lazy';
-								img.referrerPolicy = 'no-referrer';
-								av.append(img);
-							}
-							chip.append(av, el('span', 'nm', isMe ? `${p.name} (나)` : p.name));
-							chips.append(chip);
-						}
-						if (list.length > SHOW) chips.append(el('li', 'chip more', `+${list.length - SHOW}`));
-						wrap.append(chips);
-					}
-				} else if (!member && e.count) {
-					wrap.append(el('p', 'att-hint', '참석자 명단은 회원에게만 보여요.'));
+					fill.style.width = `${Math.min(100, (m.count / m.cap) * 100)}%`;
+					b.append(fill);
+					wrap.append(b);
 				}
 				return wrap;
 			};
 
-			const rsvpButton = (e: Ev, go: boolean, label: string) => {
-				const b = el('button', go ? 'btn-rsvp go' : 'btn-rsvp', label);
-				b.type = 'button';
-				b.addEventListener('click', async () => {
-					const err = b.closest('li')!.querySelector('.rsvp-err')!;
-					b.disabled = true;
-					b.textContent = '처리 중…';
-					const res = await call({ action: 'rsvp', token, id: e.id, go }).catch(() => null);
-					if (res?.expired) { store.clear(); token = null; return load('다시 로그인해 주세요.'); }
-					// 응답을 못 받았어도 시트엔 기록됐을 수 있음 → 목록을 다시 불러와 실제 상태로
-					if (!res) return load('응답이 늦어 다시 불러왔어요. 참석 여부를 확인해 주세요.');
-					if (!res.ok) {
-						b.disabled = false;
-						b.textContent = label;
-						err.textContent = res.error ?? '잠시 뒤 다시 시도해 주세요.';
-						if (res.error?.includes('정원')) load(); // 인원 최신으로
-						return;
-					}
-					render(res.events, res.member);
-				});
-				return b;
-			};
-
-			const load = async (note = '') => {
-				const res = await call({ action: 'events', token }).catch(() => null);
-				if (!res?.ok) { msg.textContent = '모임을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.'; msg.hidden = false; return; }
-				if (res.expired) { store.clear(); token = null; }
-				render(res.events, res.member);
-				if (note) { msg.textContent = note; msg.hidden = false; }
-			};
-			load();
+			const res = await call({ action: 'somoim' }).catch(() => null);
+			if (res?.url) more.href = res.url;
+			const meetups: Meetup[] = res?.ok ? res.meetups : [];
+			msg.textContent = !res?.ok ? '정모 일정을 불러오지 못했어요. 소모임에서 확인해 주세요.' : meetups.length ? '' : '예정된 정모가 아직 없어요.';
+			msg.hidden = !msg.textContent;
+			list.replaceChildren(
+				...meetups.map((m, i) => {
+					const li = document.createElement('li');
+					const when = el('time', '', m.date);
+					if (m.time) when.append(el('small', 'trip-end', m.time));
+					const main = el('div', 'trip-main');
+					main.append(el('h3', '', m.title), el('p', '', m.place));
+					if (m.fee) main.append(el('p', 'trip-fee', m.fee));
+					const box = el('div', 'trip-rsvp');
+					const full = m.cap != null && m.count != null && m.count >= m.cap;
+					const go = el('a', full ? 'btn-rsvp is-full' : 'btn-rsvp go', full ? '마감 · 소모임 보기 ↗' : '소모임에서 참석 ↗');
+					go.href = res.url;
+					go.target = '_blank';
+					go.rel = 'noopener';
+					box.append(go);
+					li.append(el('span', 'idx', String(i + 1).padStart(2, '0')), when, main, box, bar(m));
+					return li;
+				}),
+			);
 		</script>
 		<script>
 			// 사진 띠 (히어로 스크립트와 따로 — 사진 목록 기다리는 동안 영상 버튼이 막히지 않게)

@@ -484,7 +484,14 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	env.ctx.DriveApp.getFolderById = (fid) => { const f = cf(fid); const mk = f.createFile; f.createFile = (blob) => { const file = mk(blob); file.setSharing = () => { throw new Error('공유 정책'); }; return file; }; return f; };
 	const shared = call({ action: 'avatar', token: A, data: jpg });
 	assert.equal(shared.ok, true);
-	assert.match(shared.photo, /^f\d+$/);
+	assert.match(shared.photo, /^f\d+$/); // 작은 사진이 없으면 드라이브 파일 그대로
+	const sharedSmall = 'data:image/jpeg;base64,' + Buffer.from('small2').toString('base64');
+	const withSmall = call({ action: 'avatar', token: A, data: jpg, small: sharedSmall });
+	assert.equal(withSmall.photo, sharedSmall); // 공유가 막히면 화면엔 시트 작은 사진
+	const row2 = profile.find((r) => r[0] === '010-6000-0001');
+	assert.match(row2[1], /^f\d+$/); // 원본은 드라이브 폴더에
+	assert.equal(row2[3], sharedSmall);
+	assert.equal(call({ action: 'me', token: A }).me.photo, sharedSmall);
 	env.ctx.DriveApp.getFolderById = cf;
 	console.error = origErr;
 
@@ -504,4 +511,26 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	assert.ok(!JSON.stringify(g).includes('회원A'));
 }
 
-console.log('ok: Code.gs 로그인·잠금·토큰·본인정보·회원가입·드롭다운·승인 배치(운영진·마스터 보호) ·갤러리·모임 참석·프로필 사진 검증 통과');
+// ══ 7. 소모임 정모 읽기: 공개 페이지 구조(축약한 가짜 HTML)로 날짜·제목·장소·회비·인원, 지난 정모 제외 ══
+{
+	const { ctx } = load([tab('회원현황', [HEAD])]);
+	const y = new Date().getFullYear() + 1;
+	const item = (stamp, md, hm, title, place, fee, n, cap, face = true) => `<div class="flex space-x-3"><div class="relative"><img src="https://cdn.example/group1${stamp}s1.png"/><p>${md}</p><p>${hm}</p></div><div><h3 class="x">${title}</h3><div><img src="/i_clock.svg"/></div><p>${md} ${hm}</p><div><img src="/i_location2.svg" alt=""/></div><p class="t">${place}</p><div><img src="/i_currency.svg" alt=""/></div><p class="t">${fee}</p>${face ? '<img src="https://cdn.example/face1t.png" alt="member face"/>' : ''}<div><span>${n}</span><span>/</span><span>${cap}</span></div></div></div>`;
+	const page = `<section><h2>정모 일정 <!-- -->3</h2><div class="grid">${item(`${y}11071300`, '11/7(토)', '오후 1:00', '●왁싱벙● &amp; 시즌준비', '온사이드 (양주)', '먹고놀고 앤분의하나', 18, 30)}${item(`${y}01102300`, '1/10(일)', '오후 11:00', '시즌방', '강촌', '10만원', 13, 15)}${item('202001011000', '1/1(수)', '오전 10:00', '지난 정모', '어딘가', '', 1, 2)}</div></section><section>다른 내용</section>`;
+	const list = plain(ctx.parseSomoim(page, new Date()));
+	assert.deepEqual(list.map((m) => [m.title, m.date.slice(0, 5), m.time, m.place, m.fee, m.count, m.cap]), [
+		['시즌방', '01.10', '오후 11:00', '강촌', '10만원', 13, 15],
+		['●왁싱벙● & 시즌준비', '11.07', '오후 1:00', '온사이드 (양주)', '먹고놀고 앤분의하나', 18, 30],
+	]);
+	assert.ok(!JSON.stringify(list).includes('face'), '참석자 얼굴 안 가져옴');
+	// 이미지 이름에 날짜가 없으면 화면 글자로 (연도 추정)
+	const noStamp = page.replace(/\d{12}s1\.png/g, 'x.png');
+	const now = new Date(y - 1, 10, 1); // 그해 11월 1일 기준
+	const l2 = plain(ctx.parseSomoim(noStamp, now));
+	// 연도가 없으면 11월에 본 '1/1'은 내년으로 봄 (이미지 이름에 날짜가 있으면 이 추정은 안 씀)
+	assert.deepEqual(l2.map((m) => [m.title, new Date(m.start).getFullYear(), m.time]), [['●왁싱벙● & 시즌준비', y - 1, '오후 1:00'], ['지난 정모', y, '오전 10:00'], ['시즌방', y, '오후 11:00']]);
+	// 구조가 바뀌어 '정모 일정'이 없으면 빈 목록
+	assert.deepEqual(plain(ctx.parseSomoim('<html>바뀐 페이지</html>', new Date())), []);
+}
+
+console.log('ok: Code.gs 로그인·잠금·토큰·본인정보·회원가입·드롭다운·승인 배치(운영진·마스터 보호) ·갤러리·모임 참석·프로필 사진·소모임 정모 검증 통과');

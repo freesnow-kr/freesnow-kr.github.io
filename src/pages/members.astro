@@ -24,7 +24,7 @@ const base = import.meta.env.BASE_URL;
 	<body>
 		<header class="nav">
 			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
-			<nav aria-label="메인">
+			<nav id="site-nav" aria-label="메인">
 				<a href={`${base}/#season`}>SEASON</a>
 				<a href={`${base}/#ride`}>RIDE</a>
 				<a href={`${base}/#faq`}>FAQ</a>
@@ -33,6 +33,7 @@ const base = import.meta.env.BASE_URL;
 				<a href={`${base}/members/`} aria-current="page">MEMBERS</a>
 			</nav>
 			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
 		</header>
 
 		<main>
@@ -256,12 +257,18 @@ const base = import.meta.env.BASE_URL;
 		color: #4a4d55;
 		text-align: center;
 	}
+	/* 모바일: 사진 → 이름·정보 → 로그아웃, 모두 가운데 */
 	@media (max-width: 640px) {
 		.me {
-			flex-wrap: wrap;
+			flex-direction: column;
+			text-align: center;
+		}
+		.me-info {
+			margin-right: 0;
 		}
 		.me .logout {
 			width: 100%;
+			justify-content: center;
 		}
 	}
 	.me-name {

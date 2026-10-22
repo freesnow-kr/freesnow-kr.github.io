@@ -68,7 +68,7 @@
 ## 오픈채팅 랭킹 (`/rank` + `apps-script` chatrank)
 
 - 카카오는 오픈채팅을 읽는 공식 API가 없음 → 운영진이 **대화 내보내기 CSV**(`Date,User,Message`, 메시지 안 줄바꿈은 따옴표)를 `Code.gs`의 `CHAT_FOLDER_ID` 드라이브 폴더에 올림. 폴더에서 가장 최근에 만든 `.csv` 하나만 셈(내보내기는 전체 기록이라). 폴더는 비공개로 둬도 됨.
-- `action:'chatrank'` {token}: **회원만**. `parseChat` → `{from, to, total, ranks:[{name, count}], months:[{month:'2025-11', total, ranks}]}`(최근 달부터, 같은 개수면 그 달에 먼저 말한 순). 메시지 내용은 응답에 넣지 않음. `chatrank2:`+파일 id+수정시각을 키로 6시간 캐시 → 새 파일 올리면 바로 반영. **응답 모양을 바꾸면 키 앞머리 숫자를 올릴 것**(안 그러면 새 버전 배포 후에도 예전 캐시가 나옴 — 실제로 달별 데이터가 안 나왔던 원인).
+- `action:'chatrank'` {token}: **회원만**. `parseChat` → `{from, to, total, ranks:[{name, count}], months:[{month:'2025-11', total, ranks}]}`(최근 달부터, 같은 개수면 그 달에 먼저 말한 순). 메시지 내용은 응답에 넣지 않음. `chatrank2:`+파일 id+수정시각을 키로 6시간 캐시(결과가 캐시 한 칸 100KB를 넘어 `bigCachePut/Get`으로 3만 자씩 나눠 저장 — 예전엔 조용히 캐시 실패해서 매번 CSV를 다시 셌음). 최신 파일 찾기도 10분 캐시(`chatrank:file`) → 새 파일은 최대 10분 뒤 반영. 화면은 지난 결과를 브라우저(`fs-chatrank`)에 저장해 바로 보여 주고 뒤에서 새로 받아 바뀌면 다시 그림(고른 달 유지), 로그아웃(`store.clear`) 때 지움. **응답 모양을 바꾸면 키 앞머리 숫자를 올릴 것**(안 그러면 새 버전 배포 후에도 예전 캐시가 나옴 — 실제로 달별 데이터가 안 나왔던 원인).
 - 제외: `CHAT_SKIP_USERS`(방장봇), 입장·퇴장 등 `CHAT_SYSTEM` 문구. 닉네임 `이름/나이/…`는 이름/나이가 같으면 한 사람(닉네임 바꿔도 합산), 표시는 마지막 닉네임.
 
 ## SHRED LOG (`/shredlog` + `apps-script` shredlog)

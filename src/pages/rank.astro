@@ -73,69 +73,92 @@ const base = import.meta.env.BASE_URL;
 			const token = store.get();
 			const msg = document.querySelector<HTMLElement>('.loading')!;
 			const box = document.querySelector<HTMLElement>('.rank')!;
+			const select = box.querySelector<HTMLSelectElement>('.rank-month')!;
+			const list = box.querySelector('.rank-list')!;
+
+			type Rank = { total: number; ranks: { name: string; count: number }[] };
+			type Month = Rank & { month: string };
+			const dot = (d: string) => d.replaceAll('-', '.');
+			const monthLabel = (m: string) => `${m.slice(0, 4)}년 ${Number(m.slice(5))}월`;
+			const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+			let views: Record<string, Rank & { meta: string }> = {};
+
+			// 지난 결과를 이 브라우저에 저장 → 다시 열면 바로 보이고, 서버에서 새로 받으면 바꿈 (로그아웃하면 지움: session.ts)
+			const KEY = 'fs-chatrank';
+			const saved = (): Month[] | null => {
+				try {
+					return JSON.parse(localStorage.getItem(KEY) || 'null');
+				} catch {
+					return null;
+				}
+			};
+
+			// 달 고르기: 다 끝난 달만(10월이면 9월까지), 기본은 지난달(9/1~9/30) — 데이터가 없어도 지난달. 다시 그려도 고른 달 유지
+			function draw(all: Month[]) {
+				msg.hidden = true;
+				box.hidden = false;
+				const now = new Date();
+				const thisMonth = ym(now);
+				const lastMonth = ym(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+				const picked = select.value;
+				const months = all.filter((m) => m.month < thisMonth);
+				if (!months.some((m) => m.month === lastMonth)) months.unshift({ month: lastMonth, total: 0, ranks: [] });
+				views = {};
+				select.replaceChildren();
+				months.sort((a, b) => b.month.localeCompare(a.month)).forEach((m) => {
+					const end = new Date(Number(m.month.slice(0, 4)), Number(m.month.slice(5)), 0).getDate(); // 그 달 말일
+					views[m.month] = { ...m, meta: `${dot(m.month)}.01 ~ ${dot(m.month)}.${end} · 메시지 ${m.total.toLocaleString()}개` };
+					select.add(new Option(monthLabel(m.month), m.month));
+				});
+				select.value = views[picked] ? picked : lastMonth;
+				show(select.value);
+			}
+
+			function show(key: string) {
+				const v = views[key];
+				// 메시지가 하나도 없으면(그 달이 빠진 예전 파일 등) 안내
+				box.querySelector('.rank-meta')!.textContent = v.ranks.length ? v.meta : '이 달에 집계된 메시지가 없어요. 이 달까지 담긴 최신 CSV를 올렸는지 확인해 주세요.';
+				const max = v.ranks[0]?.count || 1;
+				list.replaceChildren();
+				// 같은 개수면 같은 순위. 닉네임은 textContent로만 (HTML 주입 방지)
+				let place = 0;
+				v.ranks.forEach((p, i) => {
+					if (i === 0 || p.count !== v.ranks[i - 1].count) place = i + 1;
+					const li = document.createElement('li');
+					if (place <= 3) li.className = 'top';
+					li.style.setProperty('--w', `${(p.count / max) * 100}%`);
+					const n = document.createElement('span');
+					n.className = 'rank-no';
+					n.textContent = String(place);
+					const name = document.createElement('span');
+					name.className = 'rank-name';
+					name.textContent = p.name;
+					const c = document.createElement('span');
+					c.className = 'rank-count';
+					c.textContent = p.count.toLocaleString();
+					li.append(n, name, c);
+					list.append(li);
+				});
+			}
+			select.addEventListener('change', () => show(select.value));
 
 			// 로그인 안 했으면 로그인 화면으로 (로그인 후 이 페이지로 돌아옴)
 			const back = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
 			if (!token) location.replace(back);
 			else {
+				const old = saved();
+				if (old) draw(old);
 				const res = await call({ action: 'chatrank', token }).catch(() => null);
 				if (res?.expired) {
 					store.clear();
 					location.replace(`${back}&expired`);
-				} else if (!res?.ok) {
-					msg.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
-				} else {
-					msg.remove();
-					box.hidden = false;
-					type Rank = { total: number; ranks: { name: string; count: number }[] };
-					const dot = (d: string) => d.replaceAll('-', '.');
-					const monthLabel = (m: string) => `${m.slice(0, 4)}년 ${Number(m.slice(5))}월`;
-					// 달 고르기: 다 끝난 달만(10월이면 9월까지), 기본은 항상 지난달(9/1~9/30) — 데이터가 없어도 지난달
-					const select = box.querySelector<HTMLSelectElement>('.rank-month')!;
-					const views: Record<string, Rank & { meta: string }> = {};
-					const now = new Date();
-					const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-					const thisMonth = ym(now);
-					const lastMonth = ym(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-					const empty = { total: 0, ranks: [] };
-					const months: (Rank & { month: string })[] = (res.months ?? []).filter((m: { month: string }) => m.month < thisMonth);
-					if (!months.some((m) => m.month === lastMonth)) months.unshift({ month: lastMonth, ...empty });
-					months.sort((a, b) => b.month.localeCompare(a.month)).forEach((m) => {
-						const end = new Date(Number(m.month.slice(0, 4)), Number(m.month.slice(5)), 0).getDate(); // 그 달 말일
-						views[m.month] = { ...m, meta: `${dot(m.month)}.01 ~ ${dot(m.month)}.${end} · 메시지 ${m.total.toLocaleString()}개` };
-						select.add(new Option(monthLabel(m.month), m.month));
-					});
-					select.value = lastMonth;
-					const list = box.querySelector('.rank-list')!;
-					const show = (key: string) => {
-						const v = views[key];
-						// 메시지가 하나도 없으면(그 달이 빠진 예전 파일 등) 안내
-						box.querySelector('.rank-meta')!.textContent = v.ranks.length ? v.meta : '이 달에 집계된 메시지가 없어요. 이 달까지 담긴 최신 CSV를 올렸는지 확인해 주세요.';
-						const max = v.ranks[0]?.count || 1;
-						list.replaceChildren();
-						// 같은 개수면 같은 순위. 닉네임은 textContent로만 (HTML 주입 방지)
-						let place = 0;
-						v.ranks.forEach((p, i) => {
-							if (i === 0 || p.count !== v.ranks[i - 1].count) place = i + 1;
-							const li = document.createElement('li');
-							if (place <= 3) li.className = 'top';
-							li.style.setProperty('--w', `${(p.count / max) * 100}%`);
-							const n = document.createElement('span');
-							n.className = 'rank-no';
-							n.textContent = String(place);
-							const name = document.createElement('span');
-							name.className = 'rank-name';
-							name.textContent = p.name;
-							const c = document.createElement('span');
-							c.className = 'rank-count';
-							c.textContent = p.count.toLocaleString();
-							li.append(n, name, c);
-							list.append(li);
-						});
-					};
-					select.addEventListener('change', () => show(select.value));
-					show(select.value);
-				}
+				} else if (res?.ok) {
+					const months: Month[] = res.months ?? [];
+					try {
+						localStorage.setItem(KEY, JSON.stringify(months));
+					} catch {}
+					if (JSON.stringify(months) !== JSON.stringify(old)) draw(months);
+				} else if (!old) msg.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
 			}
 		</script>
 	</body>

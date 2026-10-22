@@ -22,6 +22,7 @@
 | `/members/` | `src/pages/members.astro` | 회원 전용, **본인 정보만**. 토큰 없거나 만료면 `/login`(`?expired`)으로 |
 | `/rank/` | `src/pages/rank.astro` | 회원 전용 오픈채팅 메시지 수 랭킹, 끝난 달만 달별로 고름(기본: 항상 지난달 1일~말일, 이번 달은 숨김, '전체' 없음 — 사용자 요구). 헤더 메뉴 **CHAT RANK** |
 | `/shredlog/` | `src/pages/shredlog.astro` | SHRED LOG: 개인 시즌 출격·지출 기록(24-25/25-26/26-27), 시즌권 본전 계산, 시즌 비교, 지출 CSV. 비회원도 사용(브라우저 저장) + 로그인 유도, 회원은 시트 저장. 시즌 = 7/1~6/30 |
+| `/seasonroom/` | `src/pages/seasonroom.astro` | 회원 전용 시즌방 숙박 체크: 달력(날짜별 잔 사람), 날짜 골라 내 숙박 체크·취소(지난 날짜도 자유롭게), 달별 정산 |
 | `/cute/` | `src/pages/cute.astro` | 픽셀아트(Kizupi 느낌), 자체 `<style is:global>` |
 | `/ride/` | `astro.config.mjs` `redirects` | 예전 공개 주소 → `/` |
 
@@ -31,7 +32,7 @@
 - **링크·ID는 코드에 넣지 않음**(사용자 요구, 2026-10-22):
   - 사이트: `club`의 링크 3개는 빌드 환경변수 `PUBLIC_JOIN_URL`, `PUBLIC_SOMOIM_URL`, `PUBLIC_MEMBERS_API` — 로컬은 `.env`(gitignore, 양식 `.env.example`), 배포는 GitHub 저장소 Actions **Secrets**(또는 Variables, 같은 이름) → `deploy.yml`이 넘겨 줌. 하나라도 비면 빌드가 멈춰서 떠 있는 사이트는 그대로. 브라우저가 쓰는 값이라 배포된 사이트에선 보임(진짜 숨길 값은 아래 스크립트 속성).
   - Apps Script: 폴더 id·외부 주소는 로컬 `Code.gs`(저장소에 없음) 맨 위 `CONFIG` — `GALLERY_FOLDER_ID`, `CHAT_FOLDER_ID`, `AVATAR_FOLDER_ID`(비우면 자동 생성 후 스크립트 속성에 저장), `SOMOIM_URL`, `SNOWLIVE_API`. 코드는 `config('이름')` = 같은 이름 스크립트 속성 → 없으면 `CONFIG`. 비어 있으면 해당 기능 '준비 중'/오류. `authorizeDrive` 실행하면 빠진 값을 알려 줌. 테스트는 `CONFIG`를 비우고 `load()`의 `props`에 가짜 값.
-- 헤더/푸터 마크업은 페이지마다 복사돼 있음. 메뉴 항목을 바꾸면 헤더가 있는 페이지 전부(`index`, `gallery`, `webcam`, `login`, `signup`, `members`, `rank`, `shredlog`) 수정. 메뉴가 8개라 1180px 이하는 ☰ 메뉴(`ride.css` 미디어쿼리 + `session.ts`의 `min-width: 1181px`) — 메뉴를 더 늘리면 이 값도 늘릴 것.
+- 헤더/푸터 마크업은 페이지마다 복사돼 있음. 메뉴 항목을 바꾸면 헤더가 있는 페이지 전부(`index`, `gallery`, `webcam`, `login`, `signup`, `members`, `rank`, `shredlog`, `seasonroom`) 수정. 메뉴가 9개라 1320px 이하는 ☰ 메뉴(`ride.css` 미디어쿼리 + `session.ts`의 `min-width: 1321px`, 실제 필요 폭 약 1300px) — 메뉴를 더 늘리면 이 값도 늘릴 것.
 - `src/scripts/session.ts`: 에디토리얼 페이지 공통 클라이언트 모듈. 헤더 스크롤 배경(`.is-solid`), 로그인 상태면 헤더 버튼 LOGIN→LOGOUT, 토큰 저장(`store`), Apps Script 호출(`call`). 각 페이지 `<script>`에서 import.
 - `ride.css`의 `[hidden] { display: none !important }` — display를 지정한 요소에 `hidden`을 써도 숨겨지게(빠뜨리면 폼/완료 화면이 같이 보이는 버그).
 - 헤더 오른쪽 버튼(`.nav-join`)은 **LOGIN** → `/login/` (로그인 상태면 LOGOUT). MEMBERS 메뉴 → `/members/`. 오픈채팅(`club.joinUrl`)은 메인 히어로 `KAKAO OPEN CHAT` 버튼, 로그인 화면의 가입 문의 버튼, 푸터 링크로 연결.
@@ -85,6 +86,13 @@
 - 시즌권 계산은 **'계산하기' 버튼을 눌러야**(사용자 요구, 자동 계산 X): 가격 저장 → 라이딩 일수로 1회당 단가·본전. 시즌권 칸은 시즌을 바꾸거나 기록을 새로 불러올 때만 저장된 값으로 채움(입력 중 값 안 덮게).
 - **출격 일수 = SHRED LOG 출격 날짜 ∪ 스노우라이브 기록 날짜**(같은 날 한 번). 출격 칸·1회 평균·시즌권 1회당 단가·비교표가 이 값을 씀(스노우라이브만 연결하고 출격을 안 적어도 단가 계산되게 — 사용자 요구).
 - **스노우라이브 연동**(사용자 결정 2026-10-22, 공식 API 아님 — 앱이 쓰는 `friend-detail-page` 주소(스크립트 속성 `SNOWLIVE_API`)를 허락 없이 사용하는 것에 동의함): 회원이 SHRED LOG에서 스노우라이브 공유 링크/ID를 연결 → 연결 정보도 아래 '스노우라이브기록' 탭 하나에(따로 탭 없음 — 사용자 요구로 합침). 연결 직후 가져오기 전이면 `시즌` 빈 줄로 연결만 표시, 첫 시즌을 가져오면 그 줄을 채움. 회원의 연결 ID도 1시간 캐시(`snowliveid:`+연락처, 연결·해제 때 지움). `action:'snowlive'` {token, season, op?: 'link'|'unlink', id?} → `parseSnowlive`가 라이딩 통계만(총 런·점수·랭킹·상위%·티어·슬로프 TOP10·날짜별 런) 골라 보냄 — **성별 등 다른 항목은 버림**, `hide_profile`이면 통계 없이 `{hidden:true}`. 스노우라이브 시즌 = 10/1~3/31. 가져온 통계(라이딩 통계만)는 **'스노우라이브기록'** 탭(`연락처|스노우라이브ID|시즌|데이터(JSON)|가져온시각`)에 시즌별 한 칸 JSON으로 저장(사용자 요구, API 재호출 줄이기). 읽는 순서: **캐시(1시간) → 시트 → 스노우라이브**. 끝난 시즌(4/1 이후)은 저장된 것만 쓰고 다시 요청 안 함, 진행 중 시즌은 1시간 지나면 새로 요청, 요청 실패 시 저장된 것 사용. 다른 ID로 바꾸면 예전 ID 기록, 연결 해제하면 전부 삭제. **'재연결' 버튼**(`op:'refresh'`) = 캐시·시트 무시하고 스노우라이브에서 새로 → 시트·캐시 갱신, 1분 안에 또 누르면 저장된 것(스노우라이브 서버 보호). 날짜별 런은 출격 표 '스노우라이브' 칸에도 표시. API가 인증 없이 아무 ID나 받아 줌(입력한 ID가 본인 것인지 확인 불가). 응답 모양이 바뀌면 '불러오지 못했어요' → `parseSnowlive`와 `Code.test.mjs` 10번 수정.
+
+## 시즌방 숙박 체크 (`/seasonroom` + `apps-script` seasonroom)
+
+- 사용자 요구(2026-10-22): 시즌방에서 누가 언제 잤는지 확인. **회원 전체**가 체크, 방 2개지만 구분 없음, 정원 없음, 지난 날짜도 자유롭게 체크·취소. 정산 **1박 10,000원**(`ROOM_PRICE`), **시즌방 주주는 제외**.
+- **'시즌방'** 탭 `날짜|이름|연락처|체크시각` — 회원·날짜당 한 줄(취소하면 줄 삭제). **'시즌방주주'** 탭 `시즌|이름|연락처` — 운영진이 **시즌별로**(예 `26-27`) 적음, 주주는 시즌마다 다름.
+- `action:'seasonroom'` {token, season, op?: 'add'|'remove', date?} → `{season, price, nights: [{date, name, me, owner}]}`. 회원에게 **이름만**(연락처 X). 본인 줄만 추가·삭제, `LockService`. 시즌 = 7/1~6/30.
+- 화면: 시즌 단위로 한 번 받아 달 이동은 바로. 달력 칸에 이름(좁은 화면은 인원 수만), 아래 칸에서 고른 날 명단 + '이 날 잤어요 ✓'/'숙박 취소'(스피너). 달별 정산표(이름·박수·금액, 주주는 '주주') + 내 시즌 박수·금액. 같은 이름은 정산표에서 한 사람으로 묶임.
 
 ## THE SEASON = 소모임 정모 (`/` + `apps-script` somoim)
 

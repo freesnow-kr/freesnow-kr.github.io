@@ -1,0 +1,448 @@
+---
+import { club } from '../data/club';
+import Meta from '../components/Meta.astro';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="robots" content="noindex" />
+		<Meta title={`${club.name} — Season Room`} />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav id="site-nav" aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/#ride`}>RIDE</a>
+				<a href={`${base}/#faq`}>FAQ</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/members/`}>MEMBERS</a>
+				<a href={`${base}/rank/`}>CHAT RANK</a>
+				<a href={`${base}/shredlog/`}>SHRED LOG</a>
+				<a href={`${base}/seasonroom/`} aria-current="page">SEASON ROOM</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">MEMBERS ONLY</p>
+				<h1>SEASON ROOM.</h1>
+			</section>
+
+			<section class="mem-body">
+				<p class="mem-msg loading">불러오는 중…</p>
+				<div class="room" hidden>
+					<div class="room-head">
+						<button class="month-btn month-prev" type="button" aria-label="이전 달">‹</button>
+						<h2 class="month-label" aria-live="polite"></h2>
+						<button class="month-btn month-next" type="button" aria-label="다음 달">›</button>
+					</div>
+					<p class="room-hint">날짜를 누르면 그날 잔 사람이 보이고, 내 숙박을 체크하거나 취소할 수 있어요.</p>
+
+					<div class="cal">
+						{['일', '월', '화', '수', '목', '금', '토'].map((d) => <span class="wd">{d}</span>)}
+						<div class="days"></div>
+					</div>
+
+					<form class="day-panel">
+						<h3 class="day-title"></h3>
+						<ul class="day-names"></ul>
+						<button class="btn btn-ink day-toggle" type="submit"></button>
+					</form>
+
+					<section class="settle">
+						<h3 class="settle-title"></h3>
+						<div class="scroll">
+							<table>
+								<thead><tr><th>이름</th><th>박수</th><th>금액</th></tr></thead>
+								<tbody></tbody>
+								<tfoot><tr><th>합계</th><th class="sum-n"></th><th class="sum-won"></th></tr></tfoot>
+							</table>
+						</div>
+						<p class="mine"></p>
+					</section>
+				</div>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<a href={`${base}/members/`}>MEMBERS로</a>
+				<span>© {new Date().getFullYear()} {club.name}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { busy, call, loginUrl, store } from '../scripts/session';
+
+			type Night = { date: string; name: string; me: boolean; owner: boolean };
+			const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+			const token = store.get();
+			const msg = $('.loading');
+			const box = $('.room');
+			const panel = $<HTMLFormElement>('.day-panel');
+
+			const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD (현지 시간)
+			// 시즌 = 7/1 ~ 6/30 (서버도 같음): 2026-12-13 → '26-27'
+			const seasonOf = (date: string) => {
+				const [y, m] = date.split('-').map(Number);
+				const s = (m >= 7 ? y : y - 1) % 100;
+				return `${String(s).padStart(2, '0')}-${String(s + 1).padStart(2, '0')}`;
+			};
+			const won = (n: number) => `${n.toLocaleString()}원`;
+			const WD = ['일', '월', '화', '수', '목', '금', '토'];
+			const label = (date: string) => {
+				const [y, m, d] = date.split('-').map(Number);
+				return `${m}월 ${d}일 ${WD[new Date(y, m - 1, d).getDay()]}`;
+			};
+
+			let month = today.slice(0, 7); // 'YYYY-MM'
+			let selected = today;
+			let price = 10000;
+			const seasons: Record<string, Night[]> = {}; // 시즌별로 한 번 불러와서 달 이동은 바로
+
+			const back = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
+			// 시즌방 API (op 있으면 체크·취소). 실패하면 null
+			async function room(season: string, body: object = {}) {
+				const res = await call({ action: 'seasonroom', token, season, ...body }).catch(() => null);
+				if (res?.expired) {
+					store.clear();
+					location.replace(`${back}&expired`);
+					return null;
+				}
+				if (!res?.ok) {
+					alert(res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
+					return null;
+				}
+				price = res.price;
+				return (seasons[season] = res.nights as Night[]);
+			}
+
+			function render() {
+				const nights = seasons[seasonOf(`${month}-01`)] ?? [];
+				const [y, m] = month.split('-').map(Number);
+				$('.month-label').textContent = `${y}년 ${m}월`;
+
+				// 달력: 첫 주 앞은 빈 칸. 칸마다 이름(좁은 화면은 인원 수만)
+				const days = $('.days');
+				const cells: HTMLElement[] = [];
+				for (let i = 0; i < new Date(y, m - 1, 1).getDay(); i++) cells.push(document.createElement('span'));
+				const last = new Date(y, m, 0).getDate();
+				for (let d = 1; d <= last; d++) {
+					const date = `${month}-${String(d).padStart(2, '0')}`;
+					const who = nights.filter((n) => n.date === date);
+					const mine = who.some((n) => n.me);
+					const b = document.createElement('button');
+					b.type = 'button';
+					b.className = 'day';
+					b.classList.toggle('is-mine', mine);
+					b.classList.toggle('is-today', date === today);
+					b.setAttribute('aria-pressed', String(date === selected));
+					b.ariaLabel = `${label(date)}, ${who.length}명${mine ? ', 나도 숙박' : ''}`;
+					const num = document.createElement('span');
+					num.className = 'num';
+					num.textContent = String(d);
+					b.append(num);
+					if (who.length) {
+						const count = document.createElement('span');
+						count.className = 'count';
+						count.textContent = `${who.length}명`;
+						const names = document.createElement('span');
+						names.className = 'names';
+						names.textContent = who.slice(0, 3).map((n) => n.name).join(' · ') + (who.length > 3 ? ` +${who.length - 3}` : '');
+						b.append(count, names);
+					}
+					b.addEventListener('click', () => {
+						selected = date;
+						render();
+					});
+					cells.push(b);
+				}
+				days.replaceChildren(...cells);
+
+				// 고른 날: 명단 + 내 체크·취소 (지난 날짜도 자유롭게)
+				const who = nights.filter((n) => n.date === selected);
+				const mine = who.some((n) => n.me);
+				$('.day-title').textContent = `${label(selected)} · ${who.length}명`;
+				$('.day-names').replaceChildren(
+					...(who.length ? who : [null]).map((n) => {
+						const li = document.createElement('li');
+						li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.owner ? ' · 주주' : ''}` : '아직 아무도 없어요.';
+						if (n?.me) li.className = 'me';
+						return li;
+					}),
+				);
+				const toggle = $<HTMLButtonElement>('.day-toggle');
+				toggle.textContent = mine ? '숙박 취소' : '이 날 잤어요 ✓';
+				toggle.dataset.label = toggle.textContent;
+				toggle.classList.toggle('btn-line-dark', mine);
+				toggle.classList.toggle('btn-ink', !mine);
+
+				// 이번 달 정산: 1박 price원, 주주 0원
+				const people: Record<string, { name: string; owner: boolean; me: boolean; n: number }> = {};
+				nights
+					.filter((n) => n.date.startsWith(month))
+					.forEach((n) => {
+						const p = (people[n.name] ||= { name: n.name, owner: n.owner, me: n.me, n: 0 });
+						p.n++;
+					});
+				const list = Object.values(people).sort((a, c) => c.n - a.n || a.name.localeCompare(c.name, 'ko'));
+				const pay = (p: { owner: boolean; n: number }) => (p.owner ? 0 : p.n * price);
+				$('.settle-title').textContent = `${m}월 정산 · 1박 ${won(price)} (주주 제외)`;
+				$('.settle tbody').replaceChildren(
+					...(list.length ? list : [null]).map((p) => {
+						const tr = document.createElement('tr');
+						if (p?.me) tr.className = 'me';
+						const cells = p ? [`${p.name}${p.owner ? ' · 주주' : ''}`, `${p.n}박`, p.owner ? '주주' : won(pay(p))] : ['이번 달 숙박 기록이 없어요.', '', ''];
+						cells.forEach((c) => {
+							const td = document.createElement('td');
+							td.textContent = c;
+							tr.append(td);
+						});
+						return tr;
+					}),
+				);
+				$('.sum-n').textContent = `${list.reduce((t, p) => t + p.n, 0)}박`;
+				$('.sum-won').textContent = won(list.reduce((t, p) => t + pay(p), 0));
+				const myAll = nights.filter((n) => n.me);
+				const owner = myAll[0]?.owner;
+				$('.mine').textContent = `내 ${seasonOf(`${month}-01`)} 시즌: ${myAll.length}박${owner ? ' · 주주라 정산 없음' : ` · ${won(myAll.length * price)}`}`;
+			}
+
+			async function go(delta: number) {
+				const [y, m] = month.split('-').map(Number);
+				const d = new Date(y, m - 1 + delta, 1);
+				month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+				selected = today.startsWith(month) ? today : `${month}-01`;
+				const s = seasonOf(`${month}-01`);
+				if (!seasons[s]) {
+					box.setAttribute('aria-busy', 'true');
+					await room(s);
+					box.setAttribute('aria-busy', 'false');
+				}
+				render();
+			}
+			$('.month-prev').addEventListener('click', () => go(-1));
+			$('.month-next').addEventListener('click', () => go(1));
+
+			panel.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const mine = (seasons[seasonOf(selected)] ?? []).some((n) => n.date === selected && n.me);
+				busy(panel, true, mine ? '취소 중' : '체크 중');
+				await room(seasonOf(selected), { op: mine ? 'remove' : 'add', date: selected });
+				busy(panel, false, '');
+				render();
+			});
+
+			// 로그인 안 했으면 로그인 화면으로 (로그인 후 이 페이지로 돌아옴)
+			if (!token) location.replace(back);
+			else if (await room(seasonOf(today))) {
+				msg.remove();
+				box.hidden = false;
+				render();
+			} else msg.textContent = '시즌방 기록을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.';
+		</script>
+	</body>
+</html>
+
+<style>
+	.room {
+		display: grid;
+		gap: 20px;
+		max-width: 980px;
+	}
+	.room[aria-busy='true'] {
+		opacity: 0.6;
+		cursor: progress;
+	}
+	.room-head {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+	.month-label {
+		min-width: 7em;
+		text-align: center;
+		font: clamp(1.6rem, 3.5vw, 2.4rem) var(--display);
+		font-weight: 400;
+	}
+	.month-btn {
+		width: 44px;
+		height: 44px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+		font-size: 22px;
+		line-height: 1;
+		cursor: pointer;
+	}
+	.month-btn:hover {
+		background: var(--black);
+		color: var(--white);
+	}
+	.room-hint {
+		color: #4a4d55;
+		font-size: 14px;
+	}
+	/* 달력: 요일 줄 + 날짜 칸 (JS가 만든 칸이라 :global) */
+	.cal {
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 4px;
+	}
+	.wd {
+		padding: 4px 0;
+		text-align: center;
+		font-size: 12px;
+		font-weight: 700;
+		color: #4a4d55;
+	}
+	.wd:first-child {
+		color: #b3261e;
+	}
+	.days {
+		display: contents;
+	}
+	.cal :global(.day) {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 4px;
+		min-height: 92px;
+		padding: 8px;
+		border: 1px solid var(--line);
+		background: var(--white);
+		color: var(--black);
+		font: 400 12px 'Noto Sans KR', sans-serif;
+		text-align: left;
+		cursor: pointer;
+		overflow: hidden;
+	}
+	.cal :global(.day:hover) {
+		border-color: var(--black);
+	}
+	.cal :global(.day[aria-pressed='true']) {
+		outline: 2px solid var(--black);
+		outline-offset: -2px;
+	}
+	.cal :global(.day.is-mine) {
+		background: #fff1ea;
+		border-color: var(--accent);
+	}
+	.cal :global(.num) {
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.cal :global(.day.is-today .num) {
+		display: inline-grid;
+		place-items: center;
+		min-width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		background: var(--black);
+		color: var(--white);
+	}
+	.cal :global(.count) {
+		font-weight: 700;
+	}
+	.cal :global(.names) {
+		color: #4a4d55;
+		line-height: 1.4;
+		overflow-wrap: anywhere;
+	}
+	/* 좁은 화면: 이름은 빼고 인원 수만 (명단은 아래 칸에서) */
+	@media (max-width: 640px) {
+		.cal :global(.day) {
+			min-height: 56px;
+			padding: 6px 4px;
+		}
+		.cal :global(.names) {
+			display: none;
+		}
+	}
+	.day-panel {
+		display: grid;
+		gap: 12px;
+		justify-items: start;
+		padding: 20px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+	}
+	.day-title {
+		font-size: 1.2rem;
+		font-weight: 900;
+	}
+	.day-names {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px 14px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.day-names :global(li.me) {
+		font-weight: 700;
+		color: #c2410c;
+	}
+	.day-toggle {
+		min-height: 44px;
+		padding: 0 20px;
+	}
+	.settle {
+		display: grid;
+		gap: 12px;
+	}
+	.settle-title {
+		font: 1.4rem var(--display);
+		font-weight: 400;
+		letter-spacing: 0.02em;
+	}
+	.scroll {
+		overflow-x: auto;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 14px;
+	}
+	th,
+	.settle :global(td) {
+		padding: 10px 8px;
+		border-bottom: 1px solid var(--line);
+		text-align: left;
+	}
+	thead th,
+	tfoot th {
+		font-size: 12px;
+		letter-spacing: 0.08em;
+		border-bottom: 1.5px solid var(--black);
+	}
+	tfoot th {
+		border-top: 1.5px solid var(--black);
+		border-bottom: 0;
+		font-size: 14px;
+	}
+	.settle :global(tr.me td) {
+		font-weight: 700;
+	}
+	.mine {
+		font-weight: 700;
+	}
+</style>

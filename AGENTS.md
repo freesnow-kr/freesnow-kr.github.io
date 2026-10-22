@@ -7,6 +7,7 @@
 - **스택**: Astro 7 정적 사이트 (프레임워크·CSS 라이브러리 없음, 의존성 `astro` 하나). Node ≥ 22.22 (로컬 24).
 - **호스팅**: GitHub Pages, 저장소 `freesnow-kr/freesnow-kr.github.io` (조직 `freesnow-kr`, public), `main` push → `.github/workflows/deploy.yml` (withastro/action, `node-version: 24`).
 - **주소**: `https://freesnow-kr.github.io/` — 하위 경로 없음(`astro.config.mjs`에 `base` 없음).
+- **Apps Script 서버 코드 `apps-script/Code.gs`는 저장소에 없음**(사용자 요구, 2026-10-22, `.gitignore`) — 이 컴퓨터와 Apps Script 편집기에만. 테스트 `Code.test.mjs`·`appsscript.json`은 저장소에 있음. 다른 컴퓨터에서 작업하면 Apps Script 편집기에서 복사해 와야 함. 예전 커밋 기록에는 남아 있음.
 - **사용자**: 한국어 사용. 화면 문구는 한국어 존댓말(해요체), 디자인 문구는 영문 대문자.
 
 ## 라우트와 파일

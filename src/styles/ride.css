@@ -14,6 +14,19 @@
 [hidden] {
 	display: none !important;
 }
+/* 셀렉트박스 공통 모양: 기본 화살표(맨 끝에 붙음) 대신 직접 그린 화살표, 오른쪽에서 14px 안쪽.
+   페이지 스타일에서 select에 background 단축 속성을 쓰면 화살표가 지워지니 background-color만, 오른쪽 여백은 34px 이상 */
+select {
+	appearance: none;
+	border-radius: 0;
+	background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%230b0d12' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 14px center;
+	text-overflow: ellipsis;
+	cursor: pointer;
+}
+select:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
 html {
 	scroll-padding-top: 80px; /* 고정 헤더에 앵커 제목이 가리지 않게 */
 }

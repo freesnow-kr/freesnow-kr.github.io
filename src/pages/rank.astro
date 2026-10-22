@@ -1,5 +1,6 @@
 ---
 import { club } from '../data/club';
+import Meta from '../components/Meta.astro';
 import '../styles/ride.css';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
@@ -13,7 +14,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<meta name="robots" content="noindex" />
-		<title>{club.name} — Chat Rank</title>
+		<Meta title={`${club.name} — Chat Rank`} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link

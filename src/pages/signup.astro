@@ -1,5 +1,6 @@
 ---
 import { club } from '../data/club';
+import Meta from '../components/Meta.astro';
 import regions from '../data/regions.json'; // scripts/make-regions.mjs 로 법정동 CSV에서 생성
 import '../styles/ride.css';
 
@@ -14,7 +15,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<meta name="robots" content="noindex" />
-		<title>{club.name} — Sign up</title>
+		<Meta title={`${club.name} — Sign up`} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link

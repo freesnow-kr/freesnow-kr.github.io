@@ -95,6 +95,7 @@ function load(tabs, driveFiles = []) {
 	};
 	vm.createContext(ctx);
 	vm.runInContext(code, ctx);
+	vm.runInContext('Object.keys(CONFIG).forEach((k) => (CONFIG[k] = ""))', ctx); // Code.gs에 적힌 실제 폴더·주소 대신 아래 가짜 속성만 씀
 	return { ctx, created, trashed, props, call: (body) => ctx.doPost({ postData: { contents: JSON.stringify(body) } }) };
 }
 

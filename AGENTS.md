@@ -5,8 +5,8 @@
 ## 한눈에
 
 - **스택**: Astro 7 정적 사이트 (프레임워크·CSS 라이브러리 없음, 의존성 `astro` 하나). Node ≥ 22.22 (로컬 24).
-- **호스팅**: GitHub Pages, 저장소 `freesnow-kr/freesnow-kr.github.io` (조직 `freesnow-kr`, public; 2026-10-22 `yunj8649/free-snow`에서 옮김), `main` push → `.github/workflows/deploy.yml` (withastro/action, `node-version: 24`).
-- **주소**: `https://freesnow-kr.github.io/` — 하위 경로 없음(`astro.config.mjs`에 `base` 없음). 예전 `yunj8649.github.io/free-snow/`는 옮긴 뒤 안 열림.
+- **호스팅**: GitHub Pages, 저장소 `freesnow-kr/freesnow-kr.github.io` (조직 `freesnow-kr`, public), `main` push → `.github/workflows/deploy.yml` (withastro/action, `node-version: 24`).
+- **주소**: `https://freesnow-kr.github.io/` — 하위 경로 없음(`astro.config.mjs`에 `base` 없음).
 - **사용자**: 한국어 사용. 화면 문구는 한국어 존댓말(해요체), 디자인 문구는 영문 대문자.
 
 ## 라우트와 파일
@@ -26,7 +26,10 @@
 
 - `src/styles/ride.css`: `/`, `/webcam`, `/members` 공통 전역 CSS (토큰, 고정 헤더, 버튼, 푸터). **셀렉트박스 모양(직접 그린 화살표, 오른쪽 14px 안쪽)도 여기 `select` 공통** — 페이지 스타일에선 select에 `background` 단축 속성 쓰지 말고(화살표 지워짐) `background-color`, 오른쪽 여백 34px 이상. 각 페이지는 `import '../styles/ride.css'` + 페이지 전용 `<style>`.
 - `src/data/regions.json`: 가입 거주지 선택 목록(시도 → 시군구). `node scripts/make-regions.mjs data/list_20260630.csv`로 법정동 CSV에서 생성(원본 CSV는 `data/`, gitignore). 시도는 서울·경기 먼저 그다음 가나다, 시군구는 가나다, 시 아래 일반구(수원시장안구 등) 제외.
-- `src/data/club.ts`: **공통 데이터** — `club.joinUrl`(카카오 오픈채팅), `club.membersApi`(Apps Script URL), `trips`(시즌 일정), `faqs`. 여러 페이지가 import하므로 문구·링크는 여기서 수정.
+- `src/data/club.ts`: **공통 데이터** — `club.joinUrl`(카카오 오픈채팅), `club.somoimUrl`, `club.membersApi`(Apps Script URL), `trips`(시즌 일정), `faqs`. 여러 페이지가 import하므로 문구는 여기서 수정.
+- **링크·ID는 코드에 넣지 않음**(사용자 요구, 2026-10-22):
+  - 사이트: `club`의 링크 3개는 빌드 환경변수 `PUBLIC_JOIN_URL`, `PUBLIC_SOMOIM_URL`, `PUBLIC_MEMBERS_API` — 로컬은 `.env`(gitignore, 양식 `.env.example`), 배포는 GitHub 저장소 Actions **Secrets**(또는 Variables, 같은 이름) → `deploy.yml`이 넘겨 줌. 하나라도 비면 빌드가 멈춰서 떠 있는 사이트는 그대로. 브라우저가 쓰는 값이라 배포된 사이트에선 보임(진짜 숨길 값은 아래 스크립트 속성).
+  - Apps Script: 폴더 id·외부 주소는 **스크립트 속성**(`TOKEN_SECRET`과 같은 곳) — `GALLERY_FOLDER_ID`, `CHAT_FOLDER_ID`, `AVATAR_FOLDER_ID`(비우면 자동 생성 후 저장), `SOMOIM_URL`, `SNOWLIVE_API`. 코드는 `config('이름')`. 비어 있으면 해당 기능 '준비 중'/오류. `authorizeDrive` 실행하면 빠진 속성을 알려 줌. 테스트는 `load()`의 `props`에 가짜 값.
 - 헤더/푸터 마크업은 페이지마다 복사돼 있음. 메뉴 항목을 바꾸면 헤더가 있는 페이지 전부(`index`, `gallery`, `webcam`, `login`, `signup`, `members`, `rank`, `shredlog`) 수정. 메뉴가 8개라 1180px 이하는 ☰ 메뉴(`ride.css` 미디어쿼리 + `session.ts`의 `min-width: 1181px`) — 메뉴를 더 늘리면 이 값도 늘릴 것.
 - `src/scripts/session.ts`: 에디토리얼 페이지 공통 클라이언트 모듈. 헤더 스크롤 배경(`.is-solid`), 로그인 상태면 헤더 버튼 LOGIN→LOGOUT, 토큰 저장(`store`), Apps Script 호출(`call`). 각 페이지 `<script>`에서 import.
 - `ride.css`의 `[hidden] { display: none !important }` — display를 지정한 요소에 `hidden`을 써도 숨겨지게(빠뜨리면 폼/완료 화면이 같이 보이는 버그).
@@ -57,7 +60,7 @@
 
 ## 갤러리 (`/gallery`)
 
-- 운영진이 드라이브 폴더(`Code.gs`의 `GALLERY_FOLDER_ID`)에 사진을 올리면 사이트에 반영 — 코드 수정·배포 불필요. 폴더는 '링크가 있는 모든 사용자' 보기 권한이어야 이미지가 보임.
+- 운영진이 드라이브 폴더(스크립트 속성 `GALLERY_FOLDER_ID`)에 사진을 올리면 사이트에 반영 — 코드 수정·배포 불필요. 폴더는 '링크가 있는 모든 사용자' 보기 권한이어야 이미지가 보임.
 - `action:'gallery'` → `DriveApp`으로 폴더의 이미지 파일만 최신순(생성일) `[{id, caption}]`. 5분 `CacheService` 캐시(새 사진은 최대 5분 뒤). caption = 파일 이름(확장자 제외, `_`→공백), 휴대폰 기본 이름(IMG_…, KakaoTalk… 등)이면 ''.
 - 이미지 주소 `https://lh3.googleusercontent.com/d/{id}=w720`(격자) / `=w1800`(크게) — 드라이브가 크기 조절. 비공식 주소라 막히면 `https://drive.google.com/thumbnail?id={id}&sz=w720`로 바꿔 볼 것.
 - 파일 이름은 `textContent`·속성으로만 렌더링(HTML 주입 방지). 하위 폴더는 읽지 않음.
@@ -66,7 +69,7 @@
 
 ## 오픈채팅 랭킹 (`/rank` + `apps-script` chatrank)
 
-- 카카오는 오픈채팅을 읽는 공식 API가 없음 → 운영진이 **대화 내보내기 CSV**(`Date,User,Message`, 메시지 안 줄바꿈은 따옴표)를 `Code.gs`의 `CHAT_FOLDER_ID` 드라이브 폴더에 올림. 폴더에서 가장 최근에 만든 `.csv` 하나만 셈(내보내기는 전체 기록이라). 폴더는 비공개로 둬도 됨.
+- 카카오는 오픈채팅을 읽는 공식 API가 없음 → 운영진이 **대화 내보내기 CSV**(`Date,User,Message`, 메시지 안 줄바꿈은 따옴표)를 스크립트 속성 `CHAT_FOLDER_ID` 드라이브 폴더에 올림. 폴더에서 가장 최근에 만든 `.csv` 하나만 셈(내보내기는 전체 기록이라). 폴더는 비공개로 둬도 됨.
 - `action:'chatrank'` {token}: **회원만**. `parseChat` → `{from, to, total, ranks:[{name, count}], months:[{month:'2025-11', total, ranks}]}`(최근 달부터, 같은 개수면 그 달에 먼저 말한 순). 메시지 내용은 응답에 넣지 않음. `chatrank2:`+파일 id+수정시각을 키로 6시간 캐시(결과가 캐시 한 칸 100KB를 넘어 `bigCachePut/Get`으로 3만 자씩 나눠 저장 — 예전엔 조용히 캐시 실패해서 매번 CSV를 다시 셌음). 최신 파일 찾기도 10분 캐시(`chatrank:file`) → 새 파일은 최대 10분 뒤 반영. 화면은 지난 결과를 브라우저(`fs-chatrank`)에 저장해 바로 보여 주고 뒤에서 새로 받아 바뀌면 다시 그림(고른 달 유지), 로그아웃(`store.clear`) 때 지움. **응답 모양을 바꾸면 키 앞머리 숫자를 올릴 것**(안 그러면 새 버전 배포 후에도 예전 캐시가 나옴 — 실제로 달별 데이터가 안 나왔던 원인).
 - 제외: `CHAT_SKIP_USERS`(방장봇), 입장·퇴장 등 `CHAT_SYSTEM` 문구. 닉네임 `이름/나이/…`는 이름/나이가 같으면 한 사람(닉네임 바꿔도 합산), 표시는 마지막 닉네임.
 
@@ -80,12 +83,12 @@
 - **시즌 오픈일** `SEASON_OPEN`(shredlog.astro 스크립트, 지금 `{'26-27': '2026-11-28'}` — 사용자 지정): 그 날 전에는 시즌 버튼에 'OPEN 11.28', 고르면 '아직 오픈 전이에요' 안내, 처음 열 때 지난 시즌을 보여 줌. 그 날부터 자동으로 사라짐(브라우저 날짜 기준). 오픈 전에도 기록은 가능(시즌권 미리 산 것 등). 새 시즌 추가할 때 `seasons`와 함께 갱신.
 - 시즌권 계산은 **'계산하기' 버튼을 눌러야**(사용자 요구, 자동 계산 X): 가격 저장 → 라이딩 일수로 1회당 단가·본전. 시즌권 칸은 시즌을 바꾸거나 기록을 새로 불러올 때만 저장된 값으로 채움(입력 중 값 안 덮게).
 - **출격 일수 = SHRED LOG 출격 날짜 ∪ 스노우라이브 기록 날짜**(같은 날 한 번). 출격 칸·1회 평균·시즌권 1회당 단가·비교표가 이 값을 씀(스노우라이브만 연결하고 출격을 안 적어도 단가 계산되게 — 사용자 요구).
-- **스노우라이브 연동**(사용자 결정 2026-10-22, 공식 API 아님 — 앱이 쓰는 `SNOWLIVE_API`(heroku `friend-detail-page`)를 허락 없이 사용하는 것에 동의함): 회원이 SHRED LOG에서 스노우라이브 공유 링크/ID를 연결 → 연결 정보도 아래 '스노우라이브기록' 탭 하나에(따로 탭 없음 — 사용자 요구로 합침). 연결 직후 가져오기 전이면 `시즌` 빈 줄로 연결만 표시, 첫 시즌을 가져오면 그 줄을 채움. 회원의 연결 ID도 1시간 캐시(`snowliveid:`+연락처, 연결·해제 때 지움). `action:'snowlive'` {token, season, op?: 'link'|'unlink', id?} → `parseSnowlive`가 라이딩 통계만(총 런·점수·랭킹·상위%·티어·슬로프 TOP10·날짜별 런) 골라 보냄 — **성별 등 다른 항목은 버림**, `hide_profile`이면 통계 없이 `{hidden:true}`. 스노우라이브 시즌 = 10/1~3/31. 가져온 통계(라이딩 통계만)는 **'스노우라이브기록'** 탭(`연락처|스노우라이브ID|시즌|데이터(JSON)|가져온시각`)에 시즌별 한 칸 JSON으로 저장(사용자 요구, API 재호출 줄이기). 읽는 순서: **캐시(1시간) → 시트 → 스노우라이브**. 끝난 시즌(4/1 이후)은 저장된 것만 쓰고 다시 요청 안 함, 진행 중 시즌은 1시간 지나면 새로 요청, 요청 실패 시 저장된 것 사용. 다른 ID로 바꾸면 예전 ID 기록, 연결 해제하면 전부 삭제. **'재연결' 버튼**(`op:'refresh'`) = 캐시·시트 무시하고 스노우라이브에서 새로 → 시트·캐시 갱신, 1분 안에 또 누르면 저장된 것(스노우라이브 서버 보호). 날짜별 런은 출격 표 '스노우라이브' 칸에도 표시. API가 인증 없이 아무 ID나 받아 줌(입력한 ID가 본인 것인지 확인 불가). 응답 모양이 바뀌면 '불러오지 못했어요' → `parseSnowlive`와 `Code.test.mjs` 10번 수정.
+- **스노우라이브 연동**(사용자 결정 2026-10-22, 공식 API 아님 — 앱이 쓰는 `friend-detail-page` 주소(스크립트 속성 `SNOWLIVE_API`)를 허락 없이 사용하는 것에 동의함): 회원이 SHRED LOG에서 스노우라이브 공유 링크/ID를 연결 → 연결 정보도 아래 '스노우라이브기록' 탭 하나에(따로 탭 없음 — 사용자 요구로 합침). 연결 직후 가져오기 전이면 `시즌` 빈 줄로 연결만 표시, 첫 시즌을 가져오면 그 줄을 채움. 회원의 연결 ID도 1시간 캐시(`snowliveid:`+연락처, 연결·해제 때 지움). `action:'snowlive'` {token, season, op?: 'link'|'unlink', id?} → `parseSnowlive`가 라이딩 통계만(총 런·점수·랭킹·상위%·티어·슬로프 TOP10·날짜별 런) 골라 보냄 — **성별 등 다른 항목은 버림**, `hide_profile`이면 통계 없이 `{hidden:true}`. 스노우라이브 시즌 = 10/1~3/31. 가져온 통계(라이딩 통계만)는 **'스노우라이브기록'** 탭(`연락처|스노우라이브ID|시즌|데이터(JSON)|가져온시각`)에 시즌별 한 칸 JSON으로 저장(사용자 요구, API 재호출 줄이기). 읽는 순서: **캐시(1시간) → 시트 → 스노우라이브**. 끝난 시즌(4/1 이후)은 저장된 것만 쓰고 다시 요청 안 함, 진행 중 시즌은 1시간 지나면 새로 요청, 요청 실패 시 저장된 것 사용. 다른 ID로 바꾸면 예전 ID 기록, 연결 해제하면 전부 삭제. **'재연결' 버튼**(`op:'refresh'`) = 캐시·시트 무시하고 스노우라이브에서 새로 → 시트·캐시 갱신, 1분 안에 또 누르면 저장된 것(스노우라이브 서버 보호). 날짜별 런은 출격 표 '스노우라이브' 칸에도 표시. API가 인증 없이 아무 ID나 받아 줌(입력한 ID가 본인 것인지 확인 불가). 응답 모양이 바뀌면 '불러오지 못했어요' → `parseSnowlive`와 `Code.test.mjs` 10번 수정.
 
 ## THE SEASON = 소모임 정모 (`/` + `apps-script` somoim)
 
 - 사용자 결정(2026-10-21): THE SEASON은 **소모임 모임 공개 페이지의 '정모 일정'**을 보여주고, 참석은 소모임에서 받음. 사이트의 참석/취소 UI는 쓰지 않음(아래 events·rsvp 서버 코드는 남아 있지만 현재 화면에서 호출 안 함).
-- `action:'somoim'`: `UrlFetchApp`으로 `SOMOIM_URL`(=`club.somoimUrl`) 공개 페이지를 읽어 `parseSomoim` → `[{title, date, time, start, place, fee, count, cap}]`. **1시간 `CacheService` 캐시** → 소모임에는 시간당 1회만 접근. 참석자 얼굴·이름은 가져오지 않음.
+- `action:'somoim'`: `UrlFetchApp`으로 스크립트 속성 `SOMOIM_URL`(=`club.somoimUrl`) 공개 페이지를 읽어 `parseSomoim` → `[{title, date, time, start, place, fee, count, cap}]`. **1시간 `CacheService` 캐시** → 소모임에는 시간당 1회만 접근. 참석자 얼굴·이름은 가져오지 않음.
 - 파싱: '정모 일정' 이후 `<div class="flex space-x-3">` 단위로 나눔. 날짜는 정모 이미지 파일명의 `yyyymmddHHMM`(예 `…202611071300s1.png`), 없으면 화면의 `11/7(토) 오후 1:00`에서 연도 추정. 장소·회비는 `i_location`·`i_currency` 아이콘 다음 `<p>`, 인원은 끝의 `18 / 30`.
 - 공식 API 아님 → 소모임이 페이지 구조를 바꾸면 빈 목록/오류 → 화면엔 '정모 일정을 불러오지 못했어요' + '소모임에서 전체 일정 보기 ↗' 링크. 고칠 땐 공개 페이지 HTML을 다시 보고 `parseSomoim`만 수정 + `Code.test.mjs` 7번 픽스처 갱신.
 - 권한: `appsscript.json`에 `script.external_request` 추가(재승인 필요).
@@ -103,7 +106,7 @@
 
 - 회원이 `/members`에서 사진을 고르면 브라우저가 가운데 정사각형 256px JPG(약 10~60KB)로 줄여 `action:'avatar'` {token, data}로 보냄. 삭제는 {token, remove:true}.
 - **권한(scope)**: 사진 저장엔 `https://www.googleapis.com/auth/drive` 필요. 자동 감지가 예전 `drive.readonly`에 머물러 `createFile` 권한 오류가 났었음 → `apps-script/appsscript.json`에 `oauthScopes`를 직접 적어 둠(spreadsheets, drive, userinfo.email). 이 파일을 Apps Script 프로젝트 매니페스트에 그대로 넣고 `authorizeDrive` 실행으로 재승인. 명시하면 자동 감지가 꺼지므로 새 서비스(예: UrlFetchApp) 쓰면 여기에 scope 추가.
-- 저장: `Code.gs`의 `AVATAR_FOLDER_ID` 드라이브 폴더(운영진 지정, 현재 `1l4luKl_nTyDSTvtnxxNsbdbI0kR7M4J-`; 비우면 '프리스노우 프로필사진' 자동 생성). 파일은 '링크가 있는 사용자 보기'로 공유, 파일 이름에 번호 안 넣음(`avatar-xxxx.jpg`). 바꾸면 예전 사진은 휴지통.
+- 저장: 스크립트 속성 `AVATAR_FOLDER_ID` 드라이브 폴더(운영진 지정; 비우면 '프리스노우 프로필사진' 자동 생성 후 속성에 저장, 지정 폴더를 못 열면 오류 → 시트 작은 사진으로 대체). 파일은 '링크가 있는 사용자 보기'로 공유, 파일 이름에 번호 안 넣음(`avatar-xxxx.jpg`). 바꾸면 예전 사진은 휴지통.
 - 누가 어떤 사진인지는 **'프로필'** 탭(`연락처 | 사진ID | 변경일시 | 사진데이터`) — 회원현황 탭은 안 건드림.
 - **대체 저장**: 브라우저는 256px(드라이브용)과 96px(`small`, ≈4~8KB)을 같이 보냄. 드라이브에 파일 만들기가 실패하면(쓰기 권한 미승인 등) 96px를 '사진데이터' 칸에 `data:image/jpeg…`로 저장. 링크 공유(`setSharing`)만 실패하면 파일은 그대로 씀(폴더를 '링크가 있는 모든 사용자' 공유하면 보임). 드라이브가 다시 되면 다음 업로드부터 드라이브로, 사진데이터는 비움.
 - 사진 값은 드라이브 id 또는 data URL → 화면은 `photoSrc(photo, w)`로 표시.
@@ -164,7 +167,6 @@
 
 ## 남은 일 / 주의
 
-- `club.membersApi` 비어 있음 — 사용자가 Apps Script 배포 후 URL 전달 예정.
 - 회원명부 테스트 시트가 "링크가 있는 모든 사용자"로 공개돼 있었음(테스트 데이터라고 함). 실제 데이터 넣기 전 "제한됨"으로 바꾸도록 안내.
 - `trips`, `faqs`는 예시 내용. 실제 정모 일정 받으면 교체.
 - 메인 영상에 배경음악이 있으면 저작권 확인 필요(소리 버튼으로 재생 가능한 상태).

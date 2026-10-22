@@ -29,3 +29,6 @@ public/2526_main.mp4
 
 # 법정동 원본 (scripts/make-regions.mjs 입력, 배포 안 함)
 data/*.csv
+
+# Apps Script 서버 코드 (저장소에 안 올림 — 이 컴퓨터와 Apps Script 편집기에만)
+apps-script/Code.gs

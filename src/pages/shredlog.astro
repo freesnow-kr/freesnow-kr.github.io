@@ -55,6 +55,7 @@ const pick = {
 				<div class="seasons" role="group" aria-label="시즌 고르기">
 					{seasons.map((s) => <button type="button" data-season={s} aria-pressed="false">{s}</button>)}
 				</div>
+				<p class="season-note" hidden></p>
 			</section>
 
 			<div class="mem-body log">
@@ -241,7 +242,18 @@ const pick = {
 				return `${String(s).padStart(2, '0')}-${String(s + 1).padStart(2, '0')}`;
 			};
 			const seasons = [...document.querySelectorAll<HTMLButtonElement>('[data-season]')].map((b) => b.dataset.season!);
+			// 시즌 오픈일 (이 날부터 자동 오픈). 전에는 'OPEN 날짜' 표시·안내 문구, 처음 열 때는 지난 시즌을 보여 줌. 기록은 오픈 전에도 남길 수 있음(시즌권 미리 산 것 등)
+			const SEASON_OPEN: Record<string, string> = { '26-27': '2026-11-28' };
+			const isOpen = (s: string) => !SEASON_OPEN[s] || today >= SEASON_OPEN[s];
+			const openLabel = (s: string) => SEASON_OPEN[s].slice(5).replace('-', '.'); // '11.28'
 			let season = seasons.includes(seasonOf(today)) ? seasonOf(today) : seasons.at(-1)!;
+			while (!isOpen(season) && seasons.indexOf(season) > 0) season = seasons[seasons.indexOf(season) - 1];
+			document.querySelectorAll<HTMLButtonElement>('[data-season]').forEach((b) => {
+				if (isOpen(b.dataset.season!)) return;
+				const tag = document.createElement('small');
+				tag.textContent = `OPEN ${openLabel(b.dataset.season!)}`;
+				b.append(tag);
+			});
 
 			const statsOf = (s: string) => {
 				const visits = data.visits.filter((v) => seasonOf(v.date) === s);
@@ -287,6 +299,12 @@ const pick = {
 					snowlive();
 				}
 				document.querySelectorAll<HTMLButtonElement>('[data-season]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.season === season)));
+				const note = $('.season-note');
+				note.hidden = isOpen(season);
+				if (!isOpen(season)) {
+					const [, m, d] = SEASON_OPEN[season].split('-').map(Number);
+					note.textContent = `${season} 시즌은 아직 오픈 전이에요. ${m}월 ${d}일에 오픈해요.`;
+				}
 				const st = statsOf(season);
 				const stat = { visits: `${st.rides}일`, total: won(st.total), avg: won(st.avg), hours: `${st.hours}시간`, base: st.base };
 				Object.entries(stat).forEach(([k, v]) => ($(`[data-stat=${k}]`).textContent = v));
@@ -635,6 +653,18 @@ const pick = {
 		border-color: var(--accent);
 		color: var(--black);
 	}
+	/* 오픈 전 시즌: 'OPEN 11.28' 작은 표시 (JS가 붙임) */
+	.seasons :global(small) {
+		margin-left: 8px;
+		font: 700 11px 'Noto Sans KR', sans-serif;
+		letter-spacing: 0.08em;
+		opacity: 0.8;
+	}
+	.season-note {
+		margin-top: 12px;
+		font-size: 14px;
+		color: rgb(255 255 255 / 0.8);
+	}
 	.log {
 		display: grid;
 		gap: clamp(40px, 6vw, 72px);
@@ -706,19 +736,15 @@ const pick = {
 		padding: 0 12px;
 		border: 1.5px solid var(--black);
 		border-radius: 0;
-		background: var(--white);
+		background-color: var(--white);
 		color: var(--black);
 		font: 400 16px 'Noto Sans KR', sans-serif;
 		min-width: 0;
 	}
-	/* 기본 화살표는 맨 끝에 붙어서 직접 그림 (오른쪽에서 14px 안쪽) */
+	/* 화살표 자리 (모양은 ride.css 공통) */
 	select {
-		appearance: none;
 		padding-right: 34px;
 		font-size: 15px;
-		background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%230b0d12' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 14px center;
-		text-overflow: ellipsis;
-		cursor: pointer;
 	}
 	details {
 		width: 100%;

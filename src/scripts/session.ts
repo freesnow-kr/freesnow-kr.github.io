@@ -1,7 +1,8 @@
 // 에디토리얼 페이지 공통: 헤더 동작 + 회원 로그인 상태
 import { club } from '../data/club';
 
-export const base = import.meta.env.BASE_URL;
+// 끝 슬래시 없이: 루트 주소면 '', 하위 경로면 '/free-snow' 같은 값 → 링크는 항상 `${base}/...`
+export const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 export const loginUrl = `${base}/login/`;
 export const membersUrl = `${base}/members/`;
 

@@ -3,7 +3,7 @@ import { club } from '../data/club';
 import regions from '../data/regions.json'; // scripts/make-regions.mjs 로 법정동 CSV에서 생성
 import '../styles/ride.css';
 
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
 ---
 
 <html lang="ko">

@@ -2,7 +2,7 @@
 import { club } from '../data/club';
 import '../styles/ride.css';
 
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
 // 시즌 = 7월 1일 ~ 다음 해 6월 30일 (날짜 칸 min/max도 이 범위)
 const seasons = ['24-25', '25-26', '26-27'];
 const resorts = ['엘리시안 강촌', '휘닉스 스노우파크', '하이원', '모나 용평', '비발디파크', '웰리힐리', '지산 포레스트', '곤지암', '오크밸리', '알펜시아', '무주 덕유산', '에덴밸리', '니세코 (일본)', '하쿠바 (일본)'];

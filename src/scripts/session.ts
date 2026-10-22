@@ -73,7 +73,7 @@ if (nav) {
 		menuBtn.addEventListener('click', () => setOpen(!nav.classList.contains('is-open')));
 		nav.querySelectorAll('nav a').forEach((a) => a.addEventListener('click', () => setOpen(false)));
 		addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
-		matchMedia('(min-width: 1181px)').addEventListener('change', () => setOpen(false));
+		matchMedia('(min-width: 1321px)').addEventListener('change', () => setOpen(false));
 	}
 
 	// 로그인 상태면 LOGIN → LOGOUT

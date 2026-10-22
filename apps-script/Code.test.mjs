@@ -746,4 +746,36 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	assert.equal(plain(call({ action: 'snowlive', token: A, season: '25-26' })).id, '');
 }
 
-console.log('ok: Code.gs 로그인·잠금·토큰·본인정보·회원가입·드롭다운·승인 배치(운영진·마스터 보호) ·갤러리·모임 참석·프로필 사진·소모임 정모·채팅 랭킹·SHRED LOG·스노우라이브 검증 통과');
+// ══ 11. 시즌방: 회원만, 체크·취소(본인 줄만), 중복 없음, 이름만(연락처 X), 주주 표시, 시즌 범위, 잘못된 날짜 거부 ══
+{
+	const roster = [HEAD, [1, '서울', '노원구', '회원A', '남', 1990, 1, 1, '010-6000-0001', ''], [2, '서울', '노원구', '회원B', '여', 1991, 2, 2, '010-6000-0002', '']];
+	const tabs = [tab('회원현황', roster), tab('시즌방주주', [['시즌', '이름', '연락처'], ['26-27', '회원B', '010-6000-0002'], ['25-26', '회원A', '010-6000-0001']])]; // 주주는 시즌마다
+	const { call } = load(tabs);
+	assert.equal(call({ action: 'seasonroom', season: '26-27' }).expired, true, '비회원 거부');
+	const A = call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
+	const B = call({ action: 'login', phone: '60000002', birth: '19910202' }).token;
+	assert.deepEqual(plain(call({ action: 'seasonroom', token: A, season: '26-27' })), { ok: true, season: '26-27', price: 10000, nights: [] });
+
+	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-13' });
+	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-13' }); // 두 번 눌러도 한 줄
+	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2025-12-13' }); // 지난 시즌 날짜도 자유롭게 (응답엔 그 시즌만)
+	let r = plain(call({ action: 'seasonroom', token: B, season: '26-27', op: 'add', date: '2026-12-13' }));
+	assert.deepEqual(r.nights, [{ date: '2026-12-13', name: '회원A', me: false, owner: false }, { date: '2026-12-13', name: '회원B', me: true, owner: true }]);
+	assert.ok(!JSON.stringify(r).includes('6000'), '연락처 안 보냄');
+	const room = tabs.find((t) => t.getName() === '시즌방').rows;
+	assert.equal(room.length, 4);
+	assert.deepEqual(plain(call({ action: 'seasonroom', token: A, season: '25-26' })).nights, [{ date: '2025-12-13', name: '회원A', me: true, owner: true }], '25-26엔 A가 주주');
+
+	// B가 취소해도 A 줄은 그대로, 없는 날 취소는 아무 일 없음
+	call({ action: 'seasonroom', token: B, season: '26-27', op: 'remove', date: '2026-12-13' });
+	call({ action: 'seasonroom', token: B, season: '26-27', op: 'remove', date: '2026-12-14' });
+	r = plain(call({ action: 'seasonroom', token: A, season: '26-27' }));
+	assert.deepEqual(r.nights, [{ date: '2026-12-13', name: '회원A', me: true, owner: false }]);
+
+	// 잘못된 날짜·시즌
+	assert.equal(call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-02-30' }).ok, false);
+	assert.equal(call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '내일' }).ok, false);
+	assert.equal(call({ action: 'seasonroom', token: A, season: '2026' }).ok, false);
+}
+
+console.log('ok: Code.gs 로그인·잠금·토큰·본인정보·회원가입·드롭다운·승인 배치(운영진·마스터 보호) ·갤러리·모임 참석·프로필 사진·소모임 정모·채팅 랭킹·SHRED LOG·스노우라이브·시즌방 검증 통과');

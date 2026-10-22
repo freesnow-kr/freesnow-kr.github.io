@@ -72,9 +72,15 @@ function load(tabs, driveFiles = []) {
 			},
 			getFoldersByName: () => ({ hasNext: () => false }),
 			createFolder: (n) => ctx.DriveApp.getFolderById(`auto-${n}`),
-			getFileById: (id) => ({ setTrashed: (v) => v && trashed.push(id) }),
+			getFileById: (id) => ({ setTrashed: (v) => v && trashed.push(id), getBlob: () => ({ getDataAsString: () => driveFiles.find((f) => f.id === id)?.text }) }),
 		},
-		CacheService: { getScriptCache: () => ({ get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v), remove: (k) => cache.delete(k) }) },
+		CacheService: { getScriptCache: () => ({
+			get: (k) => cache.get(k) ?? null,
+			put: (k, v) => { if (String(v).length > 100000) throw new Error('too big'); cache.set(k, v); },
+			putAll: (o) => { if (Object.values(o).some((v) => String(v).length > 100000)) throw new Error('too big'); Object.entries(o).forEach(([k, v]) => cache.set(k, v)); },
+			getAll: (ks) => Object.fromEntries(ks.filter((k) => cache.has(k)).map((k) => [k, cache.get(k)])),
+			remove: (k) => cache.delete(k),
+		}) },
 		PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k === 'TOKEN_SECRET' ? 'test-secret' : props.get(k) ?? null), setProperty: (k, v) => props.set(k, v) }) },
 		Session: { getScriptTimeZone: () => 'Asia/Seoul' },
 		Utilities: {
@@ -568,6 +574,19 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	assert.ok(!JSON.stringify(r).includes('비밀'), '메시지 내용 안 보냄');
 	// 탭으로 나뉜 파일도
 	assert.equal(env.ctx.parseChat('Date\tUser\tMessage\n2025-01-01 00:00:00\tA\t"a\tb"\n').ranks[0].name, 'A');
+
+	// 캐시: 최신 파일 찾기 10분, 결과는 100KB 넘어도 나눠서 캐시 → 두 번째부터 파일을 안 읽음
+	const many = ['Date,User,Message', ...Array.from({ length: 6000 }, (_, i) => `2025-${String((i % 12) + 1).padStart(2, '0')}-01 00:00:00,닉네임${i % 2000}/9${i % 10}/어딘가/프리,x`)].join('\n');
+	const big = load([tab('회원현황', [HEAD, [1, '서울', '노원구', '회원A', '남', 1990, 1, 1, '010-6000-0001', '']])], [{ id: 'big', name: 'chat.csv', type: 'text/csv', t: 1, text: many }]);
+	vm.runInContext("CHAT_FOLDER_ID = 'chat'", big.ctx);
+	const BT = big.call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
+	let reads = 0;
+	const orig = big.ctx.DriveApp.getFileById;
+	big.ctx.DriveApp.getFileById = (id) => ({ getBlob: () => (reads++, orig(id).getBlob()) });
+	const first = plain(big.call({ action: 'chatrank', token: BT }));
+	assert.ok(JSON.stringify(first).length > 100000, '캐시 한 칸(100KB)보다 큰 결과');
+	assert.deepEqual(plain(big.call({ action: 'chatrank', token: BT })), first);
+	assert.equal(reads, 1, '두 번째는 캐시에서');
 }
 
 // ══ 9. SHRED LOG: 회원만, 본인 기록만 읽기·지우기, 같은 ID 중복 없음, 출격 지우면 묶인 지출도, 시즌권은 시즌당 한 줄, 수식 주입 방지 ══

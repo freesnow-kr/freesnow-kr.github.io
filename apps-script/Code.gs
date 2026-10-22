@@ -690,24 +690,47 @@ function chatRank(token) {
 	const phone = verify(token);
 	if (!phone || !readMembers().some((m) => m.phone === phone)) return { ok: false, expired: true, error: '다시 로그인해 주세요.' };
 	if (!CHAT_FOLDER_ID) return { ok: false, error: '랭킹을 준비 중이에요.' };
-	const files = DriveApp.getFolderById(CHAT_FOLDER_ID).getFiles();
-	let file = null;
-	while (files.hasNext()) {
-		const f = files.next();
-		if (/\.csv$/i.test(f.getName()) && (!file || f.getDateCreated() > file.getDateCreated())) file = f;
-	}
-	if (!file) return { ok: false, error: '랭킹을 준비 중이에요.' };
-	// 새 파일을 올리면 키가 바뀌어 바로 반영
 	const cache = CacheService.getScriptCache();
+	// 폴더에서 최신 CSV 찾기도 10분 캐시 (새 파일은 최대 10분 뒤 반영)
+	let fileKey = cache.get('chatrank:file');
+	if (!fileKey) {
+		const files = DriveApp.getFolderById(CHAT_FOLDER_ID).getFiles();
+		let file = null;
+		while (files.hasNext()) {
+			const f = files.next();
+			if (/\.csv$/i.test(f.getName()) && (!file || f.getDateCreated() > file.getDateCreated())) file = f;
+		}
+		if (!file) return { ok: false, error: '랭킹을 준비 중이에요.' };
+		fileKey = file.getId() + ':' + file.getLastUpdated().getTime();
+		cache.put('chatrank:file', fileKey, 10 * 60);
+	}
+	// 파일 id+수정시각이 키라 새 파일을 올리면 바로 새로 셈
 	// 응답 모양을 바꾸면 앞머리(chatrank2) 숫자도 올릴 것 — 안 그러면 새 코드가 예전 캐시(6시간)를 그대로 돌려줌
-	const key = 'chatrank2:' + file.getId() + ':' + file.getLastUpdated().getTime();
-	const hit = cache.get(key);
+	const key = 'chatrank2:' + fileKey;
+	const hit = bigCacheGet(cache, key);
 	if (hit) return JSON.parse(hit);
-	const out = { ok: true, ...parseChat(file.getBlob().getDataAsString('UTF-8')) };
-	try {
-		cache.put(key, JSON.stringify(out), 6 * 60 * 60);
-	} catch (err) {} // 너무 크면 캐시만 건너뜀
+	const out = { ok: true, ...parseChat(DriveApp.getFileById(fileKey.split(':')[0]).getBlob().getDataAsString('UTF-8')) };
+	bigCachePut(cache, key, JSON.stringify(out), 6 * 60 * 60);
 	return out;
+}
+
+// 캐시 한 칸은 100KB까지라 큰 값은 나눠 저장 (한글 3바이트 → 3만 자씩)
+function bigCachePut(cache, key, text, sec) {
+	const parts = {};
+	const n = Math.ceil(text.length / 30000);
+	for (let i = 0; i < n; i++) parts[`${key}:${i}`] = text.slice(i * 30000, (i + 1) * 30000);
+	parts[key] = String(n);
+	try {
+		cache.putAll(parts, sec);
+	} catch (err) {} // 그래도 너무 크면 캐시만 건너뜀
+}
+
+function bigCacheGet(cache, key) {
+	const n = Number(cache.get(key));
+	if (!n) return null;
+	const keys = Array.from({ length: n }, (_, i) => `${key}:${i}`);
+	const got = cache.getAll(keys);
+	return keys.every((k) => got[k] != null) ? keys.map((k) => got[k]).join('') : null; // 한 조각이라도 빠지면 새로
 }
 
 // 카톡 내보내기 CSV(Date,User,Message) → {from, to, total, ranks: [{name, count}], months: [{month: '2025-11', total, ranks}] (최근 달부터)}

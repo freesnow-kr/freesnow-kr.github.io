@@ -746,31 +746,62 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	assert.equal(plain(call({ action: 'snowlive', token: A, season: '25-26' })).id, '');
 }
 
-// ══ 11. 시즌방: 회원만, 체크·취소(본인 줄만), 중복 없음, 이름만(연락처 X), 주주 표시, 시즌 범위, 잘못된 날짜 거부 ══
+// ══ 11. 시즌방: 회원만, 숙박·휴식 체크/바꾸기/취소(본인 줄만), 중복 없음, 이름만(연락처 X), 시즌별 주주, 시즌 범위, 잘못된 날짜 거부, 예전 탭(구분 열 없음) ══
 {
 	const roster = [HEAD, [1, '서울', '노원구', '회원A', '남', 1990, 1, 1, '010-6000-0001', ''], [2, '서울', '노원구', '회원B', '여', 1991, 2, 2, '010-6000-0002', '']];
-	const tabs = [tab('회원현황', roster), tab('시즌방주주', [['시즌', '이름', '연락처'], ['26-27', '회원B', '010-6000-0002'], ['25-26', '회원A', '010-6000-0001']])]; // 주주는 시즌마다
+	// 예전에 만든 '시즌방' 탭(구분 열 없음)에 줄이 하나 있던 상태
+	const tabs = [
+		tab('회원현황', roster),
+		tab('시즌방', [['날짜', '이름', '연락처', '체크시각'], ['2026-11-01', '회원A', '010-6000-0001', '']]),
+		tab('시즌방주주', [['시즌', '이름', '연락처'], ['26-27', '회원B', '010-6000-0002'], ['25-26', '회원A', '010-6000-0001']]), // 주주는 시즌마다
+	];
 	const { call } = load(tabs);
+	const room = tabs[1].rows;
 	assert.equal(call({ action: 'seasonroom', season: '26-27' }).expired, true, '비회원 거부');
 	const A = call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
 	const B = call({ action: 'login', phone: '60000002', birth: '19910202' }).token;
-	assert.deepEqual(plain(call({ action: 'seasonroom', token: A, season: '26-27' })), { ok: true, season: '26-27', price: 10000, nights: [] });
+	let r = plain(call({ action: 'seasonroom', token: A, season: '26-27' }));
+	assert.deepEqual(r, { ok: true, season: '26-27', prices: { 숙박: 10000, 휴식: 5000 }, nights: [{ date: '2026-11-01', name: '회원A', kind: '숙박', me: true, owner: false }] }, '구분 없는 예전 줄은 숙박');
+	assert.equal(room[0][4], '구분', '예전 탭에 구분 열 추가');
 
-	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-13' });
+	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-13' }); // kind 없으면 숙박
 	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-13' }); // 두 번 눌러도 한 줄
 	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2025-12-13' }); // 지난 시즌 날짜도 자유롭게 (응답엔 그 시즌만)
-	let r = plain(call({ action: 'seasonroom', token: B, season: '26-27', op: 'add', date: '2026-12-13' }));
-	assert.deepEqual(r.nights, [{ date: '2026-12-13', name: '회원A', me: false, owner: false }, { date: '2026-12-13', name: '회원B', me: true, owner: true }]);
+	r = plain(call({ action: 'seasonroom', token: B, season: '26-27', op: 'add', date: '2026-12-13', kind: '휴식' }));
+	assert.deepEqual(r.nights.filter((n) => n.date === '2026-12-13'), [
+		{ date: '2026-12-13', name: '회원A', kind: '숙박', me: false, owner: false },
+		{ date: '2026-12-13', name: '회원B', kind: '휴식', me: true, owner: true },
+	]);
 	assert.ok(!JSON.stringify(r).includes('6000'), '연락처 안 보냄');
-	const room = tabs.find((t) => t.getName() === '시즌방').rows;
-	assert.equal(room.length, 4);
-	assert.deepEqual(plain(call({ action: 'seasonroom', token: A, season: '25-26' })).nights, [{ date: '2025-12-13', name: '회원A', me: true, owner: true }], '25-26엔 A가 주주');
+	assert.equal(room.length, 5);
+	assert.deepEqual(plain(call({ action: 'seasonroom', token: A, season: '25-26' })).nights, [{ date: '2025-12-13', name: '회원A', kind: '숙박', me: true, owner: true }], '25-26엔 A가 주주');
 
-	// B가 취소해도 A 줄은 그대로, 없는 날 취소는 아무 일 없음
+	// 같은 날 다시 add면 구분만 바꿈 (줄 그대로)
+	r = plain(call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-13', kind: '휴식' }));
+	assert.equal(r.nights.find((n) => n.date === '2026-12-13' && n.me).kind, '휴식');
+	assert.equal(room.length, 5);
+
+	// 취소해도 시트 줄은 남기고 구분만 '취소' (응답엔 빠짐). B가 취소해도 A 줄은 그대로, 기록 없는 날 취소는 아무 일 없음
 	call({ action: 'seasonroom', token: B, season: '26-27', op: 'remove', date: '2026-12-13' });
 	call({ action: 'seasonroom', token: B, season: '26-27', op: 'remove', date: '2026-12-14' });
+	assert.equal(room.length, 5, '줄 안 지움');
+	assert.deepEqual(plain(room.find((x) => x[1] === '회원B').slice(0, 3)).concat(room.find((x) => x[1] === '회원B')[4]), ['2026-12-13', '회원B', '010-6000-0002', '취소']);
 	r = plain(call({ action: 'seasonroom', token: A, season: '26-27' }));
-	assert.deepEqual(r.nights, [{ date: '2026-12-13', name: '회원A', me: true, owner: false }]);
+	assert.deepEqual(r.nights.map((n) => [n.date, n.name, n.kind]), [['2026-11-01', '회원A', '숙박'], ['2026-12-13', '회원A', '휴식']]);
+	// 취소한 날 다시 체크하면 같은 줄을 되살림
+	r = plain(call({ action: 'seasonroom', token: B, season: '26-27', op: 'add', date: '2026-12-13' }));
+	assert.equal(room.length, 5);
+	assert.deepEqual(r.nights.find((n) => n.me), { date: '2026-12-13', name: '회원B', kind: '숙박', me: true, owner: true });
+	call({ action: 'seasonroom', token: B, season: '26-27', op: 'remove', date: '2026-12-13' });
+
+	// 시트에 연락처를 하이픈 없이·띄어 쓰거나·숫자(앞 0 빠짐)로 적어도 같은 사람
+	room.push(['2026-12-20', '회원A', '01060000001', '', '숙박'], ['2026-12-21', '회원A', '010 6000 0001', '', '휴식']);
+	tabs[2].rows.push(['26-27', '회원A', 1060000001]);
+	r = plain(call({ action: 'seasonroom', token: A, season: '26-27' }));
+	assert.deepEqual(r.nights.filter((n) => n.date >= '2026-12-20').map((n) => [n.date, n.me, n.owner]), [['2026-12-20', true, true], ['2026-12-21', true, true]]);
+	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-20', kind: '휴식' }); // 하이픈 없는 줄도 내 줄로 찾아서 고침
+	assert.equal(room.length, 7, '새 줄 안 생김');
+	assert.equal(room.find((x) => x[0] === '2026-12-20')[4], '휴식');
 
 	// 잘못된 날짜·시즌
 	assert.equal(call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-02-30' }).ok, false);

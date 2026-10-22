@@ -52,7 +52,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<h2 class="month-label" aria-live="polite"></h2>
 						<button class="month-btn month-next" type="button" aria-label="다음 달">›</button>
 					</div>
-					<p class="room-hint">날짜를 누르면 그날 잔 사람이 보이고, 내 숙박을 체크하거나 취소할 수 있어요.</p>
+					<p class="room-hint">날짜를 누르면 그날 시즌방을 쓴 사람이 보이고, 내 숙박·4시간 휴식을 체크하거나 바꾸거나 취소할 수 있어요.</p>
 
 					<div class="cal">
 						{['일', '월', '화', '수', '목', '금', '토'].map((d) => <span class="wd">{d}</span>)}
@@ -62,16 +62,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<form class="day-panel">
 						<h3 class="day-title"></h3>
 						<ul class="day-names"></ul>
-						<button class="btn btn-ink day-toggle" type="submit"></button>
+						<div class="day-actions"></div>
 					</form>
 
 					<section class="settle">
 						<h3 class="settle-title"></h3>
 						<div class="scroll">
 							<table>
-								<thead><tr><th>이름</th><th>박수</th><th>금액</th></tr></thead>
+								<thead><tr><th>이름</th><th>숙박</th><th>휴식</th><th>금액</th></tr></thead>
 								<tbody></tbody>
-								<tfoot><tr><th>합계</th><th class="sum-n"></th><th class="sum-won"></th></tr></tfoot>
+								<tfoot><tr><th>합계</th><th class="sum-stay"></th><th class="sum-rest"></th><th class="sum-won"></th></tr></tfoot>
 							</table>
 						</div>
 						<p class="mine"></p>
@@ -89,9 +89,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		</footer>
 
 		<script>
-			import { busy, call, loginUrl, store } from '../scripts/session';
+			import { call, loginUrl, store } from '../scripts/session';
 
-			type Night = { date: string; name: string; me: boolean; owner: boolean };
+			type Kind = '숙박' | '휴식';
+			type Night = { date: string; name: string; kind: Kind; me: boolean; owner: boolean };
 			const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s)!;
 			const token = store.get();
 			const msg = $('.loading');
@@ -114,7 +115,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 			let month = today.slice(0, 7); // 'YYYY-MM'
 			let selected = today;
-			let price = 10000;
+			let prices: Record<Kind, number> = { 숙박: 10000, 휴식: 5000 }; // 1박 / 4시간 휴식 (서버 값으로 바뀜)
 			const seasons: Record<string, Night[]> = {}; // 시즌별로 한 번 불러와서 달 이동은 바로
 
 			const back = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
@@ -130,7 +131,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					alert(res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
 					return null;
 				}
-				price = res.price;
+				prices = res.prices ?? prices;
 				return (seasons[season] = res.nights as Night[]);
 			}
 
@@ -165,7 +166,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						count.textContent = `${who.length}명`;
 						const names = document.createElement('span');
 						names.className = 'names';
-						names.textContent = who.slice(0, 3).map((n) => n.name).join(' · ') + (who.length > 3 ? ` +${who.length - 3}` : '');
+						names.textContent = who.slice(0, 3).map((n) => n.name + (n.kind === '휴식' ? '(휴식)' : '')).join(' · ') + (who.length > 3 ? ` +${who.length - 3}` : '');
 						b.append(count, names);
 					}
 					b.addEventListener('click', () => {
@@ -176,40 +177,53 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				}
 				days.replaceChildren(...cells);
 
-				// 고른 날: 명단 + 내 체크·취소 (지난 날짜도 자유롭게)
+				// 고른 날: 명단 + 내 숙박·휴식 체크 / 바꾸기 / 취소 (지난 날짜도 자유롭게)
 				const who = nights.filter((n) => n.date === selected);
-				const mine = who.some((n) => n.me);
+				const mine = who.find((n) => n.me);
 				$('.day-title').textContent = `${label(selected)} · ${who.length}명`;
 				$('.day-names').replaceChildren(
 					...(who.length ? who : [null]).map((n) => {
 						const li = document.createElement('li');
-						li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.owner ? ' · 주주' : ''}` : '아직 아무도 없어요.';
+						li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.kind === '휴식' ? ' · 4시간 휴식' : ''}${n.owner ? ' · 주주' : ''}` : '아직 아무도 없어요.';
 						if (n?.me) li.className = 'me';
 						return li;
 					}),
 				);
-				const toggle = $<HTMLButtonElement>('.day-toggle');
-				toggle.textContent = mine ? '숙박 취소' : '이 날 잤어요 ✓';
-				toggle.dataset.label = toggle.textContent;
-				toggle.classList.toggle('btn-line-dark', mine);
-				toggle.classList.toggle('btn-ink', !mine);
+				const actions: [string, string, Kind | '', boolean][] = !mine
+					? [['시즌방 숙박', 'add', '숙박', true], ['4시간 휴식', 'add', '휴식', false]]
+					: mine.kind === '숙박'
+						? [['4시간 휴식으로 변경', 'add', '휴식', false], ['취소', 'remove', '', false]]
+						: [['시즌방 숙박으로 변경', 'add', '숙박', false], ['취소', 'remove', '', false]];
+				$('.day-actions').replaceChildren(
+					...actions.map(([text, op, kind, main]) => {
+						const b = document.createElement('button');
+						b.type = 'submit';
+						b.className = `btn ${main ? 'btn-ink' : 'btn-line-dark'}`;
+						b.textContent = text;
+						b.dataset.op = op;
+						b.dataset.kind = kind;
+						return b;
+					}),
+				);
 
-				// 이번 달 정산: 1박 price원, 주주 0원
-				const people: Record<string, { name: string; owner: boolean; me: boolean; n: number }> = {};
+				// 이번 달 정산: 숙박 1박·4시간 휴식 각 금액, 주주 0원
+				type Person = { name: string; owner: boolean; me: boolean; stay: number; rest: number };
+				const people: Record<string, Person> = {};
 				nights
 					.filter((n) => n.date.startsWith(month))
 					.forEach((n) => {
-						const p = (people[n.name] ||= { name: n.name, owner: n.owner, me: n.me, n: 0 });
-						p.n++;
+						const p = (people[n.name] ||= { name: n.name, owner: n.owner, me: n.me, stay: 0, rest: 0 });
+						if (n.kind === '휴식') p.rest++;
+						else p.stay++;
 					});
-				const list = Object.values(people).sort((a, c) => c.n - a.n || a.name.localeCompare(c.name, 'ko'));
-				const pay = (p: { owner: boolean; n: number }) => (p.owner ? 0 : p.n * price);
-				$('.settle-title').textContent = `${m}월 정산 · 1박 ${won(price)} (주주 제외)`;
+				const pay = (p: { owner: boolean; stay: number; rest: number }) => (p.owner ? 0 : p.stay * prices.숙박 + p.rest * prices.휴식);
+				const list = Object.values(people).sort((a, c) => pay(c) - pay(a) || c.stay - a.stay || a.name.localeCompare(c.name, 'ko'));
+				$('.settle-title').textContent = `${m}월 정산 · 숙박 1박 ${won(prices.숙박)} · 4시간 휴식 ${won(prices.휴식)} (주주 제외)`;
 				$('.settle tbody').replaceChildren(
 					...(list.length ? list : [null]).map((p) => {
 						const tr = document.createElement('tr');
 						if (p?.me) tr.className = 'me';
-						const cells = p ? [`${p.name}${p.owner ? ' · 주주' : ''}`, `${p.n}박`, p.owner ? '주주' : won(pay(p))] : ['이번 달 숙박 기록이 없어요.', '', ''];
+						const cells = p ? [`${p.name}${p.owner ? ' · 주주' : ''}`, `${p.stay}박`, `${p.rest}회`, p.owner ? '주주' : won(pay(p))] : ['이번 달 기록이 없어요.', '', '', ''];
 						cells.forEach((c) => {
 							const td = document.createElement('td');
 							td.textContent = c;
@@ -218,11 +232,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						return tr;
 					}),
 				);
-				$('.sum-n').textContent = `${list.reduce((t, p) => t + p.n, 0)}박`;
+				$('.sum-stay').textContent = `${list.reduce((t, p) => t + p.stay, 0)}박`;
+				$('.sum-rest').textContent = `${list.reduce((t, p) => t + p.rest, 0)}회`;
 				$('.sum-won').textContent = won(list.reduce((t, p) => t + pay(p), 0));
 				const myAll = nights.filter((n) => n.me);
-				const owner = myAll[0]?.owner;
-				$('.mine').textContent = `내 ${seasonOf(`${month}-01`)} 시즌: ${myAll.length}박${owner ? ' · 주주라 정산 없음' : ` · ${won(myAll.length * price)}`}`;
+				const my = { owner: !!myAll[0]?.owner, stay: myAll.filter((n) => n.kind !== '휴식').length, rest: myAll.filter((n) => n.kind === '휴식').length };
+				$('.mine').textContent = `내 ${seasonOf(`${month}-01`)} 시즌: 숙박 ${my.stay}박 · 휴식 ${my.rest}회${my.owner ? ' · 주주라 정산 없음' : ` · ${won(pay(my))}`}`;
 			}
 
 			async function go(delta: number) {
@@ -241,12 +256,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			$('.month-prev').addEventListener('click', () => go(-1));
 			$('.month-next').addEventListener('click', () => go(1));
 
+			// 누른 버튼만 스피너, 나머지 버튼은 잠금
 			panel.addEventListener('submit', async (e) => {
 				e.preventDefault();
-				const mine = (seasons[seasonOf(selected)] ?? []).some((n) => n.date === selected && n.me);
-				busy(panel, true, mine ? '취소 중' : '체크 중');
-				await room(seasonOf(selected), { op: mine ? 'remove' : 'add', date: selected });
-				busy(panel, false, '');
+				const btn = e.submitter as HTMLButtonElement | null;
+				if (!btn) return;
+				const { op, kind } = btn.dataset;
+				panel.querySelectorAll('button').forEach((b) => (b.disabled = true));
+				btn.classList.add('is-loading');
+				btn.textContent = op === 'remove' ? '취소 중' : '저장 중';
+				await room(seasonOf(selected), { op, kind, date: selected });
 				render();
 			});
 
@@ -271,9 +290,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		opacity: 0.6;
 		cursor: progress;
 	}
+	/* ‹ 2026년 10월 › — 달력 폭 기준 가운데 */
 	.room-head {
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 16px;
 	}
 	.month-label {
@@ -399,7 +420,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-weight: 700;
 		color: #c2410c;
 	}
-	.day-toggle {
+	.day-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.day-actions :global(.btn) {
 		min-height: 44px;
 		padding: 0 20px;
 	}

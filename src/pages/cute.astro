@@ -1,7 +1,7 @@
 ---
 import { club, trips, faqs } from '../data/club';
 
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
 
 // 픽셀 아이콘: '#' = 칠할 칸, currentColor로 색 지정
 const px = (rows: string[]) => ({

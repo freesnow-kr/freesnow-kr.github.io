@@ -2,7 +2,7 @@
 import { club } from '../data/club';
 import '../styles/ride.css';
 
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
 ---
 
 <html lang="ko">
@@ -88,7 +88,7 @@ const base = import.meta.env.BASE_URL;
 			const error = form.querySelector<HTMLElement>('.mem-error')!;
 
 			// 이미 로그인돼 있으면 회원 페이지로
-			// 로그인 뒤 돌아갈 곳: 기본은 메인, ?next=/free-snow/#season 등 이 사이트 안 주소면 거기로
+			// 로그인 뒤 돌아갈 곳: 기본은 메인, ?next=/#season 등 이 사이트 안 주소면 거기로
 			const want = new URLSearchParams(location.search).get('next') ?? '';
 			const next = want.startsWith(`${base}/`) && !want.startsWith('//') ? want : `${base}/`;
 			if (store.get()) location.replace(next);

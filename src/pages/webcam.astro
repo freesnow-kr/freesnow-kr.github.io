@@ -2,7 +2,7 @@
 import { club } from '../data/club';
 import '../styles/ride.css';
 
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
 
 // 각 스키장 공식 웹캠 페이지 (2026-10 확인). 주소 바뀌면 여기만 수정
 // embed: 펼치면 공식 페이지를 그 자리에 띄움 (지산은 사이트가 iframe을 막아서 링크로)

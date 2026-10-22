@@ -2,8 +2,8 @@
 
 스키·스노우보드 동호회 Free Snow 웹사이트. Astro 정적 사이트 → GitHub Pages.
 
-- 공개 주소: https://yunj8649.github.io/free-snow/
-- 저장소: https://github.com/yunj8649/free-snow
+- 공개 주소: https://freesnow-kr.github.io/
+- 저장소: https://github.com/freesnow-kr/freesnow-kr.github.io
 
 ## 페이지
 
@@ -22,7 +22,7 @@
 
 ```sh
 npm install
-npm run dev     # http://localhost:4321/free-snow/
+npm run dev     # http://localhost:4321/
 npm run build   # dist/ 생성
 ```
 

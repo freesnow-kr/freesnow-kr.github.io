@@ -5,8 +5,8 @@
 ## 한눈에
 
 - **스택**: Astro 7 정적 사이트 (프레임워크·CSS 라이브러리 없음, 의존성 `astro` 하나). Node ≥ 22.22 (로컬 24).
-- **호스팅**: GitHub Pages, 저장소 `yunj8649/free-snow` (public), `main` push → `.github/workflows/deploy.yml` (withastro/action, `node-version: 24`).
-- **주소**: `https://yunj8649.github.io/free-snow/` — `astro.config.mjs`의 `base: '/free-snow'`.
+- **호스팅**: GitHub Pages, 저장소 `freesnow-kr/freesnow-kr.github.io` (조직 `freesnow-kr`, public; 2026-10-22 `yunj8649/free-snow`에서 옮김), `main` push → `.github/workflows/deploy.yml` (withastro/action, `node-version: 24`).
+- **주소**: `https://freesnow-kr.github.io/` — 하위 경로 없음(`astro.config.mjs`에 `base` 없음). 예전 `yunj8649.github.io/free-snow/`는 옮긴 뒤 안 열림.
 - **사용자**: 한국어 사용. 화면 문구는 한국어 존댓말(해요체), 디자인 문구는 영문 대문자.
 
 ## 라우트와 파일
@@ -22,7 +22,7 @@
 | `/rank/` | `src/pages/rank.astro` | 회원 전용 오픈채팅 메시지 수 랭킹, 끝난 달만 달별로 고름(기본: 항상 지난달 1일~말일, 이번 달은 숨김, '전체' 없음 — 사용자 요구). 헤더 메뉴 **CHAT RANK** |
 | `/shredlog/` | `src/pages/shredlog.astro` | SHRED LOG: 개인 시즌 출격·지출 기록(24-25/25-26/26-27), 시즌권 본전 계산, 시즌 비교, 지출 CSV. 비회원도 사용(브라우저 저장) + 로그인 유도, 회원은 시트 저장. 시즌 = 7/1~6/30 |
 | `/cute/` | `src/pages/cute.astro` | 픽셀아트(Kizupi 느낌), 자체 `<style is:global>` |
-| `/ride/` | `astro.config.mjs` `redirects` | 예전 공개 주소 → `/free-snow/` |
+| `/ride/` | `astro.config.mjs` `redirects` | 예전 공개 주소 → `/` |
 
 - `src/styles/ride.css`: `/`, `/webcam`, `/members` 공통 전역 CSS (토큰, 고정 헤더, 버튼, 푸터). **셀렉트박스 모양(직접 그린 화살표, 오른쪽 14px 안쪽)도 여기 `select` 공통** — 페이지 스타일에선 select에 `background` 단축 속성 쓰지 말고(화살표 지워짐) `background-color`, 오른쪽 여백 34px 이상. 각 페이지는 `import '../styles/ride.css'` + 페이지 전용 `<style>`.
 - `src/data/regions.json`: 가입 거주지 선택 목록(시도 → 시군구). `node scripts/make-regions.mjs data/list_20260630.csv`로 법정동 CSV에서 생성(원본 CSV는 `data/`, gitignore). 시도는 서울·경기 먼저 그다음 가나다, 시군구는 가나다, 시 아래 일반구(수원시장안구 등) 제외.
@@ -34,9 +34,8 @@
 
 ## 경로 규칙 (중요)
 
-- 내부 링크·에셋은 항상 `` `${import.meta.env.BASE_URL}/...` `` (`const base = import.meta.env.BASE_URL`). `BASE_URL`은 끝 슬래시 없는 `/free-snow`.
-- `redirects` 대상에는 base가 자동으로 안 붙음 → 직접 `/free-snow/...`로 작성.
-- base를 없애면 `${base}/` 패턴이 `//`가 되어 깨짐. 커스텀 도메인 연결 전까지 base 유지.
+- 내부 링크·에셋은 항상 `` `${base}/...` ``, `const base = import.meta.env.BASE_URL.replace(/\/$/, '')` — 끝 슬래시를 떼서 지금(루트)은 `''`. 그냥 `BASE_URL`을 쓰면 루트에선 `/`라 `${base}/`가 `//…`(다른 사이트 주소)로 깨짐.
+- 나중에 하위 경로로 옮기면 `astro.config.mjs`에 `base`만 다시 넣으면 됨(위 패턴이 그대로 동작). `redirects` 대상엔 base가 자동으로 안 붙으니 직접 적을 것.
 
 ## 에셋
 
@@ -98,7 +97,7 @@
 - `action:'events'`(token 선택): 다가오는 모임 + 인원(`count`). **회원 토큰일 때만** `mine`과 참석자 이름 `names`(사용자 요구) — 비회원에겐 이름 안 보냄, 연락처는 누구에게도 안 보냄.
 - `action:'rsvp'` {token, id, go}: 회원만(토큰 검증), `LockService` 잠금 안에서 정원 확인 → 정원 넘으면 '정원이 다 찼어요.' 응답은 갱신된 `events` 전체.
 - 참석 인원 UI: 정원 바(남은 2자리 이하 '마감 임박' 주황, 다 차면 '마감'), 회원에겐 참석자 칩(이름 끝 두 글자 원 + 이름, 내 칩 주황 '(나)' 맨 앞, 12명 넘으면 +N), 비회원에겐 '참석자 명단은 회원에게만 보여요.' 행 스타일은 `.trip-list > li`(칩 `li`에 번지지 않게 자식 선택자 유지).
-- 화면: 비회원 '로그인 후 참석'(`/login/?next=/free-snow/#season` → 로그인 후 돌아옴; `next`는 base로 시작하는 사이트 내부 주소만 허용), 회원 '참석' / '참석 중 ✓ · 취소', 정원 차면 '마감'. 모임 목록은 캐시하지 않음(인원이 최신이어야 함). `src/data/club.ts`의 `trips`는 이제 `/cute`에서만 씀.
+- 화면: 비회원 '로그인 후 참석'(`/login/?next=/#season` → 로그인 후 돌아옴; `next`는 base로 시작하는 사이트 내부 주소만 허용), 회원 '참석' / '참석 중 ✓ · 취소', 정원 차면 '마감'. 모임 목록은 캐시하지 않음(인원이 최신이어야 함). `src/data/club.ts`의 `trips`는 이제 `/cute`에서만 씀.
 
 ## 프로필 사진 (`/members` + `apps-script` avatar)
 
@@ -158,9 +157,9 @@
 ## 작업 방식
 
 - 변경 후 `npm run build`로 확인. UI 변경은 headless Chrome(`/Applications/Google Chrome.app`) 스크린샷이나 CDP 스크립트로 실제 화면·클릭 동작 확인. Chrome 헤드리스는 최소 창 폭이 있어 모바일은 375px iframe으로 확인.
-- 개발 서버 주소는 `http://localhost:4321/free-snow/`(base 포함).
+- 개발 서버 주소는 `http://localhost:4321/`.
 - 커밋/푸시는 사용자가 요청할 때만. 커밋 메시지 끝에 Co-Authored-By 줄.
-- push 인증: `gh`는 `yunjeong-reco` 계정으로 로그인돼 있어 `yunj8649/free-snow`에 push 권한 없음. 사용자가 yunj8649로 `gh auth login` 하거나 직접 push. 토큰을 git 설정·remote URL·파일에 저장하지 말 것.
+- push 인증: `gh`는 `yunjeong-reco` 계정으로 로그인돼 있어 push 권한 없음. 사용자가 준 토큰은 명령 한 번에만 헤더로 넘김(`git -c http.https://github.com/.extraheader=…`) — 토큰을 git 설정·remote URL·파일·메모리에 저장하지 말 것. 조직 저장소에 쓰려면 토큰 권한에 `freesnow-kr` 조직이 들어가 있어야 함.
 - 다른 사이트(Kizupi, Burton 등)를 참고할 때 코드·이미지·문구를 복사하지 않고 디자인 방향만 참고해 새로 작성.
 
 ## 남은 일 / 주의

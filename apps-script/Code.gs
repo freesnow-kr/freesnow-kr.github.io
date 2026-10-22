@@ -15,11 +15,18 @@ const STATUS = ['대기', '승인'];
 const FIXED_GRADES = ['운영진', '마스터'];
 // 경기도는 북부·남부 블록이 따로 있음. 이 목록이면 경기북부 블록, 아니면 경기남부 블록 끝에 넣음 (동호회 기준, 필요하면 추가)
 const GYEONGGI_NORTH = ['의정부', '남양주', '구리', '양주', '포천', '동두천', '가평', '고양', '파주', '연천', '하남', '김포'];
-// 갤러리: 이 드라이브 폴더의 사진을 최신순으로 보여줌 (폴더는 '링크가 있는 모든 사용자' 보기 권한)
-const GALLERY_FOLDER_ID = '1-LucEsq3CeyoqFSeZqttzbMwcv4mTnHc';
+// 폴더 id·외부 주소는 코드에 안 둠 → Apps Script '프로젝트 설정 > 스크립트 속성'에 (TOKEN_SECRET과 같은 곳). config('이름')으로 읽음
+//   GALLERY_FOLDER_ID  갤러리 사진 폴더 (폴더는 '링크가 있는 모든 사용자' 보기 권한) — 최신순으로 보여줌
+//   CHAT_FOLDER_ID     오픈채팅 '대화 내보내기' CSV 폴더 (비공개로 둬도 됨) — 가장 최근 CSV로 랭킹
+//   AVATAR_FOLDER_ID   프로필 사진 폴더. 비워 두면 '프리스노우 프로필사진' 폴더를 만들고 그 id를 여기에 저장
+//   SOMOIM_URL         소모임 모임 공개 페이지 (정모 일정)
+//   SNOWLIVE_API       스노우라이브 friend-detail-page 주소
+// 폴더 주소 https://drive.google.com/drive/folders/<이 부분> 이 폴더 id
+function config(key) {
+	return String(PropertiesService.getScriptProperties().getProperty(key) || '').trim();
+}
 const GALLERY_CACHE_SEC = 5 * 60; // 목록 재사용 시간 (새 사진은 최대 5분 뒤 반영)
-// 오픈채팅 랭킹: 운영진이 '대화 내보내기' CSV를 이 폴더에 올리면 가장 최근 파일로 셈 (폴더는 비공개로 둬도 됨)
-var CHAT_FOLDER_ID = '1s-Ws2X_NNFMhNHRKIUZU_pp4zHq8amsZ'; // 운영진이 폴더 만들고 id 넣기 (var: 테스트에서 바꿔 넣으려고)
+// 오픈채팅 랭킹 (폴더는 스크립트 속성 CHAT_FOLDER_ID)
 const CHAT_SKIP_USERS = ['방장봇'];
 const CHAT_SYSTEM = /님이 (들어왔습니다|나갔습니다)|님을 내보냈습니다|채팅방 관리자가/;
 // 모임·참석: 운영진이 '모임' 탭에 한 줄 추가 → 사이트 THE SEASON에 표시, 회원 참석/취소는 '참석' 탭에 기록
@@ -27,9 +34,7 @@ const EVENT_SHEET = '모임';
 const EVENT_HEAD = ['ID', '시작일', '종료일', '장소', '내용', '태그', '정원']; // 종료일·정원 비워도 됨, ID 비우면 자동 ('날짜' 열은 시작일로 읽음)
 const RSVP_SHEET = '참석';
 const RSVP_HEAD = ['모임ID', '날짜', '장소', '이름', '연락처', '상태', '변경일시'];
-// 프로필 사진: 아래 드라이브 폴더에 저장(링크 보기) → 사이트가 그 사진을 가져다 씀. 누가 어떤 사진인지는 '프로필' 탭에 (회원 탭은 안 건드림)
-// 폴더 주소 https://drive.google.com/drive/folders/<이 부분> 을 넣기. 비워 두면 '프리스노우 프로필사진' 폴더를 자동으로 만듦
-var AVATAR_FOLDER_ID = '1l4luKl_nTyDSTvtnxxNsbdbI0kR7M4J-'; // (var: 테스트에서 바꿔 넣으려고)
+// 프로필 사진: 드라이브 폴더(스크립트 속성 AVATAR_FOLDER_ID)에 저장(링크 보기) → 사이트가 그 사진을 가져다 씀. 누가 어떤 사진인지는 '프로필' 탭에 (회원 탭은 안 건드림)
 const PROFILE_SHEET = '프로필';
 const PROFILE_HEAD = ['연락처', '사진ID', '변경일시', '사진데이터']; // 사진데이터: 드라이브 저장이 안 될 때 작은 사진(96px)을 여기에
 const AVATAR_FOLDER = '프리스노우 프로필사진';
@@ -45,8 +50,7 @@ const LOG_VISIT_HEAD = ['연락처', 'ID', ...Object.values(LOG_VISIT_COL), '기
 const LOG_EXPENSE_HEAD = ['연락처', 'ID', '날짜', '분류', '금액', '메모', '출격ID', '기록일시'];
 const LOG_PASS_HEAD = ['연락처', '시즌', '시즌권가격', '일일권가격', '변경일시'];
 const LOG_MAX = 3000; // 회원당 출격+지출 줄 상한
-// 스노우라이브: 회원이 연결한 스노우라이브 ID의 시즌 라이딩 통계 (공식 API 아님 — 앱이 쓰는 주소. 바뀌면 '불러오지 못했어요')
-const SNOWLIVE_API = 'https://snowlive-api-c617725e2b78.herokuapp.com/api/friend-detail-page/';
+// 스노우라이브: 회원이 연결한 스노우라이브 ID의 시즌 라이딩 통계 (공식 API 아님 — 앱이 쓰는 주소(스크립트 속성 SNOWLIVE_API). 바뀌면 '불러오지 못했어요')
 // 연결한 ID + 가져온 통계(라이딩 통계만)를 시즌별로 한 칸에 JSON 저장 (시즌 빈 줄 = 연결만 하고 아직 못 가져옴) → 끝난 시즌은 다시 요청 안 함, 진행 중 시즌은 1시간 지나면 새로
 const SNOWLIVE_DATA_SHEET = '스노우라이브기록';
 const SNOWLIVE_DATA_HEAD = ['연락처', '스노우라이브ID', '시즌', '데이터', '가져온시각'];
@@ -55,8 +59,7 @@ const SNOWLIVE_CACHE_SEC = 60 * 60; // 시트도 안 읽게 그 앞에 캐시 (�
 const SNOWLIVE_REFRESH_GAP_MS = 60 * 1000; // '재연결'을 연달아 눌러도 1분에 한 번만 스노우라이브에 요청
 const SNOWLIVE_DATA_MAX = 45000; // 칸 한도 5만 자
 // 소모임: 프리스노우 모임 공개 페이지에서 '정모 일정'을 1시간에 한 번 읽어 THE SEASON에 표시 (참석은 소모임에서)
-// 공식 API가 아니라 페이지 구조가 바뀌면 못 읽을 수 있음 → 사이트는 안내 + 링크로 대체
-const SOMOIM_URL = 'https://www.somoim.co.kr/821b9cba-c97a-11e8-9395-0a16433fdfe81';
+// 공식 API가 아니라 페이지 구조가 바뀌면 못 읽을 수 있음 → 사이트는 안내 + 링크로 대체 (주소는 스크립트 속성 SOMOIM_URL)
 const SOMOIM_CACHE_SEC = 60 * 60;
 const MAX_FAILS = 5; // 번호당 연속 실패 허용 횟수
 const LOCK_SEC = 60 * 60; // 초과 시 잠금 시간
@@ -99,7 +102,9 @@ function doPost(e) {
 // 실행 기록에 폴더 이름·주인·실행 계정과, 프로필 폴더에 실제로 파일을 쓸 수 있는지 찍힘
 function authorizeDrive() {
 	console.log('실행 계정: ' + Session.getEffectiveUser().getEmail());
-	console.log('갤러리 폴더: ' + DriveApp.getFolderById(GALLERY_FOLDER_ID).getName());
+	const missing = ['TOKEN_SECRET', 'GALLERY_FOLDER_ID', 'CHAT_FOLDER_ID', 'SOMOIM_URL', 'SNOWLIVE_API'].filter((k) => !config(k));
+	if (missing.length) console.error('⚠️ 스크립트 속성이 비어 있어요: ' + missing.join(', ') + ' → 프로젝트 설정 > 스크립트 속성에서 추가');
+	if (config('GALLERY_FOLDER_ID')) console.log('갤러리 폴더: ' + DriveApp.getFolderById(config('GALLERY_FOLDER_ID')).getName());
 	const folder = avatarFolder();
 	let owner = '?';
 	try {
@@ -121,7 +126,7 @@ function authorizeDrive() {
 		console.error('❌ 프로필 폴더에 파일을 쓸 수 없어요: ' + err.message);
 		console.error(scope
 			? '→ 권한(드라이브 쓰기)이 승인되지 않았어요. ① 프로젝트 설정 > OAuth 범위에 …/auth/drive 가 있는지 확인 ② https://myaccount.google.com/permissions 에서 이 프로젝트 액세스 삭제 ③ authorizeDrive 다시 실행 → 권한 창에서 드라이브 항목까지 모두 체크'
-			: '→ 이 계정에 폴더 편집 권한을 주거나 AVATAR_FOLDER_ID 를 비워 두세요.');
+			: '→ 이 계정에 폴더 편집 권한을 주거나 스크립트 속성 AVATAR_FOLDER_ID 를 지워 두세요(새 폴더를 만듦).');
 	}
 }
 
@@ -200,10 +205,12 @@ function somoim() {
 	const cache = CacheService.getScriptCache();
 	const hit = cache.get('somoim');
 	if (hit) return JSON.parse(hit);
-	const res = UrlFetchApp.fetch(SOMOIM_URL, { muteHttpExceptions: true, followRedirects: true });
-	if (res.getResponseCode() !== 200) return { ok: false, url: SOMOIM_URL, error: '소모임 페이지를 열 수 없어요.' };
+	const url = config('SOMOIM_URL');
+	if (!url) return { ok: false, url: '', error: '소모임 주소가 설정되지 않았어요.' };
+	const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+	if (res.getResponseCode() !== 200) return { ok: false, url, error: '소모임 페이지를 열 수 없어요.' };
 	const meetups = parseSomoim(res.getContentText(), new Date());
-	const out = { ok: true, url: SOMOIM_URL, meetups };
+	const out = { ok: true, url, meetups };
 	cache.put('somoim', JSON.stringify(out), SOMOIM_CACHE_SEC);
 	return out;
 }
@@ -335,19 +342,14 @@ function profilePhotos() {
 	return out;
 }
 
-// 프로필 사진 폴더: AVATAR_FOLDER_ID 지정 폴더 → 없으면 스크립트 주인 드라이브에 만든 폴더 (id는 스크립트 속성에 기억)
+// 프로필 사진 폴더: 스크립트 속성 AVATAR_FOLDER_ID → 비어 있으면 스크립트 주인 드라이브에 만들고 그 id를 저장
+// (지정한 폴더를 못 열면 오류 → avatar()가 시트 작은 사진으로 대체. 새 폴더로 바꾸려면 속성을 지우기)
 function avatarFolder() {
-	if (AVATAR_FOLDER_ID) return DriveApp.getFolderById(AVATAR_FOLDER_ID);
-	const props = PropertiesService.getScriptProperties();
-	const saved = props.getProperty('AVATAR_FOLDER_ID');
-	if (saved) {
-		try {
-			return DriveApp.getFolderById(saved);
-		} catch (err) {} // 폴더가 지워졌으면 새로 만듦
-	}
+	const id = config('AVATAR_FOLDER_ID');
+	if (id) return DriveApp.getFolderById(id);
 	const it = DriveApp.getFoldersByName(AVATAR_FOLDER);
 	const folder = it.hasNext() ? it.next() : DriveApp.createFolder(AVATAR_FOLDER);
-	props.setProperty('AVATAR_FOLDER_ID', folder.getId());
+	PropertiesService.getScriptProperties().setProperty('AVATAR_FOLDER_ID', folder.getId());
 	return folder;
 }
 
@@ -464,7 +466,9 @@ function gallery() {
 	const cache = CacheService.getScriptCache();
 	const hit = cache.get('gallery');
 	if (hit) return { ok: true, photos: JSON.parse(hit) };
-	const files = DriveApp.getFolderById(GALLERY_FOLDER_ID).getFiles();
+	const folderId = config('GALLERY_FOLDER_ID');
+	if (!folderId) return { ok: false, error: '갤러리를 준비 중이에요.' };
+	const files = DriveApp.getFolderById(folderId).getFiles();
 	const list = [];
 	while (files.hasNext()) {
 		const f = files.next();
@@ -632,7 +636,7 @@ function snowlive(b) {
 	const season = `20${m[1]}-10-01, 20${m[2]}-03-31`;
 	let stats = null;
 	try {
-		const res = UrlFetchApp.fetch(`${SNOWLIVE_API}?user_id=${id}&friend_user_id=${id}&season=${encodeURIComponent(season)}`, { muteHttpExceptions: true });
+		const res = UrlFetchApp.fetch(`${config('SNOWLIVE_API')}?user_id=${id}&friend_user_id=${id}&season=${encodeURIComponent(season)}`, { muteHttpExceptions: true });
 		stats = res.getResponseCode() === 200 ? parseSnowlive(JSON.parse(res.getContentText())) : null;
 	} catch (err) {}
 	if (!stats) return old ? { ok: true, id, stats: old } : { ok: false, id, error: '스노우라이브 기록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' }; // 실패는 캐시 안 함 (다음에 다시 시도)
@@ -689,12 +693,13 @@ function parseSnowlive(d) {
 function chatRank(token) {
 	const phone = verify(token);
 	if (!phone || !readMembers().some((m) => m.phone === phone)) return { ok: false, expired: true, error: '다시 로그인해 주세요.' };
-	if (!CHAT_FOLDER_ID) return { ok: false, error: '랭킹을 준비 중이에요.' };
+	const folderId = config('CHAT_FOLDER_ID');
+	if (!folderId) return { ok: false, error: '랭킹을 준비 중이에요.' };
 	const cache = CacheService.getScriptCache();
 	// 폴더에서 최신 CSV 찾기도 10분 캐시 (새 파일은 최대 10분 뒤 반영)
 	let fileKey = cache.get('chatrank:file');
 	if (!fileKey) {
-		const files = DriveApp.getFolderById(CHAT_FOLDER_ID).getFiles();
+		const files = DriveApp.getFolderById(folderId).getFiles();
 		let file = null;
 		while (files.hasNext()) {
 			const f = files.next();

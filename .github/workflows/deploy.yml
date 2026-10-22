@@ -13,7 +13,18 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 링크·API 주소는 저장소 Settings > Secrets and variables > Actions 에 (Secrets든 Variables든 같은 이름이면 됨)
+    env:
+      PUBLIC_JOIN_URL: ${{ secrets.PUBLIC_JOIN_URL || vars.PUBLIC_JOIN_URL }}
+      PUBLIC_SOMOIM_URL: ${{ secrets.PUBLIC_SOMOIM_URL || vars.PUBLIC_SOMOIM_URL }}
+      PUBLIC_MEMBERS_API: ${{ secrets.PUBLIC_MEMBERS_API || vars.PUBLIC_MEMBERS_API }}
     steps:
+      # 하나라도 비어 있으면 여기서 멈춤 → 지금 떠 있는 사이트는 그대로 (빈 링크로 덮어쓰지 않게)
+      - name: Check site settings
+        run: |
+          for k in PUBLIC_JOIN_URL PUBLIC_SOMOIM_URL PUBLIC_MEMBERS_API; do
+            [ -n "${!k}" ] || { echo "::error::저장소 Settings > Secrets and variables > Actions 에 $k 를 넣어 주세요"; exit 1; }
+          done
       - uses: actions/checkout@v4
       - uses: withastro/action@v3
         with:

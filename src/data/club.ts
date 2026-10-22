@@ -1,11 +1,13 @@
 // 일정·링크는 여기만 고치면 모든 페이지에 반영됨
+// 링크·API 주소는 코드에 안 둠 → 빌드할 때 환경변수로 (로컬: .env, 배포: GitHub 저장소 Secrets/Variables → deploy.yml)
+// 브라우저가 쓰는 값이라 배포된 사이트에선 보임 (숨길 값은 Apps Script 스크립트 속성에)
 export const club = {
 	name: 'Free Snow',
-	joinUrl: 'https://open.kakao.com/o/gkiI7dQb',
-	// 소모임 모임 페이지 (THE SEASON 정모 일정·참석). Apps Script SOMOIM_URL 과 같게
-	somoimUrl: 'https://www.somoim.co.kr/821b9cba-c97a-11e8-9395-0a16433fdfe81',
+	joinUrl: import.meta.env.PUBLIC_JOIN_URL ?? '', // 카카오 오픈채팅
+	// 소모임 모임 페이지 (THE SEASON 정모 일정·참석). Apps Script 스크립트 속성 SOMOIM_URL 과 같게
+	somoimUrl: import.meta.env.PUBLIC_SOMOIM_URL ?? '',
 	// Apps Script 웹앱 배포 URL (apps-script/Code.gs). 비어 있으면 회원 페이지는 '준비 중'
-	membersApi: 'https://script.google.com/macros/s/AKfycbwLMPOxtBqyoYwp6B-s6PQOL4iA0Xeo0snrFmzl7tQFH0uB2kWp1uy0-UXkVhIbhyxk-A/exec',
+	membersApi: import.meta.env.PUBLIC_MEMBERS_API ?? '',
 };
 
 export const trips = [

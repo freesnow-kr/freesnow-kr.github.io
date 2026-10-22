@@ -45,7 +45,7 @@ function tab(name, rows) {
 function load(tabs, driveFiles = []) {
 	let uuid = 0;
 	const created = [], trashed = [];
-	const props = new Map();
+	const props = new Map([['GALLERY_FOLDER_ID', 'gallery'], ['SOMOIM_URL', 'https://somoim.example/g'], ['SNOWLIVE_API', 'https://snowlive.example/api/']]); // 스크립트 속성 (가짜 값)
 	const cache = new Map();
 	const chain = { requireValueInList: (l) => ((chain.list = l), chain), setAllowInvalid: () => chain, build: () => ({ list: [...chain.list] }) };
 	const ctx = {
@@ -337,6 +337,10 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	const g = call({ action: 'gallery' });
 	assert.equal(g.ok, true);
 	assert.deepEqual(plain(g.photos), [{ id: 'b', caption: '' }, { id: 'd', caption: '단체 사진' }, { id: 'a', caption: '하이원 첫 정모' }]);
+	// 폴더 id는 코드가 아니라 스크립트 속성에서 — 비어 있으면 준비 중
+	const noFolder = load([tab('회원현황', [HEAD])], drive);
+	noFolder.props.delete('GALLERY_FOLDER_ID');
+	assert.deepEqual(plain(noFolder.call({ action: 'gallery' })), { ok: false, error: '갤러리를 준비 중이에요.' });
 	drive.push({ id: 'e', name: '새 사진.jpg', type: 'image/jpeg', t: 9000 });
 	assert.equal(call({ action: 'gallery' }).photos.length, 3); // 5분 캐시
 	// 서버 오류(예: 드라이브 권한 없음)도 JSON으로 응답
@@ -425,7 +429,7 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	const roster = [HEAD, [1, '서울', '노원구', '회원A', '남', 1990, 1, 1, '010-6000-0001', ''], [2, '서울', '노원구', '회원B', '여', 1991, 2, 2, '010-6000-0002', '']];
 	const tabs = [tab('회원현황', roster), tab('모임', [['ID', '시작일', '종료일', '장소', '내용', '태그', '정원'], ['ev', `${y}-01-10`, '', '용평', '', '', 5]])];
 	const env = load(tabs);
-	vm.runInContext("AVATAR_FOLDER_ID = ''", env.ctx); // 지정 안 한 경우부터
+	env.props.delete('AVATAR_FOLDER_ID'); // 지정 안 한 경우부터
 	const { call, created, trashed } = env;
 	const A = call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
 	const B = call({ action: 'login', phone: '60000002', birth: '19910202' }).token;
@@ -467,7 +471,7 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	// 드라이브 저장 실패(권한·폴더) → 작은 사진을 '프로필' 탭에, 작은 사진도 없으면 원인 메시지
 	const origErr = console.error; console.error = () => {};
 	const saveFn = env.ctx.DriveApp.getFolderById;
-	vm.runInContext("AVATAR_FOLDER_ID = 'no-access'", env.ctx);
+	env.props.set('AVATAR_FOLDER_ID', 'no-access');
 	env.ctx.DriveApp.getFolderById = () => { throw new Error('권한 없음 https://www.googleapis.com/auth/drive'); };
 	assert.match(call({ action: 'avatar', token: A, data: jpg }).error, /폴더 권한/);
 	const small = 'data:image/jpeg;base64,' + Buffer.from('smalljpeg').toString('base64');
@@ -478,7 +482,7 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	assert.equal(plain(call({ action: 'events', token: B }).events[0].people)[0].photo, small); // 배지에도
 	assert.match(call({ action: 'avatar', token: A, data: jpg, small: 'data:image/jpeg;base64,' + 'A'.repeat(40004) }).error, /폴더 권한/); // 시트 칸 한도
 	env.ctx.DriveApp.getFolderById = saveFn;
-	vm.runInContext("AVATAR_FOLDER_ID = ''", env.ctx);
+	env.props.delete('AVATAR_FOLDER_ID');
 	console.error = origErr;
 	// 드라이브가 다시 되면 드라이브에 저장하고 시트 사진은 비움
 	const back = call({ action: 'avatar', token: A, data: jpg }).photo;
@@ -504,7 +508,7 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 
 	// 폴더 지정하면 그 폴더에 저장
 	const env2 = load([tab('회원현황', roster)]);
-	vm.runInContext("AVATAR_FOLDER_ID = 'admin-folder'", env2.ctx);
+	env2.props.set('AVATAR_FOLDER_ID', 'admin-folder');
 	const A2 = env2.call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
 	env2.call({ action: 'avatar', token: A2, data: jpg });
 	assert.equal(env2.created[0].folder, 'admin-folder');
@@ -554,7 +558,7 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 		{ id: 'new', name: 'KakaoTalk_Chat.csv', type: 'text/csv', t: 2000, text: csv },
 	];
 	const env = load([tab('회원현황', [HEAD, [1, '서울', '노원구', '회원A', '남', 1990, 1, 1, '010-6000-0001', '']])], drive);
-	vm.runInContext("CHAT_FOLDER_ID = 'chat'", env.ctx);
+	env.props.set('CHAT_FOLDER_ID', 'chat');
 	assert.equal(env.call({ action: 'chatrank' }).expired, true, '비회원 거부');
 	const T = env.call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
 	const r = plain(env.call({ action: 'chatrank', token: T }));
@@ -578,7 +582,7 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	// 캐시: 최신 파일 찾기 10분, 결과는 100KB 넘어도 나눠서 캐시 → 두 번째부터 파일을 안 읽음
 	const many = ['Date,User,Message', ...Array.from({ length: 6000 }, (_, i) => `2025-${String((i % 12) + 1).padStart(2, '0')}-01 00:00:00,닉네임${i % 2000}/9${i % 10}/어딘가/프리,x`)].join('\n');
 	const big = load([tab('회원현황', [HEAD, [1, '서울', '노원구', '회원A', '남', 1990, 1, 1, '010-6000-0001', '']])], [{ id: 'big', name: 'chat.csv', type: 'text/csv', t: 1, text: many }]);
-	vm.runInContext("CHAT_FOLDER_ID = 'chat'", big.ctx);
+	big.props.set('CHAT_FOLDER_ID', 'chat');
 	const BT = big.call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
 	let reads = 0;
 	const orig = big.ctx.DriveApp.getFileById;
@@ -668,7 +672,7 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 		days: [{ date: '2025-12-27', count: 4, slope: '슬로프A' }, { date: '2026-01-10', count: 6, slope: '슬로프A' }],
 	});
 	assert.ok(!JSON.stringify(r).includes('여자'), '성별 안 보냄');
-	assert.ok(urls[0].includes('user_id=111&friend_user_id=111&season=2025-10-01%2C%202026-03-31'));
+	assert.equal(urls[0], 'https://snowlive.example/api/?user_id=111&friend_user_id=111&season=2025-10-01%2C%202026-03-31', '주소는 스크립트 속성 SNOWLIVE_API');
 	// '스노우라이브기록' 탭 하나에 연결 ID + 시즌별 JSON 한 칸 (라이딩 통계만)
 	assert.ok(!tabs.some((t) => t.getName() === '스노우라이브'), '연결 정보용 탭은 따로 안 만듦');
 	const dataTab = () => tabs.find((t) => t.getName() === '스노우라이브기록').rows;

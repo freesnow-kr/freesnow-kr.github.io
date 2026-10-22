@@ -22,15 +22,16 @@
 
 ```sh
 npm install
+cp .env.example .env   # 링크·Apps Script 주소 채우기 (배포 값은 GitHub 저장소 Secrets)
 npm run dev     # http://localhost:4321/
 npm run build   # dist/ 생성
 ```
 
 ## 자주 고치는 곳
 
-- **정모(THE SEASON)** → 소모임에 정모를 올리면 1시간 안에 메인에 자동으로 보여요. 참석은 소모임에서. 소모임 주소는 `src/data/club.ts`의 `somoimUrl`과 `apps-script/Code.gs`의 `SOMOIM_URL`
+- **정모(THE SEASON)** → 소모임에 정모를 올리면 1시간 안에 메인에 자동으로 보여요. 참석은 소모임에서. 소모임 주소는 GitHub 저장소 Secrets `PUBLIC_SOMOIM_URL`과 Apps Script 스크립트 속성 `SOMOIM_URL`
 - **오픈채팅 링크, FAQ** → `src/data/club.ts` (모든 페이지 공통)
-- **갤러리 사진** → 드라이브 폴더에 올리기만 하면 됨(최대 5분 뒤 반영). 폴더 바꾸려면 `apps-script/Code.gs`의 `GALLERY_FOLDER_ID`
+- **갤러리 사진** → 드라이브 폴더에 올리기만 하면 됨(최대 5분 뒤 반영). 폴더 바꾸려면 Apps Script 스크립트 속성 `GALLERY_FOLDER_ID`
 - **스키장 웹캠 목록** → `src/pages/webcam.astro` 맨 위 `regions`
 - **가입 거주지 목록(시도·시군구)** → 법정동 CSV를 `data/`에 두고 `node scripts/make-regions.mjs data/파일.csv` (→ `src/data/regions.json`)
 - **메인 영상** → `public/hero.mp4`, `public/hero.jpg` 교체 (`scripts/make-hero.swift`로 변환)

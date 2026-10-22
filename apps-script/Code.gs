@@ -18,6 +18,10 @@ const GYEONGGI_NORTH = ['의정부', '남양주', '구리', '양주', '포천', 
 // 갤러리: 이 드라이브 폴더의 사진을 최신순으로 보여줌 (폴더는 '링크가 있는 모든 사용자' 보기 권한)
 const GALLERY_FOLDER_ID = '1-LucEsq3CeyoqFSeZqttzbMwcv4mTnHc';
 const GALLERY_CACHE_SEC = 5 * 60; // 목록 재사용 시간 (새 사진은 최대 5분 뒤 반영)
+// 오픈채팅 랭킹: 운영진이 '대화 내보내기' CSV를 이 폴더에 올리면 가장 최근 파일로 셈 (폴더는 비공개로 둬도 됨)
+var CHAT_FOLDER_ID = '1s-Ws2X_NNFMhNHRKIUZU_pp4zHq8amsZ'; // 운영진이 폴더 만들고 id 넣기 (var: 테스트에서 바꿔 넣으려고)
+const CHAT_SKIP_USERS = ['방장봇'];
+const CHAT_SYSTEM = /님이 (들어왔습니다|나갔습니다)|님을 내보냈습니다|채팅방 관리자가/;
 // 모임·참석: 운영진이 '모임' 탭에 한 줄 추가 → 사이트 THE SEASON에 표시, 회원 참석/취소는 '참석' 탭에 기록
 const EVENT_SHEET = '모임';
 const EVENT_HEAD = ['ID', '시작일', '종료일', '장소', '내용', '태그', '정원']; // 종료일·정원 비워도 됨, ID 비우면 자동 ('날짜' 열은 시작일로 읽음)
@@ -31,6 +35,25 @@ const PROFILE_HEAD = ['연락처', '사진ID', '변경일시', '사진데이터'
 const AVATAR_FOLDER = '프리스노우 프로필사진';
 const AVATAR_MAX = 400000; // base64 글자 수 상한 (브라우저에서 256px로 줄여서 보냄 ≈ 20~60KB)
 const SMALL_MAX = 40000; // 시트 칸에 넣는 작은 사진 상한 (칸 한도 5만 자)
+// SHRED LOG: 로그인한 회원의 출격·지출 기록 (비회원은 브라우저에만 저장, 서버로 안 옴)
+const LOG_VISIT_SHEET = '출격기록';
+const LOG_EXPENSE_SHEET = '지출기록';
+const LOG_PASS_SHEET = '시즌권';
+const LOG_VISIT_COL = { date: '날짜', resort: '스키장', slot: '시간대', snow: '설질', style: '스타일', weather: '날씨', crew: '동행', temp: '기온', runs: '런수', hours: '라이딩시간', rating: '만족도', gear: '세팅', memo: '메모' }; // 화면 필드 → 머리글
+const LOG_VISIT_NUM = ['temp', 'runs', 'hours', 'rating'];
+const LOG_VISIT_HEAD = ['연락처', 'ID', ...Object.values(LOG_VISIT_COL), '기록일시'];
+const LOG_EXPENSE_HEAD = ['연락처', 'ID', '날짜', '분류', '금액', '메모', '출격ID', '기록일시'];
+const LOG_PASS_HEAD = ['연락처', '시즌', '시즌권가격', '일일권가격', '변경일시'];
+const LOG_MAX = 3000; // 회원당 출격+지출 줄 상한
+// 스노우라이브: 회원이 연결한 스노우라이브 ID의 시즌 라이딩 통계 (공식 API 아님 — 앱이 쓰는 주소. 바뀌면 '불러오지 못했어요')
+const SNOWLIVE_API = 'https://snowlive-api-c617725e2b78.herokuapp.com/api/friend-detail-page/';
+// 연결한 ID + 가져온 통계(라이딩 통계만)를 시즌별로 한 칸에 JSON 저장 (시즌 빈 줄 = 연결만 하고 아직 못 가져옴) → 끝난 시즌은 다시 요청 안 함, 진행 중 시즌은 1시간 지나면 새로
+const SNOWLIVE_DATA_SHEET = '스노우라이브기록';
+const SNOWLIVE_DATA_HEAD = ['연락처', '스노우라이브ID', '시즌', '데이터', '가져온시각'];
+const SNOWLIVE_REFRESH_MS = 60 * 60 * 1000;
+const SNOWLIVE_CACHE_SEC = 60 * 60; // 시트도 안 읽게 그 앞에 캐시 (캐시 → 시트 → 스노우라이브 순)
+const SNOWLIVE_REFRESH_GAP_MS = 60 * 1000; // '재연결'을 연달아 눌러도 1분에 한 번만 스노우라이브에 요청
+const SNOWLIVE_DATA_MAX = 45000; // 칸 한도 5만 자
 // 소모임: 프리스노우 모임 공개 페이지에서 '정모 일정'을 1시간에 한 번 읽어 THE SEASON에 표시 (참석은 소모임에서)
 // 공식 API가 아니라 페이지 구조가 바뀌면 못 읽을 수 있음 → 사이트는 안내 + 링크로 대체
 const SOMOIM_URL = 'https://www.somoim.co.kr/821b9cba-c97a-11e8-9395-0a16433fdfe81';
@@ -62,6 +85,9 @@ function doPost(e) {
 		if (body.action === 'rsvp') return json(rsvp(body));
 		if (body.action === 'avatar') return json(avatar(body));
 		if (body.action === 'somoim') return json(somoim());
+		if (body.action === 'chatrank') return json(chatRank(body.token));
+		if (body.action === 'shredlog') return json(shredLog(body));
+		if (body.action === 'snowlive') return json(snowlive(body));
 	} catch (err) {
 		console.error(body.action, err); // Apps Script 편집기 > 실행 기록에서 확인
 		return json({ ok: false, error: '서버 오류가 났어요. 잠시 뒤 다시 시도해 주세요.' });
@@ -457,6 +483,280 @@ function gallery() {
 function photoCaption(name) {
 	const n = String(name).replace(/\.[^.]+$/, '').replace(/_+/g, ' ').trim();
 	return /^(IMG|DSC|PXL|MVIMG|KakaoTalk|Screenshot|스크린샷|\d{8})/i.test(n) ? '' : n;
+}
+
+// ── SHRED LOG (회원만) ──
+// {token, op?: 'add'|'delete'} → 본인 기록 전체 {visits, expenses, pass}. 다른 회원 줄은 응답에 넣지도, 지우지도 않음
+// add: {visits?, expenses?, pass?: {'25-26': {price, day}}} — 같은 ID가 이미 있으면 건너뜀(다시 보내도 중복 없음)
+// delete: {visit?: id (그 출격에 묶인 지출도), expense?: id}
+function shredLog(b) {
+	const phone = verify(b.token);
+	if (!phone || !readMembers().some((m) => m.phone === phone)) return { ok: false, expired: true, error: '다시 로그인해 주세요.' };
+	if (b.op === 'add' || b.op === 'delete') {
+		const lock = LockService.getScriptLock();
+		lock.waitLock(10000);
+		try {
+			const error = b.op === 'add' ? logAdd(phone, b) : logDelete(phone, b);
+			if (error) return { ok: false, error };
+		} finally {
+			lock.releaseLock();
+		}
+	}
+	const V = logRows(LOG_VISIT_SHEET, LOG_VISIT_HEAD, phone);
+	const E = logRows(LOG_EXPENSE_SHEET, LOG_EXPENSE_HEAD, phone);
+	const P = logRows(LOG_PASS_SHEET, LOG_PASS_HEAD, phone);
+	const visits = V.mine.map(({ r }) => {
+		const v = { id: String(r['ID']) };
+		for (const [k, h] of Object.entries(LOG_VISIT_COL)) v[k] = k === 'date' ? ymd(r[h]) : String(r[h] == null ? '' : r[h]);
+		return v;
+	});
+	const expenses = E.mine.map(({ r }) => ({ id: String(r['ID']), date: ymd(r['날짜']), cat: String(r['분류']), amount: Number(r['금액']) || 0, memo: String(r['메모']), visit: String(r['출격ID'] || '') }));
+	const pass = {};
+	P.mine.forEach(({ r }) => (pass[String(r['시즌'])] = { price: Number(r['시즌권가격']) || 0, day: Number(r['일일권가격']) || 0 }));
+	return { ok: true, visits, expenses, pass };
+}
+
+function logAdd(phone, b) {
+	const visits = Array.isArray(b.visits) ? b.visits : [];
+	const expenses = Array.isArray(b.expenses) ? b.expenses : [];
+	const pass = b.pass && typeof b.pass === 'object' ? b.pass : {};
+	const isId = (v) => /^[\w-]{1,64}$/.test(String(v || ''));
+	const isYmd = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+	const won = (v) => Number(v) >= 0 && Number(v) < 1e9;
+	if (visits.some((v) => !v || !isId(v.id) || !isYmd(v.date) || !clean(v.resort, 40))) return '출격 기록(날짜·스키장)을 확인해 주세요.';
+	if (expenses.some((e) => !e || !isId(e.id) || !isYmd(e.date) || !clean(e.cat, 40) || !(Number(e.amount) > 0) || !won(e.amount) || (e.visit && !isId(e.visit)))) return '지출 기록(날짜·금액)을 확인해 주세요.';
+	if (Object.keys(pass).some((s) => !/^\d{2}-\d{2}$/.test(s) || !won(pass[s] && pass[s].price || 0) || !won(pass[s] && pass[s].day || 0))) return '시즌권 가격을 확인해 주세요.';
+
+	const p = formatPhone(phone), now = new Date();
+	const V = logRows(LOG_VISIT_SHEET, LOG_VISIT_HEAD, phone);
+	const E = logRows(LOG_EXPENSE_SHEET, LOG_EXPENSE_HEAD, phone);
+	const vIds = new Set(V.mine.map(({ r }) => String(r['ID'])));
+	const eIds = new Set(E.mine.map(({ r }) => String(r['ID'])));
+	const newV = visits.filter((v) => !vIds.has(String(v.id)));
+	const newE = expenses.filter((e) => !eIds.has(String(e.id)));
+	if (V.mine.length + E.mine.length + newV.length + newE.length > LOG_MAX) return '기록이 너무 많아요. 운영진에게 문의해 주세요.';
+	const num = (v) => (String(v == null ? '' : v).trim() !== '' && isFinite(Number(v)) ? Number(v) : '');
+	appendRows(V, newV.map((v) => [p, String(v.id), ...Object.keys(LOG_VISIT_COL).map((k) => (LOG_VISIT_NUM.includes(k) ? num(v[k]) : clean(v[k], k === 'memo' ? 300 : 100))), now]));
+	appendRows(E, newE.map((e) => [p, String(e.id), clean(e.date, 10), clean(e.cat, 40), Number(e.amount), clean(e.memo, 100), e.visit ? String(e.visit) : '', now]));
+
+	// 시즌권: 회원·시즌당 한 줄 (있으면 고침)
+	const P = logRows(LOG_PASS_SHEET, LOG_PASS_HEAD, phone);
+	for (const s of Object.keys(pass)) {
+		const line = [p, s, Number(pass[s].price) || 0, Number(pass[s].day) || 0, now];
+		const at = P.mine.find(({ r }) => String(r['시즌']) === s);
+		if (at) P.sheet.getRange(at.row, 1, 1, line.length).setValues([line]);
+		else appendRows(P, [line]);
+	}
+	return '';
+}
+
+function logDelete(phone, b) {
+	const id = (v) => String(v || '');
+	const V = logRows(LOG_VISIT_SHEET, LOG_VISIT_HEAD, phone);
+	const E = logRows(LOG_EXPENSE_SHEET, LOG_EXPENSE_HEAD, phone);
+	const rowsV = b.visit ? V.mine.filter(({ r }) => id(r['ID']) === id(b.visit)) : [];
+	const rowsE = E.mine.filter(({ r }) => (b.visit && id(r['출격ID']) === id(b.visit)) || (b.expense && id(r['ID']) === id(b.expense)));
+	// 아래 줄부터 지워야 위 줄 번호가 안 밀림
+	rowsV.sort((a, c) => c.row - a.row).forEach(({ row }) => V.sheet.deleteRow(row));
+	rowsE.sort((a, c) => c.row - a.row).forEach(({ row }) => E.sheet.deleteRow(row));
+	return '';
+}
+
+// 탭(없으면 만듦) + 내 줄만 {r: 머리글→값, row: 시트 줄 번호}
+function logRows(name, head, phone) {
+	const sheet = tabOf(name, head);
+	const t = applyTable(sheet);
+	return { sheet, mine: t.rows.map((r, i) => ({ r, row: i + 2 })).filter(({ r }) => normPhone(r['연락처']) === phone) };
+}
+
+function appendRows(tab, rows) {
+	if (rows.length) tab.sheet.getRange(tab.sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+}
+
+// 시트가 날짜로 바꿔 놓은 칸도 '2025-12-13'으로
+function ymd(v) {
+	const d = toDate(v);
+	return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+}
+
+// ── 스노우라이브 (회원만) ──
+// {token, season: '25-26', op?: 'link'|'unlink'|'refresh', id?: 링크 또는 숫자} → {ok, id, stats}
+// refresh('재연결' 버튼): 캐시·저장된 것 무시하고 스노우라이브에서 새로 → 시트·캐시 갱신
+// stats는 라이딩 통계만 (성별 등 다른 항목은 버림), 프로필 숨김이면 {hidden: true}
+// 캐시(1시간) → '스노우라이브기록' 탭에 저장된 것(끝난 시즌은 계속, 진행 중 시즌은 1시간까지) → 스노우라이브 요청. 요청이 실패해도 저장된 게 있으면 그걸로
+function snowlive(b) {
+	const phone = verify(b.token);
+	if (!phone || !readMembers().some((m) => m.phone === phone)) return { ok: false, expired: true, error: '다시 로그인해 주세요.' };
+	const cache = CacheService.getScriptCache();
+	const idKey = 'snowliveid:' + phone; // 연결한 ID도 캐시 → 캐시에 있으면 시트를 안 읽음
+	if (b.op === 'link' || b.op === 'unlink') {
+		const id = b.op === 'link' ? snowliveId(b.id) : '';
+		if (b.op === 'link' && !id) return { ok: false, error: '스노우라이브 프로필 링크나 ID를 확인해 주세요.' };
+		cache.remove(idKey);
+		clearSnowliveData(phone, id); // 다른 ID 기록 삭제 (해제면 전부)
+		if (!id) return { ok: true, id: '', stats: null };
+		const D = logRows(SNOWLIVE_DATA_SHEET, SNOWLIVE_DATA_HEAD, phone);
+		if (!D.mine.length) appendRows(D, [[formatPhone(phone), id, '', '', '']]); // 연결 표시 (첫 시즌을 가져오면 이 줄을 채움)
+		return snowlive({ token: b.token, season: b.season });
+	}
+	let id = cache.get(idKey);
+	if (id === null) {
+		const first = logRows(SNOWLIVE_DATA_SHEET, SNOWLIVE_DATA_HEAD, phone).mine[0];
+		id = first ? snowliveId(first.r['스노우라이브ID']) : '';
+		cache.put(idKey, id, SNOWLIVE_CACHE_SEC);
+	}
+	if (!id) return { ok: true, id: '', stats: null };
+	const m = /^(\d{2})-(\d{2})$/.exec(String(b.season || ''));
+	if (!m) return { ok: false, error: '시즌을 확인해 주세요.' };
+	const key = `snowlive:${id}:${b.season}`;
+	const force = b.op === 'refresh';
+	const hit = force ? null : cache.get(key);
+	if (hit) return { ok: true, id, stats: JSON.parse(hit) };
+	const keep = (stats) => {
+		try {
+			cache.put(key, JSON.stringify(stats), SNOWLIVE_CACHE_SEC);
+		} catch (err) {}
+		return { ok: true, id, stats };
+	};
+	const D = logRows(SNOWLIVE_DATA_SHEET, SNOWLIVE_DATA_HEAD, phone);
+	const saved = D.mine.find(({ r }) => String(r['스노우라이브ID']) === id && String(r['시즌']) === b.season);
+	let old = null;
+	try {
+		old = saved ? JSON.parse(String(saved.r['데이터'])) : null;
+	} catch (err) {}
+	// 스노우라이브 시즌 = 10/1 ~ 3/31. 4/1이 지나면 끝난 시즌 → 저장된 것만 씀
+	const ended = Date.now() >= new Date(2000 + Number(m[2]), 3, 1).getTime();
+	const fetchedAt = saved ? new Date(saved.r['가져온시각']).getTime() : 0;
+	if (old && (force ? Date.now() - fetchedAt < SNOWLIVE_REFRESH_GAP_MS : ended || Date.now() - fetchedAt < SNOWLIVE_REFRESH_MS)) return keep(old);
+
+	const season = `20${m[1]}-10-01, 20${m[2]}-03-31`;
+	let stats = null;
+	try {
+		const res = UrlFetchApp.fetch(`${SNOWLIVE_API}?user_id=${id}&friend_user_id=${id}&season=${encodeURIComponent(season)}`, { muteHttpExceptions: true });
+		stats = res.getResponseCode() === 200 ? parseSnowlive(JSON.parse(res.getContentText())) : null;
+	} catch (err) {}
+	if (!stats) return old ? { ok: true, id, stats: old } : { ok: false, id, error: '스노우라이브 기록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' }; // 실패는 캐시 안 함 (다음에 다시 시도)
+	const text = JSON.stringify(stats);
+	if (text.length <= SNOWLIVE_DATA_MAX) {
+		const line = [formatPhone(phone), id, b.season, text, new Date()];
+		const at = saved || D.mine.find(({ r }) => String(r['시즌']) === ''); // 연결만 해 둔 빈 줄이 있으면 거기에
+		if (at) D.sheet.getRange(at.row, 1, 1, line.length).setValues([line]);
+		else appendRows(D, [line]);
+	}
+	return keep(stats);
+}
+
+// 이 회원의 저장된 스노우라이브 기록 삭제 (keepId와 같은 ID 것은 남김)
+function clearSnowliveData(phone, keepId) {
+	const D = logRows(SNOWLIVE_DATA_SHEET, SNOWLIVE_DATA_HEAD, phone);
+	D.mine.filter(({ r }) => String(r['스노우라이브ID']) !== keepId).sort((a, c) => c.row - a.row).forEach(({ row }) => D.sheet.deleteRow(row));
+}
+
+// '…/share/user/16740', '…#/profile?id=16740', '16740' → '16740'
+function snowliveId(v) {
+	const s = String(v == null ? '' : v).trim();
+	const m = /(?:\/user\/|[?&]id=)(\d{1,10})\b/.exec(s) || /^(\d{1,10})$/.exec(s);
+	return m ? m[1] : '';
+}
+
+// API 응답 → 화면에 쓸 값만. 이번 시즌 기록이 없으면 total 0
+function parseSnowlive(d) {
+	const u = d.friend_user_info, s = d.season_ranking_info;
+	if (!u || !s) return null;
+	const https = (v) => (/^https:\/\//.test(String(v || '')) ? String(v) : '');
+	const color = (v) => (/^[0-9a-f]{6}$/i.test(String(v || '')) ? '#' + v : '');
+	const profile = { name: String(u.display_name || ''), photo: https(u.profile_image_url_user_thumb || u.profile_image_url_user), crew: String(u.crew_name || ''), resort: String(u.favorite_resort || ''), board: String(u.skiorboard || '') };
+	if (u.hide_profile) return { hidden: true, ...profile, photo: '' };
+	const total = Number(s.overall_total_count) || 0;
+	const out = { ...profile, total, days: [], slopes: [] };
+	if (!total) return out;
+	out.score = Math.round(Number(s.overall_total_score) || 0);
+	out.rank = Number(s.overall_rank) || 0;
+	out.top = Math.round((Number(s.overall_rank_percentage) || 0) * 1000) / 10; // 상위 n%
+	out.tier = { name: String(s.tier_name_kor || ''), icon: https(s.overall_tier_icon_url), color: color(s.primary_color), bg: color(s.secondary_color) };
+	out.slopes = (s.count_info || []).slice(0, 10).map((x) => ({ slope: String(x.slope), count: Number(x.count) || 0 }));
+	out.days = (d.calender_info || [])
+		.map((x) => {
+			const top = (x.daily_info || []).slice().sort((a, c) => c.count - a.count)[0];
+			return { date: String(x.date).slice(0, 10), count: Number(x.daily_total_count) || 0, slope: top ? String(top.slope) : '' };
+		})
+		.sort((a, c) => (a.date < c.date ? -1 : 1));
+	return out;
+}
+
+// ── 오픈채팅 랭킹 (회원만) ──
+// 닉네임별 메시지 수만 응답. 메시지 내용은 내보내지 않음
+function chatRank(token) {
+	const phone = verify(token);
+	if (!phone || !readMembers().some((m) => m.phone === phone)) return { ok: false, expired: true, error: '다시 로그인해 주세요.' };
+	if (!CHAT_FOLDER_ID) return { ok: false, error: '랭킹을 준비 중이에요.' };
+	const files = DriveApp.getFolderById(CHAT_FOLDER_ID).getFiles();
+	let file = null;
+	while (files.hasNext()) {
+		const f = files.next();
+		if (/\.csv$/i.test(f.getName()) && (!file || f.getDateCreated() > file.getDateCreated())) file = f;
+	}
+	if (!file) return { ok: false, error: '랭킹을 준비 중이에요.' };
+	// 새 파일을 올리면 키가 바뀌어 바로 반영
+	const cache = CacheService.getScriptCache();
+	// 응답 모양을 바꾸면 앞머리(chatrank2) 숫자도 올릴 것 — 안 그러면 새 코드가 예전 캐시(6시간)를 그대로 돌려줌
+	const key = 'chatrank2:' + file.getId() + ':' + file.getLastUpdated().getTime();
+	const hit = cache.get(key);
+	if (hit) return JSON.parse(hit);
+	const out = { ok: true, ...parseChat(file.getBlob().getDataAsString('UTF-8')) };
+	try {
+		cache.put(key, JSON.stringify(out), 6 * 60 * 60);
+	} catch (err) {} // 너무 크면 캐시만 건너뜀
+	return out;
+}
+
+// 카톡 내보내기 CSV(Date,User,Message) → {from, to, total, ranks: [{name, count}], months: [{month: '2025-11', total, ranks}] (최근 달부터)}
+// 닉네임 '이름/96/구리/…'은 이름/나이가 같으면 한 사람으로 묶고 마지막 닉네임으로 표시 (모든 달 같은 이름)
+function parseChat(text) {
+	const rows = parseCsv(String(text).replace(/^﻿/, ''));
+	const names = {}, all = {}, months = {};
+	let from = '', to = '';
+	rows.slice(1).forEach(([date, user, msg]) => {
+		user = String(user || '').trim();
+		if (!user || CHAT_SKIP_USERS.includes(user) || CHAT_SYSTEM.test(msg || '')) return;
+		const parts = user.split('/');
+		const id = parts.length > 1 && /^\d{2,4}$/.test(parts[1].trim()) ? parts[0].trim() + '/' + parts[1].trim() : user;
+		names[id] = user;
+		const day = String(date).slice(0, 10);
+		const m = months[day.slice(0, 7)] || (months[day.slice(0, 7)] = {});
+		all[id] = (all[id] || 0) + 1;
+		m[id] = (m[id] || 0) + 1;
+		if (!from || day < from) from = day;
+		if (day > to) to = day;
+	});
+	const rank = (counts) => {
+		const ranks = Object.keys(counts).map((id) => ({ name: names[id], count: counts[id] })).sort((a, b) => b.count - a.count);
+		return { total: ranks.reduce((s, r) => s + r.count, 0), ranks };
+	};
+	const byMonth = Object.keys(months).sort().reverse().map((month) => ({ month, ...rank(months[month]) }));
+	return { from, to, ...rank(all), months: byMonth };
+}
+
+// 따옴표 안 쉼표·줄바꿈·"" 처리. 머리글이 탭으로 나뉘어 있으면 탭 구분
+function parseCsv(text) {
+	const sep = /^[^\n]*\t/.test(text) ? '\t' : ',';
+	const rows = [];
+	let row = [], cell = '', q = false;
+	for (let i = 0; i < text.length; i++) {
+		const c = text[i];
+		if (q) {
+			if (c === '"' && text[i + 1] === '"') (cell += '"'), i++;
+			else if (c === '"') q = false;
+			else cell += c;
+		} else if (c === '"' && cell === '') q = true;
+		else if (c === sep) row.push(cell), (cell = '');
+		else if (c === '\n' || c === '\r') {
+			if (c === '\r' && text[i + 1] === '\n') i++;
+			row.push(cell), rows.push(row), (row = []), (cell = '');
+		} else cell += c;
+	}
+	if (cell || row.length) row.push(cell), rows.push(row);
+	return rows;
 }
 
 function signupSheet() {

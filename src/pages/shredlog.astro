@@ -1,0 +1,863 @@
+---
+import { club } from '../data/club';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL;
+// 시즌 = 7월 1일 ~ 다음 해 6월 30일 (날짜 칸 min/max도 이 범위)
+const seasons = ['24-25', '25-26', '26-27'];
+const resorts = ['엘리시안 강촌', '휘닉스 스노우파크', '하이원', '모나 용평', '비발디파크', '웰리힐리', '지산 포레스트', '곤지암', '오크밸리', '알펜시아', '무주 덕유산', '에덴밸리', '니세코 (일본)', '하쿠바 (일본)'];
+const cats = ['🎟️ 시즌권 / 리프트', '🚗 교통 / 유류비 / 톨비', '🏨 숙박 / 시즌방', '🎿 장비 / 튜닝 / 왁싱', '🍲 식음료 / 뒤풀이', '🛡️ 기타 / 락커 / 보험 / 강습'];
+const pick = {
+	slot: ['주간', '야간', '심야', '올데이', '백야', '오전', '오후'],
+	snow: ['파우더 / 자연설', '압설 / 그루밍', '아이스 / 강설', '습설', '슬러시 / 봄눈'],
+	style: ['카빙 / 고속', '파크 / 지빙 / 키커', '그라운드트릭', '프리라이딩', '연습 / 기초'],
+	weather: ['맑음', '흐림', '눈', '비', '바람'],
+	crew: ['솔로', '친구 / 크루', '동호회', '가족'],
+};
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{club.name} — Shred Log</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav id="site-nav" aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/#ride`}>RIDE</a>
+				<a href={`${base}/#faq`}>FAQ</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/members/`}>MEMBERS</a>
+				<a href={`${base}/rank/`}>CHAT RANK</a>
+				<a href={`${base}/shredlog/`} aria-current="page">SHRED LOG</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">MY SEASON</p>
+				<h1>SHRED LOG.</h1>
+				<div class="seasons" role="group" aria-label="시즌 고르기">
+					{seasons.map((s) => <button type="button" data-season={s} aria-pressed="false">{s}</button>)}
+				</div>
+			</section>
+
+			<div class="mem-body log">
+				<div class="sync" aria-live="polite">
+					<p class="sync-msg">불러오는 중…</p>
+					<a class="btn btn-ink sync-login" hidden>로그인하고 시트에 저장</a>
+					<button class="btn btn-ink sync-move" type="button" hidden></button>
+				</div>
+
+				<dl class="stats">
+					<div><dt>출격</dt><dd data-stat="visits"></dd></div>
+					<div><dt>총 지출</dt><dd data-stat="total"></dd></div>
+					<div><dt>1회 평균</dt><dd data-stat="avg"></dd></div>
+					<div><dt>라이딩 시간</dt><dd data-stat="hours"></dd></div>
+					<div><dt>베이스</dt><dd data-stat="base"></dd></div>
+				</dl>
+
+				<section class="block">
+					<h2>SNOWLIVE</h2>
+					<p class="sl-msg" aria-live="polite"></p>
+					<form class="sl-form" hidden>
+						<div class="row">
+							<label class="wide">스노우라이브 프로필 링크 또는 ID<input name="sl" required autocomplete="off" placeholder="https://snowlive.kr/share/user/…" /></label>
+						</div>
+						<button class="btn btn-ink" type="submit">연결</button>
+					</form>
+					<div class="sl-box" hidden>
+						<div class="sl-head">
+							<img class="sl-photo" alt="" referrerpolicy="no-referrer" hidden />
+							<div class="sl-who">
+								<p class="sl-name"></p>
+								<p class="sl-sub"></p>
+							</div>
+							<span class="sl-tier" hidden><img alt="" referrerpolicy="no-referrer" /><span></span></span>
+							<button class="btn-mini sl-refresh" type="button" title="스노우라이브에서 지금 기록을 새로 가져와요">재연결</button>
+							<button class="del sl-unlink" type="button">연결 해제</button>
+						</div>
+						<div class="sl-stats-wrap">
+							<dl class="stats sl-stats"></dl>
+							<div class="sl-cols">
+								<div>
+									<h3>SLOPES</h3>
+									<ol class="sl-slopes"></ol>
+								</div>
+								<div>
+									<h3>DAYS</h3>
+									<div class="scroll sl-days-wrap"><table class="sl-days"><thead><tr><th>날짜</th><th>런</th><th>많이 탄 슬로프</th></tr></thead><tbody></tbody></table></div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<section class="block">
+					<h2>SEASON PASS</h2>
+					<form class="pass-form">
+						<div class="row pass-row">
+							<label>시즌권 가격 (원)<input name="price" type="number" min="1" step="1" required inputmode="numeric" /></label>
+							<label>일일권 가격 (원)<input name="day" type="number" min="0" step="1" inputmode="numeric" /></label>
+							<button class="btn btn-ink" type="submit">계산하기</button>
+						</div>
+					</form>
+					<p class="roi" aria-live="polite"></p>
+				</section>
+
+				<section class="block">
+					<h2>VISITS</h2>
+					<form class="visit-form">
+						<div class="row">
+							<label>날짜<input name="date" type="date" required min="2024-07-01" max="2027-06-30" /></label>
+							<label>스키장<input name="resort" list="resorts" required autocomplete="off" /></label>
+							{Object.entries({ slot: '시간대', snow: '설질', style: '라이딩 스타일', weather: '날씨', crew: '동행' }).map(([k, label]) => (
+								<label>
+									{label}
+									<select name={k}>
+										<option value="">-</option>
+										{pick[k as keyof typeof pick].map((o) => <option>{o}</option>)}
+									</select>
+								</label>
+							))}
+							<label>기온 (°C)<input name="temp" type="number" step="0.5" /></label>
+							<label>런 수<input name="runs" type="number" min="0" inputmode="numeric" /></label>
+							<label>라이딩 시간 (h)<input name="hours" type="number" min="0" step="0.5" /></label>
+							<label>
+								만족도
+								<select name="rating">
+									<option value="">-</option>
+									{[5, 4, 3, 2, 1].map((n) => <option value={n}>{'★'.repeat(n)}</option>)}
+								</select>
+							</label>
+							<label class="wide">데크 / 바인딩 세팅<input name="gear" maxlength="100" /></label>
+							<label class="wide">슬로프 메모<input name="memo" maxlength="300" /></label>
+						</div>
+						<details>
+							<summary>당일 지출 같이 기록</summary>
+							<div class="row">
+								{cats.map((c) => <label>{c}<input name={`cost:${c}`} type="number" min="0" step="1000" inputmode="numeric" /></label>)}
+							</div>
+						</details>
+						<button class="btn btn-ink" type="submit">출격 기록 추가</button>
+					</form>
+					<div class="scroll"><table class="visit-table"><thead><tr><th>날짜</th><th>스키장</th><th>시간대</th><th>설질</th><th>스타일</th><th>날씨</th><th>동행</th><th>기온</th><th>런</th><th>스노우라이브</th><th>시간</th><th>만족도</th><th>당일 지출</th><th>세팅</th><th>메모</th><th></th></tr></thead><tbody></tbody></table></div>
+				</section>
+
+				<section class="block">
+					<h2>EXPENSES</h2>
+					<form class="expense-form">
+						<div class="row">
+							<label>날짜<input name="date" type="date" required min="2024-07-01" max="2027-06-30" /></label>
+							<label>분류<select name="cat">{cats.map((c) => <option>{c}</option>)}</select></label>
+							<label>금액 (원)<input name="amount" type="number" min="1" step="1" required inputmode="numeric" /></label>
+							<label class="wide">메모<input name="memo" maxlength="100" placeholder="예: 시즌방 1/N" /></label>
+						</div>
+						<button class="btn btn-ink" type="submit">지출 추가</button>
+					</form>
+					<p class="by-cat"></p>
+					<div class="scroll"><table class="expense-table"><thead><tr><th>날짜</th><th>분류</th><th>금액</th><th>메모</th><th></th></tr></thead><tbody></tbody></table></div>
+					<button class="btn btn-line-dark csv" type="button">이 시즌 지출 CSV 받기</button>
+				</section>
+
+				<section class="block">
+					<h2>COMPARE</h2>
+					<div class="scroll">
+						<table class="compare">
+							<thead><tr><th></th>{seasons.map((s) => <th>{s}</th>)}</tr></thead>
+							<tbody></tbody>
+						</table>
+					</div>
+				</section>
+
+			</div>
+
+			<datalist id="resorts">{resorts.map((r) => <option value={r} />)}</datalist>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<a href={`${base}/`}>메인으로</a>
+				<span>© {new Date().getFullYear()} {club.name}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { busy, call, loginUrl, store } from '../scripts/session';
+
+			type Visit = { id: string; date: string; resort: string; [k: string]: string };
+			type Expense = { id: string; date: string; cat: string; amount: number; memo: string; visit?: string };
+			type Data = { visits: Visit[]; expenses: Expense[]; pass: Record<string, { price?: number; day?: number }> };
+
+			// 로그인 안 했으면 이 브라우저(localStorage)에만, 로그인하면 시트(회원 본인 기록)에 저장
+			const KEY = 'fs-shredlog';
+			const empty = (): Data => ({ visits: [], expenses: [], pass: {} });
+			const readLocal = (): Data => {
+				try {
+					const d = JSON.parse(localStorage.getItem(KEY) || 'null');
+					if (d && Array.isArray(d.visits) && Array.isArray(d.expenses)) return { ...d, pass: d.pass ?? {} };
+				} catch {}
+				return empty();
+			};
+			const writeLocal = (d: Data | null) => {
+				try {
+					d ? localStorage.setItem(KEY, JSON.stringify(d)) : localStorage.removeItem(KEY);
+				} catch {
+					alert('브라우저에 저장하지 못했어요. 저장 공간이나 시크릿 모드인지 확인해 주세요.');
+				}
+			};
+			let token = store.get();
+			let slSeason = ''; // 스노우라이브를 마지막으로 불러온 시즌
+			let passSeason = ''; // 시즌권 칸을 마지막으로 채운 시즌
+			let slDays: Record<string, number> = {}; // 날짜 → 스노우라이브 런 수
+			let online = !!token; // true: 시트, false: 이 브라우저
+			let data = online ? empty() : readLocal();
+
+			const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+			const won = (n: number) => `${Math.round(n).toLocaleString()}원`;
+			const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD (현지 시간)
+			// 7월 1일부터 새 시즌: 2025-12-13 → '25-26'
+			const seasonOf = (date: string) => {
+				const [y, m] = date.split('-').map(Number);
+				const s = (m >= 7 ? y : y - 1) % 100;
+				return `${String(s).padStart(2, '0')}-${String(s + 1).padStart(2, '0')}`;
+			};
+			const seasons = [...document.querySelectorAll<HTMLButtonElement>('[data-season]')].map((b) => b.dataset.season!);
+			let season = seasons.includes(seasonOf(today)) ? seasonOf(today) : seasons.at(-1)!;
+
+			const statsOf = (s: string) => {
+				const visits = data.visits.filter((v) => seasonOf(v.date) === s);
+				const expenses = data.expenses.filter((e) => seasonOf(e.date) === s);
+				const total = expenses.reduce((t, e) => t + e.amount, 0);
+				const hours = visits.reduce((t, v) => t + (Number(v.hours) || 0), 0);
+				const count: Record<string, number> = {};
+				visits.forEach((v) => (count[v.resort] = (count[v.resort] || 0) + 1));
+				const base = Object.keys(count).sort((a, b) => count[b] - count[a])[0] ?? '-';
+				// 라이딩 = SHRED LOG 출격 날짜 + 스노우라이브 기록 날짜 (같은 날은 한 번)
+				const days = new Set(visits.map((v) => v.date));
+				slCache[s]?.stats?.days?.forEach((d) => days.add(d.date));
+				const rides = days.size;
+				return { visits, expenses, total, hours, base, rides, avg: rides ? total / rides : 0 };
+			};
+
+			// 표 한 줄: 값은 textContent로만
+			const row = (cells: (string | number)[], onDelete?: () => void) => {
+				const tr = document.createElement('tr');
+				cells.forEach((c) => {
+					const td = document.createElement('td');
+					td.textContent = String(c ?? '');
+					tr.append(td);
+				});
+				if (onDelete) {
+					const td = document.createElement('td');
+					const b = document.createElement('button');
+					b.type = 'button';
+					b.className = 'del';
+					b.textContent = '삭제';
+					b.addEventListener('click', onDelete);
+					td.append(b);
+					tr.append(td);
+				}
+				return tr;
+			};
+			const byDate = <T extends { date: string }>(a: T, b: T) => b.date.localeCompare(a.date);
+
+			function render() {
+				// 시즌이 바뀌면 스노우라이브도 그 시즌으로
+				if (season !== slSeason) {
+					slSeason = season;
+					snowlive();
+				}
+				document.querySelectorAll<HTMLButtonElement>('[data-season]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.season === season)));
+				const st = statsOf(season);
+				const stat = { visits: `${st.rides}일`, total: won(st.total), avg: won(st.avg), hours: `${st.hours}시간`, base: st.base };
+				Object.entries(stat).forEach(([k, v]) => ($(`[data-stat=${k}]`).textContent = v));
+
+				// 시즌권 칸: 시즌이 바뀌거나 기록을 새로 불러왔을 때만 저장된 가격으로 채움 (입력 중인 값을 덮지 않게). 계산은 '계산하기'를 눌러야
+				if (passSeason !== season) {
+					passSeason = season;
+					const pass = data.pass[season] ?? {};
+					$<HTMLInputElement>('[name=price]').value = pass.price ? String(pass.price) : '';
+					$<HTMLInputElement>('[name=day]').value = pass.day ? String(pass.day) : '';
+					$('.roi').textContent = '시즌권·일일권 가격을 넣고 계산하기를 눌러 주세요.';
+				}
+
+				const vBody = $('.visit-table tbody');
+				vBody.replaceChildren(
+					...st.visits.sort(byDate).map((v) => {
+						const spent = data.expenses.filter((e) => e.visit === v.id).reduce((t, e) => t + e.amount, 0);
+						return row(
+							[v.date, v.resort, v.slot, v.snow, v.style, v.weather, v.crew, v.temp ? `${v.temp}°` : '', v.runs, slDays[v.date] ? `${slDays[v.date]}런` : '', v.hours ? `${v.hours}h` : '', v.rating ? '★'.repeat(Number(v.rating)) : '', spent ? won(spent) : '', v.gear, v.memo],
+							() => {
+								if (!confirm(`${v.date} ${v.resort} 기록을 지울까요? (같이 기록한 당일 지출도 지워져요)`)) return;
+								commit({ op: 'delete', visit: v.id }, (d) => {
+									d.visits = d.visits.filter((x) => x.id !== v.id);
+									d.expenses = d.expenses.filter((e) => e.visit !== v.id);
+								});
+							},
+						);
+					}),
+				);
+				if (!st.visits.length) vBody.append(row([`${season} 시즌 출격 기록이 아직 없어요.`]));
+
+				const eBody = $('.expense-table tbody');
+				eBody.replaceChildren(
+					...st.expenses.sort(byDate).map((e) =>
+						row([e.date, e.cat, won(e.amount), e.memo], () => {
+							if (!confirm(`${e.date} ${e.cat} ${won(e.amount)}을 지울까요?`)) return;
+							commit({ op: 'delete', expense: e.id }, (d) => (d.expenses = d.expenses.filter((x) => x.id !== e.id)));
+						}),
+					),
+				);
+				if (!st.expenses.length) eBody.append(row([`${season} 시즌 지출이 아직 없어요.`]));
+				const byCat: Record<string, number> = {};
+				st.expenses.forEach((e) => (byCat[e.cat] = (byCat[e.cat] || 0) + e.amount));
+				$('.by-cat').textContent = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, t]) => `${c} ${won(t)}`).join('   ');
+
+				// 시즌 비교
+				const all = seasons.map(statsOf);
+				const metrics: [string, (s: ReturnType<typeof statsOf>) => string][] = [
+					['출격', (s) => `${s.rides}일`],
+					['총 지출', (s) => won(s.total)],
+					['1회 평균', (s) => won(s.avg)],
+					['라이딩 시간', (s) => `${s.hours}시간`],
+					['베이스', (s) => s.base],
+				];
+				$('.compare tbody').replaceChildren(...metrics.map(([label, f]) => row([label, ...all.map(f)])));
+			}
+
+			document.querySelectorAll<HTMLButtonElement>('[data-season]').forEach((b) =>
+				b.addEventListener('click', () => {
+					season = b.dataset.season!;
+					render();
+				}),
+			);
+
+			// 계산하기: 가격 저장 → 이 시즌 라이딩 수로 1회당 단가·본전 계산
+			const passForm = $<HTMLFormElement>('.pass-form');
+			passForm.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const f = new FormData(passForm);
+				const next = { price: Number(f.get('price')) || 0, day: Number(f.get('day')) || 0 };
+				const s = season;
+				busy(passForm, true, '계산 중');
+				const ok = await commit({ op: 'add', pass: { [s]: next } }, (d) => (d.pass[s] = next));
+				busy(passForm, false, '');
+				if (!ok) return;
+				const n = statsOf(s).rides;
+				let roi = `시즌권 ${won(next.price)} · 이 시즌 라이딩 0일 — 출격 기록(또는 스노우라이브 연결)이 생기면 1회당 단가를 계산할 수 있어요.`;
+				if (n) {
+					roi = `라이딩 ${n}일 기준 1회 탑승당 실질 단가 ${won(next.price / n)}`;
+					if (next.day) {
+						const saved = next.day * n - next.price;
+						roi += saved >= 0
+							? ` · 일일권 ${n}회(${won(next.day * n)}) 대비 ${won(saved)} 절약 — 본전 돌파!`
+							: ` · 본전까지 ${Math.ceil(-saved / next.day)}회 더 (일일권 대비 ${won(-saved)} 남음)`;
+					}
+				}
+				$('.roi').textContent = roi;
+			});
+
+			// 날짜 칸 기본값 = 오늘
+			document.querySelectorAll<HTMLInputElement>('input[type=date]').forEach((i) => (i.value = today));
+
+			const visitForm = $<HTMLFormElement>('.visit-form');
+			visitForm.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const id = crypto.randomUUID();
+				const v: Visit = { id, date: '', resort: '' };
+				const costs: Expense[] = [];
+				for (const [k, val] of new FormData(visitForm)) {
+					const s = String(val).trim();
+					if (!k.startsWith('cost:')) v[k] = s;
+					// 당일 지출: 분류별 금액 → 지출 기록(출격과 연결)
+					else if (Number(s) > 0) costs.push({ id: crypto.randomUUID(), date: v.date, cat: k.slice(5), amount: Number(s), memo: `${v.resort} 당일`, visit: id });
+				}
+				season = seasonOf(v.date);
+				const ok = await commit({ op: 'add', visits: [v], expenses: costs }, (d) => {
+					d.visits.push(v);
+					d.expenses.push(...costs);
+				});
+				if (!ok) return;
+				visitForm.reset();
+				visitForm.querySelector<HTMLInputElement>('[name=date]')!.value = today;
+			});
+
+			const expenseForm = $<HTMLFormElement>('.expense-form');
+			expenseForm.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const f = new FormData(expenseForm);
+				const x: Expense = { id: crypto.randomUUID(), date: String(f.get('date')), cat: String(f.get('cat')), amount: Number(f.get('amount')), memo: String(f.get('memo')).trim() };
+				season = seasonOf(x.date);
+				if (!(await commit({ op: 'add', expenses: [x] }, (d) => d.expenses.push(x)))) return;
+				expenseForm.reset();
+				expenseForm.querySelector<HTMLInputElement>('[name=date]')!.value = today;
+			});
+
+			const download = (name: string, text: string, type: string) => {
+				const a = document.createElement('a');
+				a.href = URL.createObjectURL(new Blob([text], { type }));
+				a.download = name;
+				a.click();
+				setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+			};
+			// 엑셀이 한글을 깨뜨리지 않게 BOM
+			$('.csv').addEventListener('click', () => {
+				const q = (x: string | number) => `"${String(x).replaceAll('"', '""')}"`;
+				const lines = [['날짜', '분류', '금액', '메모'], ...statsOf(season).expenses.sort(byDate).reverse().map((e) => [e.date, e.cat, e.amount, e.memo])];
+				download(`shredlog-${season}-지출.csv`, '﻿' + lines.map((l) => l.map(q).join(',')).join('\r\n'), 'text/csv');
+			});
+			// ── 저장 위치 ──
+			const log = $('.log');
+			const syncMsg = $('.sync-msg');
+			const loginBtn = $<HTMLAnchorElement>('.sync-login');
+			const moveBtn = $<HTMLButtonElement>('.sync-move');
+			loginBtn.href = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
+
+			const goOffline = (msg: string) => {
+				online = false;
+				data = readLocal();
+				passSeason = '';
+				slSeason = ''; // 스노우라이브 칸도 로그인 안내로
+				syncMsg.textContent = msg;
+				loginBtn.hidden = false;
+				moveBtn.hidden = true;
+				render();
+			};
+
+			// 시트에 보내고 서버가 돌려준 내 기록 전체로 다시 그림
+			async function send(body: { op?: string }) {
+				log.inert = true;
+				log.setAttribute('aria-busy', 'true');
+				const res = await call({ action: 'shredlog', token, ...body }).catch(() => null);
+				log.inert = false;
+				log.setAttribute('aria-busy', 'false');
+				if (res?.expired) {
+					store.clear();
+					token = null;
+					goOffline(`${body.op ? '로그인이 만료돼서 방금 기록은 저장되지 않았어요.' : '로그인이 만료됐어요.'} 다시 로그인하면 내 계정 기록을 불러와요. (그 전까지는 이 브라우저에만 저장돼요)`);
+					return false;
+				}
+				if (!res?.ok) {
+					alert(res?.error ?? '저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');
+					render(); // 시즌권 칸 등 입력값 되돌림
+					return false;
+				}
+				data = { visits: res.visits, expenses: res.expenses.map((e: Expense) => ({ ...e, visit: e.visit || undefined })), pass: res.pass };
+				if (!body.op) passSeason = ''; // 처음 불러온 시즌권 가격으로 칸 채우기
+				// 불러오거나 옮겼는데 지금 시즌에 기록이 없으면 가장 최근 기록의 시즌으로
+				const latest = [...data.visits, ...data.expenses].sort(byDate)[0];
+				if (!body.op || body.op === 'add') if (latest && !statsOf(season).visits.length && !statsOf(season).expenses.length && seasons.includes(seasonOf(latest.date))) season = seasonOf(latest.date);
+				render();
+				return true;
+			}
+
+			// 회원: 시트 / 비회원: 이 브라우저
+			async function commit(body: object, change: (d: Data) => void) {
+				if (online) return send(body);
+				change(data);
+				writeLocal(data);
+				render();
+				return true;
+			}
+
+			// 로그인 전에 이 브라우저에 쓴 기록 → 내 계정으로 (같은 ID는 서버가 건너뛰어서 다시 눌러도 중복 없음)
+			moveBtn.addEventListener('click', async () => {
+				if (!(await send({ op: 'add', ...readLocal() }))) return;
+				writeLocal(null);
+				moveBtn.hidden = true;
+				syncMsg.textContent = '이 브라우저에 있던 기록을 내 계정으로 옮겼어요.';
+			});
+
+			// ── 스노우라이브 (회원만, 서버가 1시간 캐시) ──
+			type SL = {
+				hidden?: boolean; name: string; photo: string; crew: string; resort: string; board: string;
+				total?: number; score?: number; rank?: number; top?: number;
+				tier?: { name: string; icon: string; color: string; bg: string };
+				slopes?: { slope: string; count: number }[]; days?: { date: string; count: number; slope: string }[];
+			};
+			const slCache: Record<string, { id: string; stats: SL | null }> = {}; // 시즌별
+			const slMsg = $('.sl-msg');
+			const slForm = $<HTMLFormElement>('.sl-form');
+			const slBox = $('.sl-box');
+
+			async function snowlive(body: { op?: string; id?: string } = {}) {
+				if (!online) {
+					slForm.hidden = slBox.hidden = true;
+					slMsg.textContent = '로그인하면 스노우라이브 라이딩 통계를 연결할 수 있어요.';
+					slDays = {};
+					return;
+				}
+				const key = season;
+				let res = body.op ? null : slCache[key];
+				if (!res) {
+					slMsg.textContent = '스노우라이브 기록 불러오는 중…';
+					const r = await call({ action: 'snowlive', token, season: key, ...body }).catch(() => null);
+					if (r?.expired) {
+						store.clear();
+						token = null;
+						return goOffline('로그인이 만료됐어요. 다시 로그인하면 내 계정 기록을 불러와요. (그 전까지는 이 브라우저에만 저장돼요)');
+					}
+					if (!r?.ok) {
+						slMsg.textContent = r?.error ?? '스노우라이브에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+						return;
+					}
+					if (body.op) Object.keys(slCache).forEach((k) => delete slCache[k]); // 연결·해제하면 다른 시즌도 다시
+					res = slCache[key] = { id: r.id, stats: r.stats };
+				}
+				if (key === season) showSnowlive(res.id, res.stats); // 그새 시즌을 바꿨으면 무시
+			}
+
+			function showSnowlive(id: string, st: SL | null) {
+				slForm.hidden = !!id;
+				slBox.hidden = !id;
+				slDays = {};
+				if (!id || !st) {
+					slMsg.textContent = '스노우라이브 앱 > 내 프로필 > 공유 링크를 붙여 넣으면 시즌 라이딩 통계를 보여줘요.';
+					return render();
+				}
+				// 값은 textContent·속성으로만
+				const photo = $<HTMLImageElement>('.sl-photo');
+				photo.hidden = !st.photo;
+				if (st.photo) photo.src = st.photo;
+				$('.sl-name').textContent = st.name;
+				$('.sl-sub').textContent = [st.crew, st.resort, st.board].filter(Boolean).join(' · ');
+				const tier = $('.sl-tier');
+				tier.hidden = !st.tier?.name;
+				if (st.tier) {
+					tier.style.color = st.tier.color;
+					tier.style.background = st.tier.bg;
+					tier.querySelector('span')!.textContent = st.tier.name;
+					const icon = tier.querySelector('img')!;
+					icon.hidden = !st.tier.icon;
+					if (st.tier.icon) icon.src = st.tier.icon;
+				}
+				const has = !st.hidden && !!st.total;
+				$('.sl-stats-wrap').hidden = !has;
+				slMsg.textContent = st.hidden ? '스노우라이브에서 프로필을 숨겨 두어서 통계를 볼 수 없어요.' : has ? '' : `${season} 시즌 스노우라이브 기록이 없어요.`;
+				if (has) {
+					const tiles = [['총 런', `${st.total!.toLocaleString()}런`], ['점수', st.score!.toLocaleString()], ['랭킹', `${st.rank!.toLocaleString()}위`], ['상위', `${st.top}%`], ['라이딩 일수', `${st.days!.length}일`]];
+					$('.sl-stats').replaceChildren(
+						...tiles.map(([k, v]) => {
+							const div = document.createElement('div');
+							const dt = document.createElement('dt');
+							const dd = document.createElement('dd');
+							dt.textContent = k;
+							dd.textContent = v;
+							div.append(dt, dd);
+							return div;
+						}),
+					);
+					const max = st.slopes![0]?.count || 1;
+					$('.sl-slopes').replaceChildren(
+						...st.slopes!.map((x) => {
+							const li = document.createElement('li');
+							li.style.setProperty('--w', `${(x.count / max) * 100}%`);
+							const name = document.createElement('span');
+							const c = document.createElement('b');
+							name.textContent = x.slope;
+							c.textContent = `${x.count}`;
+							li.append(name, c);
+							return li;
+						}),
+					);
+					$('.sl-days tbody').replaceChildren(...[...st.days!].reverse().map((d) => row([d.date, `${d.count}런`, d.slope])));
+					st.days!.forEach((d) => (slDays[d.date] = d.count));
+				}
+				render(); // 출격 표의 '스노우라이브' 칸
+			}
+
+			slForm.addEventListener('submit', (e) => {
+				e.preventDefault();
+				snowlive({ op: 'link', id: String(new FormData(slForm).get('sl')) }).then(() => slForm.reset());
+			});
+			// 재연결: 스노우라이브에서 새로 가져와 시트에 다시 저장
+			$('.sl-refresh').addEventListener('click', async () => {
+				const btn = $<HTMLButtonElement>('.sl-refresh');
+				btn.disabled = true;
+				await snowlive({ op: 'refresh' });
+				btn.disabled = false;
+				if (!slBox.hidden && !slMsg.textContent) slMsg.textContent = '스노우라이브에서 새로 가져왔어요.';
+			});
+			$('.sl-unlink').addEventListener('click', () => {
+				if (confirm('스노우라이브 연결을 해제할까요?')) snowlive({ op: 'unlink' });
+			});
+
+			render();
+			if (!online) goOffline('지금은 기록이 이 브라우저에만 저장돼요. 로그인하면 시트에 저장돼서 다른 기기에서도 불러올 수 있어요.');
+			else if (await send({})) {
+				syncMsg.textContent = '로그인돼 있어서 기록이 내 계정에 저장돼요. 어느 기기에서든 불러올 수 있어요.';
+				const local = readLocal();
+				moveBtn.hidden = !(local.visits.length + local.expenses.length);
+				moveBtn.textContent = `이 브라우저에 있던 기록(출격 ${local.visits.length}개 · 지출 ${local.expenses.length}개)을 내 계정으로 옮기기`;
+			} else if (online) syncMsg.textContent = '기록을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.';
+		</script>
+	</body>
+</html>
+
+<style>
+	.seasons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 24px;
+	}
+	.seasons button {
+		min-height: 44px;
+		padding: 0 20px;
+		border: 1.5px solid var(--white);
+		background: transparent;
+		color: var(--white);
+		font: 1.2rem var(--display);
+		letter-spacing: 0.04em;
+		cursor: pointer;
+	}
+	.seasons button[aria-pressed='true'] {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: var(--black);
+	}
+	.log {
+		display: grid;
+		gap: clamp(40px, 6vw, 72px);
+	}
+	.stats {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		margin: 0;
+		padding: 0.75px;
+	}
+	/* 칸마다 테두리를 겹쳐 그림 (칸 수가 홀수여도 빈 칸이 안 칠해짐) */
+	.stats :global(div) {
+		padding: 18px 20px;
+		background: var(--white);
+		box-shadow: 0 0 0 1.5px var(--black);
+	}
+	.stats :global(dt) {
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.15em;
+		color: #4a4d55;
+	}
+	.stats :global(dd) {
+		margin: 6px 0 0;
+		font: clamp(1.4rem, 2.6vw, 2rem) var(--display);
+		overflow-wrap: anywhere;
+	}
+	.block {
+		display: grid;
+		gap: 20px;
+	}
+	.block > .btn {
+		justify-self: start;
+	}
+	.block h2 {
+		font: clamp(1.8rem, 3.5vw, 2.6rem) var(--display);
+		font-weight: 400;
+		border-bottom: 1.5px solid var(--black);
+		padding-bottom: 8px;
+	}
+	form {
+		display: grid;
+		gap: 16px;
+		justify-items: start;
+	}
+	.row {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: 12px;
+		width: 100%;
+	}
+	.row label {
+		display: grid;
+		gap: 6px;
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.row .wide {
+		grid-column: span 2;
+	}
+	@media (max-width: 420px) {
+		.row .wide {
+			grid-column: auto;
+		}
+	}
+	input:not([type='file']),
+	select {
+		min-height: 44px;
+		padding: 0 12px;
+		border: 1.5px solid var(--black);
+		border-radius: 0;
+		background: var(--white);
+		color: var(--black);
+		font: 400 16px 'Noto Sans KR', sans-serif;
+		min-width: 0;
+	}
+	details {
+		width: 100%;
+	}
+	summary {
+		cursor: pointer;
+		font-weight: 700;
+		margin-bottom: 12px;
+	}
+	.roi,
+	.by-cat {
+		font-weight: 700;
+		white-space: pre-wrap;
+	}
+	.scroll {
+		overflow-x: auto;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 14px;
+	}
+	th,
+	.log :global(td) {
+		padding: 10px 8px;
+		border-bottom: 1px solid var(--line);
+		text-align: left;
+		white-space: nowrap;
+	}
+	th {
+		font-size: 12px;
+		letter-spacing: 0.08em;
+		border-bottom: 1.5px solid var(--black);
+	}
+	.log :global(.del) {
+		border: 0;
+		background: none;
+		color: #b3261e;
+		font: 700 13px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+		text-decoration: underline;
+	}
+	.pass-row {
+		align-items: end;
+	}
+	/* 버튼은 글자 폭만큼 (칸 너비로 늘어나지 않게) */
+	.pass-row .btn {
+		justify-self: start;
+		min-height: 44px;
+		padding: 0 20px;
+	}
+	.sl-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px 16px;
+	}
+	.sl-photo {
+		width: 56px;
+		height: 56px;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+	.sl-who {
+		margin-right: auto;
+	}
+	.sl-name {
+		font-size: 1.3rem;
+		font-weight: 900;
+	}
+	.sl-sub {
+		color: #4a4d55;
+		font-size: 14px;
+	}
+	.sl-tier {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 12px;
+		font-weight: 900;
+	}
+	.btn-mini {
+		min-height: 34px;
+		padding: 0 12px;
+		border: 1.5px solid var(--black);
+		background: transparent;
+		font: 700 13px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.btn-mini:hover {
+		background: var(--black);
+		color: var(--white);
+	}
+	.btn-mini:disabled {
+		opacity: 0.5;
+		cursor: progress;
+	}
+	.sl-tier img {
+		width: 22px;
+		height: 22px;
+	}
+	.sl-box,
+	.sl-stats-wrap {
+		display: grid;
+		gap: 24px;
+	}
+	.sl-cols {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		gap: 24px 40px;
+		align-items: start;
+	}
+	.sl-cols h3 {
+		font: 1.2rem var(--display);
+		font-weight: 400;
+		letter-spacing: 0.04em;
+		margin-bottom: 8px;
+	}
+	.sl-slopes {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	/* 막대 = 가장 많이 탄 슬로프 대비 */
+	.sl-slopes :global(li) {
+		display: flex;
+		justify-content: space-between;
+		padding: 8px 10px;
+		border-bottom: 1px solid var(--line);
+		background: linear-gradient(90deg, var(--white) var(--w), transparent var(--w));
+	}
+	.sl-days-wrap {
+		max-height: 360px;
+		overflow-y: auto;
+	}
+	.sync {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px 20px;
+		padding: 16px 20px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+	}
+	.sync-msg {
+		flex: 1 1 280px;
+		font-weight: 700;
+	}
+	.log[aria-busy='true'] {
+		opacity: 0.6;
+		cursor: progress;
+	}
+</style>

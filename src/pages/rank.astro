@@ -1,0 +1,198 @@
+---
+import { club } from '../data/club';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="robots" content="noindex" />
+		<title>{club.name} — Chat Rank</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav id="site-nav" aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/#ride`}>RIDE</a>
+				<a href={`${base}/#faq`}>FAQ</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/members/`}>MEMBERS</a>
+				<a href={`${base}/rank/`} aria-current="page">CHAT RANK</a>
+				<a href={`${base}/shredlog/`}>SHRED LOG</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">MEMBERS ONLY</p>
+				<h1>CHAT RANK.</h1>
+			</section>
+
+			<section class="mem-body">
+				<p class="mem-msg loading">불러오는 중…</p>
+				<div class="rank" hidden>
+					<div class="rank-head">
+						<label>
+							<span class="kicker">MONTH</span>
+							<select class="rank-month"></select>
+						</label>
+						<p class="rank-meta"></p>
+					</div>
+					<ol class="rank-list"></ol>
+				</div>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<a href={`${base}/members/`}>MEMBERS로</a>
+				<span>© {new Date().getFullYear()} {club.name}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { call, loginUrl, store } from '../scripts/session';
+
+			const token = store.get();
+			const msg = document.querySelector<HTMLElement>('.loading')!;
+			const box = document.querySelector<HTMLElement>('.rank')!;
+
+			// 로그인 안 했으면 로그인 화면으로 (로그인 후 이 페이지로 돌아옴)
+			const back = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
+			if (!token) location.replace(back);
+			else {
+				const res = await call({ action: 'chatrank', token }).catch(() => null);
+				if (res?.expired) {
+					store.clear();
+					location.replace(`${back}&expired`);
+				} else if (!res?.ok) {
+					msg.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+				} else {
+					msg.remove();
+					box.hidden = false;
+					type Rank = { total: number; ranks: { name: string; count: number }[] };
+					const dot = (d: string) => d.replaceAll('-', '.');
+					const monthLabel = (m: string) => `${m.slice(0, 4)}년 ${Number(m.slice(5))}월`;
+					// 달 고르기: 다 끝난 달만(10월이면 9월까지), 기본은 항상 지난달(9/1~9/30) — 데이터가 없어도 지난달
+					const select = box.querySelector<HTMLSelectElement>('.rank-month')!;
+					const views: Record<string, Rank & { meta: string }> = {};
+					const now = new Date();
+					const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+					const thisMonth = ym(now);
+					const lastMonth = ym(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+					const empty = { total: 0, ranks: [] };
+					const months: (Rank & { month: string })[] = (res.months ?? []).filter((m: { month: string }) => m.month < thisMonth);
+					if (!months.some((m) => m.month === lastMonth)) months.unshift({ month: lastMonth, ...empty });
+					months.sort((a, b) => b.month.localeCompare(a.month)).forEach((m) => {
+						const end = new Date(Number(m.month.slice(0, 4)), Number(m.month.slice(5)), 0).getDate(); // 그 달 말일
+						views[m.month] = { ...m, meta: `${dot(m.month)}.01 ~ ${dot(m.month)}.${end} · 메시지 ${m.total.toLocaleString()}개` };
+						select.add(new Option(monthLabel(m.month), m.month));
+					});
+					select.value = lastMonth;
+					const list = box.querySelector('.rank-list')!;
+					const show = (key: string) => {
+						const v = views[key];
+						// 메시지가 하나도 없으면(그 달이 빠진 예전 파일 등) 안내
+						box.querySelector('.rank-meta')!.textContent = v.ranks.length ? v.meta : '이 달에 집계된 메시지가 없어요. 이 달까지 담긴 최신 CSV를 올렸는지 확인해 주세요.';
+						const max = v.ranks[0]?.count || 1;
+						list.replaceChildren();
+						// 같은 개수면 같은 순위. 닉네임은 textContent로만 (HTML 주입 방지)
+						let place = 0;
+						v.ranks.forEach((p, i) => {
+							if (i === 0 || p.count !== v.ranks[i - 1].count) place = i + 1;
+							const li = document.createElement('li');
+							if (place <= 3) li.className = 'top';
+							li.style.setProperty('--w', `${(p.count / max) * 100}%`);
+							const n = document.createElement('span');
+							n.className = 'rank-no';
+							n.textContent = String(place);
+							const name = document.createElement('span');
+							name.className = 'rank-name';
+							name.textContent = p.name;
+							const c = document.createElement('span');
+							c.className = 'rank-count';
+							c.textContent = p.count.toLocaleString();
+							li.append(n, name, c);
+							list.append(li);
+						});
+					};
+					select.addEventListener('change', () => show(select.value));
+					show(select.value);
+				}
+			}
+		</script>
+	</body>
+</html>
+
+<style>
+	.rank-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		justify-content: space-between;
+		gap: 12px 24px;
+		margin-bottom: 20px;
+	}
+	.rank-head label {
+		display: grid;
+		gap: 6px;
+	}
+	.rank-month {
+		min-height: 44px;
+		padding: 0 12px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+		font: 700 16px 'Noto Sans KR', sans-serif;
+	}
+	.rank-meta {
+		color: #4a4d55;
+	}
+	.rank-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		border-top: 1.5px solid var(--black);
+	}
+	/* JS로 만든 줄이라 :global. 막대 = 1등 대비 비율 */
+	.rank-list :global(li) {
+		display: grid;
+		grid-template-columns: 3em 1fr auto;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 8px;
+		border-bottom: 1px solid var(--line);
+		background: linear-gradient(90deg, var(--white) var(--w), transparent var(--w));
+	}
+	.rank-list :global(.rank-no) {
+		font: 1.4rem var(--display);
+	}
+	.rank-list :global(.rank-name) {
+		font-weight: 700;
+		overflow-wrap: anywhere;
+	}
+	.rank-list :global(.rank-count) {
+		font-variant-numeric: tabular-nums;
+		font-weight: 700;
+	}
+	.rank-list :global(.top .rank-no) {
+		color: var(--accent);
+		font-size: 2rem;
+	}
+</style>

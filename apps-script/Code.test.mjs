@@ -24,6 +24,7 @@ function tab(name, rows) {
 		getLastRow: () => rows.length,
 		getMaxRows: () => Math.max(rows.length, 1000),
 		insertRowAfter: (n) => rows.splice(n, 0, Array(width()).fill('')),
+		deleteRow: (n) => rows.splice(n - 1, 1),
 		getRange: (r, c, nr = 1, nc = 1) => ({
 			getSheet: () => t,
 			getRow: () => r,
@@ -65,7 +66,7 @@ function load(tabs, driveFiles = []) {
 				return {
 					getId: () => fid,
 					getName: () => `폴더 ${fid}`,
-					getFiles: () => ({ hasNext: () => k < driveFiles.length, next: () => { const f = driveFiles[k++]; return { getId: () => f.id, getName: () => f.name, getMimeType: () => f.type, getDateCreated: () => new Date(f.t) }; } }),
+					getFiles: () => ({ hasNext: () => k < driveFiles.length, next: () => { const f = driveFiles[k++]; return { getId: () => f.id, getName: () => f.name, getMimeType: () => f.type, getDateCreated: () => new Date(f.t), getLastUpdated: () => new Date(f.t), getBlob: () => ({ getDataAsString: () => f.text }) }; } }),
 					createFile: (blob) => { const id = `f${created.length + 1}`; created.push({ id, folder: fid, ...blob }); return { getId: () => id, setSharing: (a, p) => (created.at(-1).sharing = `${a}/${p}`) }; },
 				};
 			},
@@ -533,4 +534,192 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	assert.deepEqual(plain(ctx.parseSomoim('<html>바뀐 페이지</html>', new Date())), []);
 }
 
-console.log('ok: Code.gs 로그인·잠금·토큰·본인정보·회원가입·드롭다운·승인 배치(운영진·마스터 보호) ·갤러리·모임 참석·프로필 사진·소모임 정모 검증 통과');
+// ══ 8. 오픈채팅 랭킹: 회원만, 최신 CSV, 따옴표 속 줄바꿈, 입장·방장봇 제외, 닉네임 바꿔도 이름/나이로 묶음, 내용 안 보냄 ══
+{
+	const csv = '﻿Date,User,Message\r\n'
+		+ '2025-11-28 12:24:04,이윤정/96/구리/운영진/프리,"이윤정/96/구리/운영진/프리님이 들어왔습니다.\n타인, 기관 사칭 유의"\r\n'
+		+ '2025-11-28 12:24:04,방장봇,"환영합니다\n\n▶ 필독, ""규칙"""\r\n'
+		+ '2025-11-28 12:24:14,홍진영/82/동대문/운영진/프리,이모티콘\r\n'
+		+ '2025-11-28 12:25:04,이윤정/96/구리/운영진/프리,안녕하세요!\r\n'
+		+ '2025-11-28 12:25:14,장정재/00/Perth/해머,반갑습니다~\r\n'
+		+ '2025-12-01 09:00:00,이윤정/96/구리/프리,"비밀 내용, 쉼표"\r\n';
+	const drive = [
+		{ id: 'old', name: 'old.csv', type: 'text/csv', t: 1000, text: 'Date,User,Message\n2025-01-01 00:00:00,옛사람,x\n' },
+		{ id: 'new', name: 'KakaoTalk_Chat.csv', type: 'text/csv', t: 2000, text: csv },
+	];
+	const env = load([tab('회원현황', [HEAD, [1, '서울', '노원구', '회원A', '남', 1990, 1, 1, '010-6000-0001', '']])], drive);
+	vm.runInContext("CHAT_FOLDER_ID = 'chat'", env.ctx);
+	assert.equal(env.call({ action: 'chatrank' }).expired, true, '비회원 거부');
+	const T = env.call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
+	const r = plain(env.call({ action: 'chatrank', token: T }));
+	assert.deepEqual(r, { ok: true, from: '2025-11-28', to: '2025-12-01', total: 4, ranks: [
+		{ name: '이윤정/96/구리/프리', count: 2 },
+		{ name: '홍진영/82/동대문/운영진/프리', count: 1 },
+		{ name: '장정재/00/Perth/해머', count: 1 },
+	], months: [
+		// 최근 달부터, 달마다 따로 셈 (11월에도 마지막 닉네임으로 표시)
+		{ month: '2025-12', total: 1, ranks: [{ name: '이윤정/96/구리/프리', count: 1 }] },
+		{ month: '2025-11', total: 3, ranks: [
+			{ name: '홍진영/82/동대문/운영진/프리', count: 1 }, // 같은 개수면 먼저 말한 순서
+			{ name: '이윤정/96/구리/프리', count: 1 },
+			{ name: '장정재/00/Perth/해머', count: 1 },
+		] },
+	] });
+	assert.ok(!JSON.stringify(r).includes('비밀'), '메시지 내용 안 보냄');
+	// 탭으로 나뉜 파일도
+	assert.equal(env.ctx.parseChat('Date\tUser\tMessage\n2025-01-01 00:00:00\tA\t"a\tb"\n').ranks[0].name, 'A');
+}
+
+// ══ 9. SHRED LOG: 회원만, 본인 기록만 읽기·지우기, 같은 ID 중복 없음, 출격 지우면 묶인 지출도, 시즌권은 시즌당 한 줄, 수식 주입 방지 ══
+{
+	const tabs = [tab('회원현황', [HEAD, [1, '서울', '노원구', '회원A', '남', 1990, 1, 1, '010-6000-0001', ''], [2, '서울', '노원구', '회원B', '여', 1991, 2, 2, '010-6000-0002', '']])];
+	const { call } = load(tabs);
+	assert.equal(call({ action: 'shredlog' }).expired, true, '비회원 거부');
+	const A = call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
+	const B = call({ action: 'login', phone: '60000002', birth: '19910202' }).token;
+	assert.deepEqual(plain(call({ action: 'shredlog', token: A })), { ok: true, visits: [], expenses: [], pass: {} });
+
+	const visit = { id: 'v1', date: '2025-12-13', resort: '하이원', slot: '주간', temp: '-3', hours: '5', rating: '4', memo: '=HYPERLINK("x")' };
+	const lunch = { id: 'e1', date: '2025-12-13', cat: '🍲 식음료 / 뒤풀이', amount: 18000, memo: '하이원 당일', visit: 'v1' };
+	const pass = { id: 'e2', date: '2025-10-01', cat: '🎟️ 시즌권 / 리프트', amount: 600000, memo: '' };
+	let r = plain(call({ action: 'shredlog', token: A, op: 'add', visits: [visit], expenses: [lunch, pass], pass: { '25-26': { price: 600000, day: 110000 } } }));
+	assert.equal(r.ok, true);
+	assert.deepEqual(r.visits[0], { id: 'v1', date: '2025-12-13', resort: '하이원', slot: '주간', snow: '', style: '', weather: '', crew: '', temp: '-3', runs: '', hours: '5', rating: '4', gear: '', memo: "'=HYPERLINK(\"x\")" });
+	assert.equal(r.expenses.length, 2);
+	assert.deepEqual(r.pass, { '25-26': { price: 600000, day: 110000 } });
+	const visitTab = tabs.find((t) => t.getName() === '출격기록').rows;
+	assert.equal(visitTab[1][0], '010-6000-0001');
+	assert.equal(typeof visitTab[1][visitTab[0].indexOf('기온')], 'number', '숫자 칸은 숫자로');
+
+	// 다시 보내도(가져오기 재시도) 중복 없음, 시즌권은 같은 줄을 고침
+	r = plain(call({ action: 'shredlog', token: A, op: 'add', visits: [visit], expenses: [lunch], pass: { '25-26': { price: 650000, day: 110000 } } }));
+	assert.equal(r.visits.length, 1);
+	assert.equal(r.expenses.length, 2);
+	assert.deepEqual(r.pass, { '25-26': { price: 650000, day: 110000 } });
+	assert.equal(tabs.find((t) => t.getName() === '시즌권').rows.length, 2);
+
+	// 잘못된 값 거부
+	assert.equal(call({ action: 'shredlog', token: A, op: 'add', visits: [{ id: 'v2', date: '어제', resort: '하이원' }] }).ok, false);
+	assert.equal(call({ action: 'shredlog', token: A, op: 'add', expenses: [{ id: 'e9', date: '2025-12-13', cat: 'x', amount: -5 }] }).ok, false);
+	assert.equal(call({ action: 'shredlog', token: A, op: 'add', visits: [{ id: '../x', date: '2025-12-13', resort: '하이원' }] }).ok, false);
+
+	// B: A 기록이 안 보이고, A의 ID로 지워도 A 기록은 그대로
+	assert.deepEqual(plain(call({ action: 'shredlog', token: B })), { ok: true, visits: [], expenses: [], pass: {} });
+	call({ action: 'shredlog', token: B, op: 'delete', visit: 'v1', expense: 'e2' });
+	r = plain(call({ action: 'shredlog', token: A }));
+	assert.equal(r.visits.length, 1);
+	assert.equal(r.expenses.length, 2);
+
+	// A가 출격을 지우면 묶인 지출(e1)도 같이, 따로 넣은 지출(e2)은 남음
+	r = plain(call({ action: 'shredlog', token: A, op: 'delete', visit: 'v1' }));
+	assert.deepEqual(r.visits, []);
+	assert.deepEqual(r.expenses.map((e) => e.id), ['e2']);
+	r = plain(call({ action: 'shredlog', token: A, op: 'delete', expense: 'e2' }));
+	assert.deepEqual(r.expenses, []);
+}
+
+// ══ 10. 스노우라이브: 회원만, 링크에서 ID, 라이딩 통계만(성별 등 버림), 숨김 프로필, 빈 시즌, 시트에 JSON 저장(끝난 시즌은 재요청 없음), 실패 안내 ══
+{
+	const tabs = [tab('회원현황', [HEAD, [1, '서울', '노원구', '회원A', '남', 1990, 1, 1, '010-6000-0001', '']])];
+	const env = load(tabs);
+	const { call } = env;
+	assert.equal(call({ action: 'snowlive', season: '25-26' }).expired, true, '비회원 거부');
+	const A = call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
+	// 실제 응답 모양(값은 가짜)
+	const fake = (o = {}) => ({
+		friend_user_info: { user_id: 111, display_name: '가짜보더', profile_image_url_user_thumb: 'https://img.example/p.jpg', crew_name: 'FREESNOW', favorite_resort: '어딘가', skiorboard: '스노보드', sex: '여자', hide_profile: false, ...o.user },
+		season_ranking_info: { count_info: [{ slope: '슬로프A', count: 9, ratio: 1 }, { slope: '슬로프B', count: 3, ratio: 0.3 }], time_info: [0, 1, 2, 3, 4, 5, 6, 7, 8], overall_total_score: 120.4, overall_total_count: 12, overall_rank: 7, overall_rank_percentage: 0.0123, overall_tier_icon_url: 'https://img.example/t.png', primary_color: '825CD2', secondary_color: 'FAEFFF', tier_name_kor: '다이아몬드', ...o.season },
+		calender_info: [
+			{ date: '2026-01-10', daily_info: [{ slope: '슬로프B', count: 1 }, { slope: '슬로프A', count: 5 }], daily_total_count: 6 },
+			{ date: '2025-12-27', daily_info: [{ slope: '슬로프A', count: 4 }], daily_total_count: 4 },
+		],
+	});
+	const urls = [];
+	let reply = { code: 200, body: fake() };
+	env.ctx.UrlFetchApp = { fetch: (u) => (urls.push(u), { getResponseCode: () => reply.code, getContentText: () => JSON.stringify(reply.body) }) };
+
+	assert.deepEqual(plain(call({ action: 'snowlive', token: A, season: '25-26' })), { ok: true, id: '', stats: null }, '연결 전');
+	assert.equal(call({ action: 'snowlive', token: A, op: 'link', id: 'https://evil.example/?x=1' }).ok, false);
+	const r = plain(call({ action: 'snowlive', token: A, season: '25-26', op: 'link', id: 'https://snowlive.kr/share/user/111' }));
+	assert.equal(r.id, '111');
+	assert.deepEqual(r.stats, {
+		name: '가짜보더', photo: 'https://img.example/p.jpg', crew: 'FREESNOW', resort: '어딘가', board: '스노보드', total: 12, score: 120, rank: 7, top: 1.2,
+		tier: { name: '다이아몬드', icon: 'https://img.example/t.png', color: '#825CD2', bg: '#FAEFFF' },
+		slopes: [{ slope: '슬로프A', count: 9 }, { slope: '슬로프B', count: 3 }],
+		days: [{ date: '2025-12-27', count: 4, slope: '슬로프A' }, { date: '2026-01-10', count: 6, slope: '슬로프A' }],
+	});
+	assert.ok(!JSON.stringify(r).includes('여자'), '성별 안 보냄');
+	assert.ok(urls[0].includes('user_id=111&friend_user_id=111&season=2025-10-01%2C%202026-03-31'));
+	// '스노우라이브기록' 탭 하나에 연결 ID + 시즌별 JSON 한 칸 (라이딩 통계만)
+	assert.ok(!tabs.some((t) => t.getName() === '스노우라이브'), '연결 정보용 탭은 따로 안 만듦');
+	const dataTab = () => tabs.find((t) => t.getName() === '스노우라이브기록').rows;
+	assert.equal(dataTab().length, 2, '연결 표시 빈 줄을 첫 시즌 기록이 채움');
+	assert.deepEqual(dataTab()[1].slice(1, 3).map(String), ['111', '25-26']);
+	assert.deepEqual(JSON.parse(dataTab()[1][3]), r.stats);
+	assert.ok(!dataTab()[1][3].includes('여자'), '시트에도 성별 안 넣음');
+	// 캐시가 있으면 시트도 안 읽음 (시트 칸을 망가뜨려도 그대로)
+	const dropCache = (season, id = '111') => env.ctx.CacheService.getScriptCache().remove(`snowlive:${id}:${season}`);
+	const saved = dataTab()[1][3];
+	dataTab()[1][3] = '깨진 값';
+	assert.deepEqual(plain(call({ action: 'snowlive', token: A, season: '25-26' })).stats, r.stats);
+	dataTab()[1][3] = saved;
+	// 끝난 시즌(25-26)은 저장된 것만 — 캐시가 지나고 오래돼도 다시 요청 안 함
+	dropCache('25-26');
+	dataTab()[1][4] = new Date(2000, 0, 1);
+	assert.deepEqual(plain(call({ action: 'snowlive', token: A, season: '25-26' })).stats, r.stats);
+	assert.equal(urls.length, 1);
+	// 진행 중 시즌: 1시간 안엔 저장된 것, 지나면 새로 요청
+	const now = new Date(), y = now.getFullYear() % 100;
+	const cur = now.getMonth() >= 3 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+	call({ action: 'snowlive', token: A, season: cur });
+	call({ action: 'snowlive', token: A, season: cur });
+	assert.equal(urls.length, 2);
+	const curRow = () => dataTab().find((x) => x[2] === cur);
+	curRow()[4] = new Date(Date.now() - 2 * 60 * 60 * 1000);
+	call({ action: 'snowlive', token: A, season: cur });
+	assert.equal(urls.length, 2, '캐시가 남아 있으면 요청 안 함');
+	dropCache(cur);
+	call({ action: 'snowlive', token: A, season: cur });
+	assert.equal(urls.length, 3);
+	assert.equal(dataTab().length, 3, '같은 시즌은 같은 줄을 고침');
+	// 새로 요청이 실패해도 저장된 게 있으면 그걸로
+	curRow()[4] = new Date(Date.now() - 2 * 60 * 60 * 1000);
+	dropCache(cur);
+	reply = { code: 500, body: {} };
+	assert.equal(plain(call({ action: 'snowlive', token: A, season: cur })).stats.total, 12);
+	reply = { code: 200, body: fake() };
+	// 재연결(refresh): 끝난 시즌이고 캐시가 있어도 새로 요청 → 시트·캐시 갱신, 1분 안에 또 누르면 저장된 것
+	const n = urls.length;
+	dataTab()[1][4] = new Date(Date.now() - 5 * 60 * 1000);
+	reply = { code: 200, body: fake({ season: { overall_total_count: 20 } }) };
+	assert.equal(plain(call({ action: 'snowlive', token: A, season: '25-26', op: 'refresh' })).stats.total, 20);
+	assert.equal(urls.length, n + 1);
+	assert.equal(JSON.parse(dataTab()[1][3]).total, 20, '시트 갱신');
+	assert.equal(plain(call({ action: 'snowlive', token: A, season: '25-26' })).stats.total, 20, '캐시 갱신');
+	call({ action: 'snowlive', token: A, season: '25-26', op: 'refresh' });
+	assert.equal(urls.length, n + 1, '1분 안에 또 누르면 요청 안 함');
+	reply = { code: 200, body: fake() };
+	// 앱 주소 형식으로 같은 ID를 다시 연결해도 한 줄, 저장된 기록 유지
+	assert.equal(plain(call({ action: 'snowlive', token: A, season: '25-26', op: 'link', id: 'https://snowlive.kr/#/profile?id=111' })).id, '111');
+	assert.equal(dataTab().length, 3);
+	// 빈 시즌, 숨김 프로필, 실패(저장된 것 없음)
+	reply = { code: 200, body: fake({ season: { count_info: [], overall_total_count: 0, overall_rank: 1 } }) };
+	assert.equal(plain(call({ action: 'snowlive', token: A, season: '30-31' })).stats.total, 0);
+	reply = { code: 200, body: fake({ user: { hide_profile: true } }) };
+	const hidden = plain(call({ action: 'snowlive', token: A, season: '24-25' })).stats;
+	assert.equal(hidden.hidden, true);
+	assert.equal(hidden.total, undefined, '숨김이면 통계 없음');
+	reply = { code: 500, body: {} };
+	assert.equal(call({ action: 'snowlive', token: A, season: '23-24' }).ok, false);
+	// 다른 ID로 바꾸면 예전 ID 기록 삭제. 연결 직후 스노우라이브가 실패해도 연결은 남고, 다음에 가져오면 그 줄을 채움
+	assert.equal(call({ action: 'snowlive', token: A, season: '25-26', op: 'link', id: '222' }).ok, false);
+	assert.deepEqual(dataTab().slice(1).map((x) => [String(x[1]), x[2]]), [['222', '']]);
+	reply = { code: 200, body: fake() };
+	assert.equal(plain(call({ action: 'snowlive', token: A, season: '25-26' })).stats.total, 12);
+	assert.deepEqual(dataTab().slice(1).map((x) => [String(x[1]), x[2]]), [['222', '25-26']]);
+	assert.deepEqual(plain(call({ action: 'snowlive', token: A, op: 'unlink' })), { ok: true, id: '', stats: null });
+	assert.equal(dataTab().length, 1);
+	assert.equal(plain(call({ action: 'snowlive', token: A, season: '25-26' })).id, '');
+}
+
+console.log('ok: Code.gs 로그인·잠금·토큰·본인정보·회원가입·드롭다운·승인 배치(운영진·마스터 보호) ·갤러리·모임 참석·프로필 사진·소모임 정모·채팅 랭킹·SHRED LOG·스노우라이브 검증 통과');

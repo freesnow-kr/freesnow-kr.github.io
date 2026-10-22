@@ -89,7 +89,7 @@ a {
 .nav-menu {
 	display: none;
 }
-@media (max-width: 640px) {
+@media (max-width: 1180px) { /* 메뉴 8개가 한 줄에 들어가려면 약 1160px 필요 → 그보다 좁으면 ☰ */
 	.nav nav {
 		display: none;
 	}

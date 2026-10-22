@@ -19,13 +19,15 @@
 | `/login/` | `src/pages/login.astro` | 로그인 폼 + 회원가입 버튼. 로그인 후(또는 이미 로그인 상태면) **메인으로**, `?next=` 있으면 거기로 |
 | `/signup/` | `src/pages/signup.astro` | 회원가입 신청 폼 (개인정보 동의 필수) |
 | `/members/` | `src/pages/members.astro` | 회원 전용, **본인 정보만**. 토큰 없거나 만료면 `/login`(`?expired`)으로 |
+| `/rank/` | `src/pages/rank.astro` | 회원 전용 오픈채팅 메시지 수 랭킹, 끝난 달만 달별로 고름(기본: 항상 지난달 1일~말일, 이번 달은 숨김, '전체' 없음 — 사용자 요구). 헤더 메뉴 **CHAT RANK** |
+| `/shredlog/` | `src/pages/shredlog.astro` | SHRED LOG: 개인 시즌 출격·지출 기록(24-25/25-26/26-27), 시즌권 본전 계산, 시즌 비교, 지출 CSV. 비회원도 사용(브라우저 저장) + 로그인 유도, 회원은 시트 저장. 시즌 = 7/1~6/30 |
 | `/cute/` | `src/pages/cute.astro` | 픽셀아트(Kizupi 느낌), 자체 `<style is:global>` |
 | `/ride/` | `astro.config.mjs` `redirects` | 예전 공개 주소 → `/free-snow/` |
 
 - `src/styles/ride.css`: `/`, `/webcam`, `/members` 공통 전역 CSS (토큰, 고정 헤더, 버튼, 푸터). 각 페이지는 `import '../styles/ride.css'` + 페이지 전용 `<style>`.
 - `src/data/regions.json`: 가입 거주지 선택 목록(시도 → 시군구). `node scripts/make-regions.mjs data/list_20260630.csv`로 법정동 CSV에서 생성(원본 CSV는 `data/`, gitignore). 시도는 서울·경기 먼저 그다음 가나다, 시군구는 가나다, 시 아래 일반구(수원시장안구 등) 제외.
 - `src/data/club.ts`: **공통 데이터** — `club.joinUrl`(카카오 오픈채팅), `club.membersApi`(Apps Script URL), `trips`(시즌 일정), `faqs`. 여러 페이지가 import하므로 문구·링크는 여기서 수정.
-- 헤더/푸터 마크업은 페이지마다 복사돼 있음. 메뉴 항목을 바꾸면 `index`, `webcam`, `members` 세 곳 모두 수정.
+- 헤더/푸터 마크업은 페이지마다 복사돼 있음. 메뉴 항목을 바꾸면 헤더가 있는 페이지 전부(`index`, `gallery`, `webcam`, `login`, `signup`, `members`, `rank`, `shredlog`) 수정. 메뉴가 8개라 1180px 이하는 ☰ 메뉴(`ride.css` 미디어쿼리 + `session.ts`의 `min-width: 1181px`) — 메뉴를 더 늘리면 이 값도 늘릴 것.
 - `src/scripts/session.ts`: 에디토리얼 페이지 공통 클라이언트 모듈. 헤더 스크롤 배경(`.is-solid`), 로그인 상태면 헤더 버튼 LOGIN→LOGOUT, 토큰 저장(`store`), Apps Script 호출(`call`). 각 페이지 `<script>`에서 import.
 - `ride.css`의 `[hidden] { display: none !important }` — display를 지정한 요소에 `hidden`을 써도 숨겨지게(빠뜨리면 폼/완료 화면이 같이 보이는 버그).
 - 헤더 오른쪽 버튼(`.nav-join`)은 **LOGIN** → `/login/` (로그인 상태면 LOGOUT). MEMBERS 메뉴 → `/members/`. 오픈채팅(`club.joinUrl`)은 메인 히어로 `KAKAO OPEN CHAT` 버튼, 로그인 화면의 가입 문의 버튼, 푸터 링크로 연결.
@@ -62,6 +64,23 @@
 - 파일 이름은 `textContent`·속성으로만 렌더링(HTML 주입 방지). 하위 폴더는 읽지 않음.
 - 사진 목록은 `src/scripts/session.ts`의 `galleryPhotos()`로 받음: 브라우저 `localStorage`에 10분 캐시(서버 실패 시 예전 목록 사용). 이미지 주소는 `driveImg(id, w)`. 새 사진 반영은 최대 약 15분(서버 5분 + 브라우저 10분).
 - 메인 `#ride` 섹션 = **두 줄 사진 띠**(사용자 선택 '시안 C'): 최근 20장을 두 줄로 나눠 윗줄 왼쪽·아랫줄 오른쪽으로 무한 흐름(같은 묶음 2번 이어붙임, 두 번째는 aria-hidden). 높이만 고정·가로 원래 비율(잘림 없음). hover·멈춤 버튼으로 정지, 모션 줄이기면 정지+가로 스크롤. 사진 클릭 → `/gallery`.
+
+## 오픈채팅 랭킹 (`/rank` + `apps-script` chatrank)
+
+- 카카오는 오픈채팅을 읽는 공식 API가 없음 → 운영진이 **대화 내보내기 CSV**(`Date,User,Message`, 메시지 안 줄바꿈은 따옴표)를 `Code.gs`의 `CHAT_FOLDER_ID` 드라이브 폴더에 올림. 폴더에서 가장 최근에 만든 `.csv` 하나만 셈(내보내기는 전체 기록이라). 폴더는 비공개로 둬도 됨.
+- `action:'chatrank'` {token}: **회원만**. `parseChat` → `{from, to, total, ranks:[{name, count}], months:[{month:'2025-11', total, ranks}]}`(최근 달부터, 같은 개수면 그 달에 먼저 말한 순). 메시지 내용은 응답에 넣지 않음. `chatrank2:`+파일 id+수정시각을 키로 6시간 캐시 → 새 파일 올리면 바로 반영. **응답 모양을 바꾸면 키 앞머리 숫자를 올릴 것**(안 그러면 새 버전 배포 후에도 예전 캐시가 나옴 — 실제로 달별 데이터가 안 나왔던 원인).
+- 제외: `CHAT_SKIP_USERS`(방장봇), 입장·퇴장 등 `CHAT_SYSTEM` 문구. 닉네임 `이름/나이/…`는 이름/나이가 같으면 한 사람(닉네임 바꿔도 합산), 표시는 마지막 닉네임.
+
+## SHRED LOG (`/shredlog` + `apps-script` shredlog)
+
+- 사용자 결정(2026-10-22): **비회원도 쓸 수 있게** 브라우저 `localStorage`(`fs-shredlog`)에 저장하고 로그인 버튼으로 유도. **시트에는 로그인한 회원 기록만** 저장.
+- 로그인 상태면 화면은 서버 응답만 그림(저장할 때마다 서버가 내 기록 전체를 돌려줌). 브라우저에 로그인 전 기록이 있으면 '내 계정으로 옮기기' 버튼 → `op:'add'`로 한 번에 보내고 브라우저 기록 삭제. 토큰 만료면 브라우저 저장으로 돌아가고 안내.
+- `action:'shredlog'` {token, op?: 'add'|'delete'} → `{visits, expenses, pass}`(본인 것만). add = {visits?, expenses?, pass?: {'25-26': {price, day}}}, 같은 ID는 건너뜀(옮기기 재시도해도 중복 없음). delete = {visit?(묶인 지출도), expense?} — **연락처가 본인인 줄만** 지움. `LockService` 잠금, 회원당 3000줄 상한, ID·날짜·금액 형식 검사, 글자 칸은 `clean`(수식 주입 방지).
+- 탭(같은 스프레드시트, 없으면 자동 생성): **'출격기록'** `연락처|ID|날짜|스키장|시간대|설질|스타일|날씨|동행|기온|런수|라이딩시간|만족도|세팅|메모|기록일시`, **'지출기록'** `연락처|ID|날짜|분류|금액|메모|출격ID|기록일시`, **'시즌권'** `연락처|시즌|시즌권가격|일일권가격|변경일시`(회원·시즌당 한 줄). 화면 필드 ↔ 머리글은 `LOG_VISIT_COL`.
+- 기록 수정 기능 없음(지우고 다시 추가).
+- 시즌권 계산은 **'계산하기' 버튼을 눌러야**(사용자 요구, 자동 계산 X): 가격 저장 → 라이딩 일수로 1회당 단가·본전. 시즌권 칸은 시즌을 바꾸거나 기록을 새로 불러올 때만 저장된 값으로 채움(입력 중 값 안 덮게).
+- **출격 일수 = SHRED LOG 출격 날짜 ∪ 스노우라이브 기록 날짜**(같은 날 한 번). 출격 칸·1회 평균·시즌권 1회당 단가·비교표가 이 값을 씀(스노우라이브만 연결하고 출격을 안 적어도 단가 계산되게 — 사용자 요구).
+- **스노우라이브 연동**(사용자 결정 2026-10-22, 공식 API 아님 — 앱이 쓰는 `SNOWLIVE_API`(heroku `friend-detail-page`)를 허락 없이 사용하는 것에 동의함): 회원이 SHRED LOG에서 스노우라이브 공유 링크/ID를 연결 → 연결 정보도 아래 '스노우라이브기록' 탭 하나에(따로 탭 없음 — 사용자 요구로 합침). 연결 직후 가져오기 전이면 `시즌` 빈 줄로 연결만 표시, 첫 시즌을 가져오면 그 줄을 채움. 회원의 연결 ID도 1시간 캐시(`snowliveid:`+연락처, 연결·해제 때 지움). `action:'snowlive'` {token, season, op?: 'link'|'unlink', id?} → `parseSnowlive`가 라이딩 통계만(총 런·점수·랭킹·상위%·티어·슬로프 TOP10·날짜별 런) 골라 보냄 — **성별 등 다른 항목은 버림**, `hide_profile`이면 통계 없이 `{hidden:true}`. 스노우라이브 시즌 = 10/1~3/31. 가져온 통계(라이딩 통계만)는 **'스노우라이브기록'** 탭(`연락처|스노우라이브ID|시즌|데이터(JSON)|가져온시각`)에 시즌별 한 칸 JSON으로 저장(사용자 요구, API 재호출 줄이기). 읽는 순서: **캐시(1시간) → 시트 → 스노우라이브**. 끝난 시즌(4/1 이후)은 저장된 것만 쓰고 다시 요청 안 함, 진행 중 시즌은 1시간 지나면 새로 요청, 요청 실패 시 저장된 것 사용. 다른 ID로 바꾸면 예전 ID 기록, 연결 해제하면 전부 삭제. **'재연결' 버튼**(`op:'refresh'`) = 캐시·시트 무시하고 스노우라이브에서 새로 → 시트·캐시 갱신, 1분 안에 또 누르면 저장된 것(스노우라이브 서버 보호). 날짜별 런은 출격 표 '스노우라이브' 칸에도 표시. API가 인증 없이 아무 ID나 받아 줌(입력한 ID가 본인 것인지 확인 불가). 응답 모양이 바뀌면 '불러오지 못했어요' → `parseSnowlive`와 `Code.test.mjs` 10번 수정.
 
 ## THE SEASON = 소모임 정모 (`/` + `apps-script` somoim)
 

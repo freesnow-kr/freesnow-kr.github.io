@@ -58,12 +58,7 @@ const pick = {
 			</section>
 
 			<div class="mem-body log">
-				<div class="sync" aria-live="polite">
-					<p class="sync-msg">불러오는 중…</p>
-					<a class="btn btn-ink sync-login" hidden>로그인하고 시트에 저장</a>
-					<button class="btn btn-ink sync-move" type="button" hidden></button>
-				</div>
-
+				<div class="summary">
 				<dl class="stats">
 					<div><dt>출격</dt><dd data-stat="visits"></dd></div>
 					<div><dt>총 지출</dt><dd data-stat="total"></dd></div>
@@ -71,6 +66,13 @@ const pick = {
 					<div><dt>라이딩 시간</dt><dd data-stat="hours"></dd></div>
 					<div><dt>베이스</dt><dd data-stat="base"></dd></div>
 				</dl>
+				<!-- 저장 위치 안내: 표 아래 작은 글씨 -->
+				<p class="sync" aria-live="polite">
+					<span class="sync-msg">불러오는 중…</span>
+					<a class="sync-login" hidden>로그인하고 시트에 저장 →</a>
+					<button class="sync-move" type="button" hidden></button>
+				</p>
+				</div>
 
 				<section class="block">
 					<h2>SNOWLIVE</h2>
@@ -843,18 +845,28 @@ const pick = {
 		max-height: 360px;
 		overflow-y: auto;
 	}
+	.summary {
+		display: grid;
+		gap: 8px;
+	}
+	/* 저장 위치 안내: 표 왼쪽 아래 작은 글씨, 로그인·옮기기는 글자 링크 */
 	.sync {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
-		gap: 12px 20px;
-		padding: 16px 20px;
-		border: 1.5px solid var(--black);
-		background: var(--white);
+		gap: 4px 12px;
+		font-size: 12px;
+		color: #4a4d55;
 	}
-	.sync-msg {
-		flex: 1 1 280px;
-		font-weight: 700;
+	.sync-login,
+	.sync-move {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--black);
+		font: 700 12px 'Noto Sans KR', sans-serif;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		cursor: pointer;
 	}
 	.log[aria-busy='true'] {
 		opacity: 0.6;

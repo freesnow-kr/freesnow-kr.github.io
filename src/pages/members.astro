@@ -70,6 +70,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<div><dt>사진</dt><dd data-k="photos"></dd></div>
 					</dl>
 
+					<!-- 내 시즌방 이용 (모든 회원 것은 운영진 화면 '시즌방 정산') -->
+					<section class="stay">
+						<h3 class="stay-title">시즌방 이용</h3>
+						<ul class="stay-list"></ul>
+						<p class="stay-total"></p>
+					</section>
+
 					<nav class="rows" aria-label="계정">
 						<label class="row" for="avatar-file">프로필 사진 바꾸기<i>›</i></label>
 						<button class="row avatar-del" type="button" hidden>프로필 사진 지우기</button>
@@ -119,6 +126,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						}),
 					);
 					showSeason(res.season);
+					showStays(res.season?.season);
 					// 운영진·마스터에게만 링크 (권한은 서버가 따로 확인)
 					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'master'].includes(res.me.role);
 					setupAvatar(res.me.name, res.me.photo || '');
@@ -142,6 +150,42 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				dash.querySelector('.pay-label')!.textContent = s.owner ? '정산 · 주주' : '정산';
 				put('visits', String(s.visits), '일');
 				put('photos', String(s.photos), '장');
+			}
+
+			// 내 시즌방 이용: 시즌 기록을 받아 내 것만 달별로 (날짜·숙박/휴식·금액), 주주는 0원
+			async function showStays(season?: string) {
+				if (!season) return;
+				const res = await call({ action: 'seasonroom', token, season }).catch(() => null);
+				if (!res?.ok) return;
+				const price = res.prices ?? { 숙박: 10000, 휴식: 5000 };
+				const mine = (res.nights as { date: string; kind: string; me: boolean; owner: boolean }[]).filter((n) => n.me);
+				const owner = mine.some((n) => n.owner);
+				const won = (n: { kind: string }[]) => (owner ? 0 : n.reduce((t, x) => t + (x.kind === '휴식' ? price.휴식 : price.숙박), 0));
+				const months = [...new Set(mine.map((n) => n.date.slice(0, 7)))];
+				const list = dash.querySelector('.stay-list')!;
+				dash.querySelector('.stay-title')!.textContent = `${season} 시즌방 이용`;
+				if (!months.length) {
+					const li = document.createElement('li');
+					li.className = 'empty';
+					li.textContent = '아직 이용 기록이 없어요.';
+					list.replaceChildren(li);
+				} else
+					list.replaceChildren(
+						...months.map((m) => {
+							const days = mine.filter((n) => n.date.startsWith(m));
+							const li = document.createElement('li');
+							const b = document.createElement('b');
+							b.textContent = `${Number(m.slice(5))}월`;
+							const span = document.createElement('span');
+							span.textContent = days.map((n) => `${Number(n.date.slice(8))}일 ${n.kind === '휴식' ? '휴식' : '숙박'}`).join(' · ');
+							const em = document.createElement('em');
+							em.textContent = `${won(days).toLocaleString()}원`;
+							li.append(b, span, em);
+							return li;
+						}),
+					);
+				const stays = mine.filter((n) => n.kind !== '휴식').length, rests = mine.length - stays;
+				dash.querySelector('.stay-total')!.textContent = mine.length ? `합계 숙박 ${stays}박 · 휴식 ${rests}회 · ${owner ? '주주라 정산 없음' : `${won(mine).toLocaleString()}원`}` : '';
 			}
 
 			// 프로필 사진: 브라우저에서 정사각형 256px JPG(드라이브용) + 96px JPG(드라이브가 안 될 때 시트용)로 줄여서 올림
@@ -349,6 +393,55 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.strip :global(small) {
 		margin-left: 3px;
 		font: 700 12px 'Noto Sans KR', sans-serif;
+	}
+	/* 내 시즌방 이용: 달 | 날짜들 | 금액 */
+	.stay {
+		display: grid;
+		gap: 10px;
+	}
+	.stay-title {
+		font-size: 15px;
+		font-weight: 900;
+	}
+	.stay-list {
+		display: grid;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		background: var(--white);
+		border: 1px solid var(--line);
+		border-radius: 14px;
+		overflow: hidden;
+	}
+	.stay-list :global(li) {
+		display: grid;
+		grid-template-columns: 52px 1fr auto;
+		align-items: baseline;
+		gap: 12px;
+		padding: 14px 20px;
+		font-size: 14px;
+	}
+	.stay-list :global(li + li) {
+		border-top: 1px solid var(--line);
+	}
+	.stay-list :global(span) {
+		color: #4a4d55;
+	}
+	.stay-list :global(em) {
+		font-style: normal;
+		font-weight: 700;
+	}
+	.stay-list :global(li.empty) {
+		display: block;
+		color: #4a4d55;
+	}
+	.stay-total {
+		font-size: 14px;
+		font-weight: 700;
+		text-align: right;
+	}
+	.stay-total:empty {
+		display: none;
 	}
 	/* 계정 메뉴 (설정 화면처럼) */
 	.rows {

@@ -51,6 +51,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<div class="tabs" role="tablist">
 						<button type="button" data-tab="signups">가입 신청</button>
 						<button type="button" data-tab="members">회원</button>
+						<button type="button" data-tab="room">시즌방 정산</button>
 						<button type="button" data-tab="owners">시즌방 주주</button>
 						<button type="button" data-tab="chat">채팅 랭킹</button>
 						<button type="button" data-tab="photos">사진 보관</button>
@@ -67,6 +68,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<input class="search" type="search" placeholder="이름·연락처·지역으로 찾기" />
 						<p class="hint">초기화는 마스터만: 그 회원의 로그인이 모두 끊기고 72시간 동안 공용 초기화 비밀번호로만 들어올 수 있어요.</p>
 						<div class="scroll"><table><thead><tr><th>이름</th><th>연락처</th><th>구분</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
+					</section>
+
+					<section class="panel" data-panel="room" hidden>
+						<p class="hint">모든 회원의 시즌방 사용 이력 (숙박 1박 10,000원 · 4시간 휴식 5,000원, 시즌방 주주는 0원). 회원 본인 것은 각자 마이페이지에서 봐요.</p>
+						<div class="row room-pick"><select class="room-season"></select><select class="room-month"></select></div>
+						<div class="scroll"><table><thead><tr><th>이름</th><th>숙박</th><th>휴식</th><th>금액</th><th>날짜</th></tr></thead><tbody class="room-rows"></tbody><tfoot><tr><th>합계</th><th class="room-stay"></th><th class="room-rest"></th><th class="room-won"></th><th></th></tr></tfoot></table></div>
 					</section>
 
 					<section class="panel" data-panel="owners" hidden>
@@ -345,6 +352,49 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				);
 			}
 
+			// 시즌방 정산: 시즌(7/1~6/30)을 한 번 받아 달(또는 시즌 전체)별로 사람마다 숙박·휴식·금액
+			const roomSeason = $<HTMLSelectElement>('.room-season');
+			const roomMonth = $<HTMLSelectElement>('.room-month');
+			const roomCache: Record<string, any> = {};
+			{
+				const now = new Date();
+				const cur = (now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1) % 100;
+				for (const s of [cur, cur - 1, cur - 2]) roomSeason.append(new Option(`${s}-${s + 1} 시즌`, `${s}-${s + 1}`));
+			}
+			const fillMonths = () => {
+				const y = 2000 + Number(roomSeason.value.slice(0, 2));
+				const now = new Date().toLocaleDateString('sv-SE').slice(0, 7);
+				roomMonth.replaceChildren(new Option('시즌 전체', ''), ...Array.from({ length: 12 }, (_, i) => {
+					const d = new Date(y, 6 + i, 1);
+					const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+					return new Option(`${d.getFullYear()}년 ${d.getMonth() + 1}월`, v);
+				}));
+				roomMonth.value = [...roomMonth.options].some((o) => o.value === now) ? now : '';
+			};
+			async function loadRoom() {
+				const season = roomSeason.value;
+				const res = roomCache[season] ?? (roomCache[season] = await api('seasonroom', { season }));
+				if (!res) return void delete roomCache[season];
+				const price = res.prices ?? { 숙박: 10000, 휴식: 5000 };
+				const people: Record<string, { name: string; owner: boolean; stay: number; rest: number; days: string[] }> = {};
+				for (const n of res.nights.filter((n: any) => !roomMonth.value || n.date.startsWith(roomMonth.value))) {
+					const p = (people[n.name] ||= { name: n.name, owner: n.owner, stay: 0, rest: 0, days: [] });
+					n.kind === '휴식' ? p.rest++ : p.stay++;
+					p.days.push(`${Number(n.date.slice(5, 7))}.${Number(n.date.slice(8))}${n.kind === '휴식' ? '(휴식)' : ''}`);
+				}
+				const pay = (p: { owner: boolean; stay: number; rest: number }) => (p.owner ? 0 : p.stay * price.숙박 + p.rest * price.휴식);
+				const list = Object.values(people).sort((a, b) => pay(b) - pay(a) || b.stay - a.stay || a.name.localeCompare(b.name, 'ko'));
+				const body = $('.room-rows');
+				if (!list.length) empty(body, 5, '기록이 없어요.');
+				else body.replaceChildren(...list.map((p) => tr([`${p.name}${p.owner ? ' · 주주' : ''}`, `${p.stay}박`, `${p.rest}회`, `${pay(p).toLocaleString()}원`, p.days.join(', ')])));
+				$('.room-stay').textContent = `${list.reduce((t, p) => t + p.stay, 0)}박`;
+				$('.room-rest').textContent = `${list.reduce((t, p) => t + p.rest, 0)}회`;
+				$('.room-won').textContent = `${list.reduce((t, p) => t + pay(p), 0).toLocaleString()}원`;
+			}
+			roomSeason.addEventListener('change', () => (fillMonths(), loadRoom()));
+			roomMonth.addEventListener('change', loadRoom);
+			fillMonths();
+
 			async function loadLogins() {
 				const res = await api('admin.logins');
 				if (!res) return;
@@ -373,7 +423,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			}
 
 			// 탭: 처음 열 때 불러옴
-			const loaders: Record<string, () => unknown> = { signups: loadSignups, members: loadMembers, owners: loadOwners, chat: () => {}, photos: loadPhotos, logins: loadLogins, audit: loadAudit };
+			const loaders: Record<string, () => unknown> = { signups: loadSignups, members: loadMembers, room: loadRoom, owners: loadOwners, chat: () => {}, photos: loadPhotos, logins: loadLogins, audit: loadAudit };
 			const tabs = [...document.querySelectorAll<HTMLButtonElement>('.tabs button')];
 			const open = (name: string) => {
 				tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
@@ -451,6 +501,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-size: 12px;
 		border-bottom: 1.5px solid var(--black);
 	}
+	tfoot th {
+		border-top: 1.5px solid var(--black);
+		border-bottom: 0;
+		font-size: 13px;
+	}
+	.room-rows :global(td:last-child) {
+		white-space: normal;
+		color: #4a4d55;
+	}
 	.panel :global(tr.off td) {
 		color: #8a8d95;
 	}
@@ -483,6 +542,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		align-items: center;
 		gap: 10px;
 		font-weight: 700;
+	}
+	/* 셀렉트: 공통 화살표(ride.css)와 안 겹치게 오른쪽 여백 */
+	.panel select {
+		min-height: 40px;
+		padding: 0 38px 0 12px;
+		border: 1.5px solid var(--black);
+		background-color: var(--white);
+		font: 700 14px 'Noto Sans KR', sans-serif;
 	}
 	.owner-list {
 		display: flex;

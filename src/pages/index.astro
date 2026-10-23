@@ -215,7 +215,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 		</script>
 		<script>
 			// 사진 띠 (히어로 스크립트와 따로 — 사진 목록 기다리는 동안 영상 버튼이 막히지 않게)
-			import { base, driveImg, galleryPhotos } from '../scripts/session';
+			import { base, galleryPhotos, thumbOf } from '../scripts/session';
 
 			const MAX = 20; // 메인에는 최근 사진만
 			const sec = document.querySelector<HTMLElement>('.reel')!;
@@ -234,7 +234,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 						a.href = `${base}/gallery/`;
 						if (copy) { a.tabIndex = -1; a.ariaHidden = 'true'; }
 						const img = document.createElement('img');
-						img.src = driveImg(p.id, 720) // 갤러리 격자와 같은 크기 → 브라우저에 저장된 사진을 같이 씀;
+						img.src = thumbOf(p); // 갤러리 격자와 같은 사진 → 브라우저에 저장된 걸 같이 씀
 						img.alt = copy ? '' : p.caption || `프리스노우 사진 ${i + 1}`;
 						img.referrerPolicy = 'no-referrer';
 						img.decoding = 'async';

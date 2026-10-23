@@ -48,6 +48,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			</section>
 
 			<section class="mem-body">
+				<!-- 회원 누구나 올림 (원본 그대로 Cloudflare R2, 지난 시즌은 드라이브로 보관 — backend/src/photos.ts) -->
+				<div class="up">
+					<label class="btn btn-ink up-btn" hidden>
+						사진 올리기
+						<input class="up-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden />
+					</label>
+					<a class="up-login" href={`${base}/login/?next=${base}/gallery/`} hidden>로그인하면 사진을 올릴 수 있어요 →</a>
+					<p class="up-msg" role="status"></p>
+				</div>
 				<p class="mem-msg g-msg" role="status">사진 불러오는 중…</p>
 				<ul class="grid"></ul>
 			</section>
@@ -56,7 +65,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<dialog class="viewer" aria-label="사진 크게 보기">
 			<figure>
 				<img alt="" referrerpolicy="no-referrer" />
-				<figcaption></figcaption>
+				<figcaption><span class="v-cap"></span> <a class="v-orig" target="_blank" rel="noopener" hidden>원본 ↗</a> <button class="v-del" type="button" hidden>삭제</button></figcaption>
 			</figure>
 			<button class="v-btn v-close" type="button" aria-label="닫기">✕</button>
 			<button class="v-btn v-prev" type="button" aria-label="이전 사진">←</button>
@@ -72,51 +81,58 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		</footer>
 
 		<script>
-			import { driveImg, galleryPhotos } from '../scripts/session';
+			import { call, fetchPhotos, galleryPhotos, largeOf, store, thumbOf, type Photo } from '../scripts/session';
+			import { club } from '../data/club';
 
 			const grid = document.querySelector<HTMLUListElement>('.grid')!;
 			const msg = document.querySelector<HTMLElement>('.g-msg')!;
-			const list = await galleryPhotos();
-			const photos = list ?? [];
-			msg.textContent = !list ? '사진을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' : photos.length ? '' : '사진 준비 중이에요.';
-			msg.hidden = !msg.textContent;
-			// 파일 이름은 textContent·속성으로만 넣음 (HTML 주입 방지)
-			grid.replaceChildren(
-				...photos.map((p, i) => {
-					const li = document.createElement('li');
-					const a = document.createElement('a');
-					a.href = driveImg(p.id, 1800);
-					a.dataset.caption = p.caption;
-					const img = document.createElement('img');
-					img.src = driveImg(p.id, 720);
-					img.alt = p.caption || `프리스노우 사진 ${i + 1}`;
-					img.loading = i < 8 ? 'eager' : 'lazy';
-					img.referrerPolicy = 'no-referrer';
-					a.append(img);
-					li.append(a);
-					return li;
-				}),
-			);
-
-			const links = [...grid.querySelectorAll<HTMLAnchorElement>('a')];
 			const dialog = document.querySelector<HTMLDialogElement>('.viewer')!;
 			const img = dialog.querySelector('img')!;
-			const caption = dialog.querySelector('figcaption')!;
+			const cap = dialog.querySelector<HTMLElement>('.v-cap')!;
+			const orig = dialog.querySelector<HTMLAnchorElement>('.v-orig')!;
+			const del = dialog.querySelector<HTMLButtonElement>('.v-del')!;
+			let photos: Photo[] = [];
 			let at = 0;
 
+			// 파일 이름·설명은 textContent·속성으로만 넣음 (HTML 주입 방지)
+			function render(list: Photo[] | null) {
+				photos = list ?? [];
+				msg.textContent = !list ? '사진을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' : photos.length ? '' : '아직 사진이 없어요.';
+				msg.hidden = !msg.textContent;
+				grid.replaceChildren(
+					...photos.map((p, i) => {
+						const li = document.createElement('li');
+						const a = document.createElement('a');
+						a.href = largeOf(p);
+						const pic = document.createElement('img');
+						pic.src = thumbOf(p);
+						pic.alt = p.caption || `프리스노우 사진 ${i + 1}`;
+						pic.loading = i < 8 ? 'eager' : 'lazy';
+						pic.referrerPolicy = 'no-referrer';
+						a.append(pic);
+						a.addEventListener('click', (e) => {
+							e.preventDefault();
+							show(i);
+							dialog.showModal();
+						});
+						li.append(a);
+						return li;
+					}),
+				);
+			}
 			const show = (i: number) => {
-				at = (i + links.length) % links.length;
-				img.src = links[at].href;
-				img.alt = links[at].querySelector('img')!.alt;
-				caption.textContent = links[at].dataset.caption ?? '';
+				if (!photos.length) return dialog.close();
+				at = (i + photos.length) % photos.length;
+				const p = photos[at];
+				img.src = largeOf(p);
+				img.alt = p.caption || `프리스노우 사진 ${at + 1}`;
+				cap.textContent = p.caption;
+				orig.hidden = !p.large?.includes('/photo/');
+				if (!orig.hidden) orig.href = p.large!.replace(/\/large$/, '/orig');
+				del.hidden = !p.mine;
 			};
-			links.forEach((a, i) =>
-				a.addEventListener('click', (e) => {
-					e.preventDefault();
-					show(i);
-					dialog.showModal();
-				}),
-			);
+			render(await galleryPhotos());
+
 			dialog.querySelector('.v-close')!.addEventListener('click', () => dialog.close());
 			dialog.querySelector('.v-prev')!.addEventListener('click', () => show(at - 1));
 			dialog.querySelector('.v-next')!.addEventListener('click', () => show(at + 1));
@@ -125,6 +141,61 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			dialog.addEventListener('keydown', (e) => {
 				if (e.key === 'ArrowLeft') show(at - 1);
 				if (e.key === 'ArrowRight') show(at + 1);
+			});
+			// 내가 올린 사진(운영진은 모든 사진) 지우기
+			del.addEventListener('click', async () => {
+				if (!confirm('이 사진을 지울까요?')) return;
+				const res = await call({ action: 'photoDelete', token: store.get(), id: photos[at].id }).catch(() => null);
+				if (!res?.ok) return alert(res?.error ?? '지우지 못했어요.');
+				photos.splice(at, 1);
+				render(photos);
+				show(at);
+				fetchPhotos();
+			});
+
+			// 올리기: 로그인한 회원. 원본 그대로 + 브라우저가 만든 1800px·720px JPG (화면에 빠르게 보이게)
+			const token = store.get();
+			const upBtn = document.querySelector<HTMLElement>('.up-btn')!;
+			const upMsg = document.querySelector<HTMLElement>('.up-msg')!;
+			upBtn.hidden = !token;
+			document.querySelector<HTMLElement>('.up-login')!.hidden = !!token;
+			const resize = async (file: File, max: number, q: number) => {
+				const bmp = await createImageBitmap(file); // 사진 방향(EXIF)은 브라우저가 맞춰 줌
+				const s = Math.min(1, max / Math.max(bmp.width, bmp.height));
+				const c = document.createElement('canvas');
+				c.width = Math.round(bmp.width * s);
+				c.height = Math.round(bmp.height * s);
+				c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+				return new Promise<Blob>((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error('jpeg'))), 'image/jpeg', q));
+			};
+			document.querySelector<HTMLInputElement>('.up-file')!.addEventListener('change', async (e) => {
+				const input = e.target as HTMLInputElement;
+				const files = [...(input.files ?? [])];
+				input.value = '';
+				if (!files.length) return;
+				upBtn.setAttribute('aria-disabled', 'true');
+				let done = 0;
+				const fails: string[] = [];
+				for (const f of files) {
+					upMsg.textContent = `올리는 중… ${done + 1}/${files.length}`;
+					try {
+						const [large, thumb] = [await resize(f, 1800, 0.85), await resize(f, 720, 0.8)];
+						const form = new FormData();
+						form.set('token', token!);
+						form.set('orig', f);
+						form.set('large', large, 'large.jpg');
+						form.set('thumb', thumb, 'thumb.jpg');
+						form.set('taken', String(f.lastModified)); // 휴대폰 사진은 찍은 시각 → 시즌
+						const res = await (await fetch(`${club.api}/photos`, { method: 'POST', body: form })).json();
+						if (!res.ok) throw new Error(res.error);
+						done++;
+					} catch (err) {
+						fails.push(`${f.name}: ${(err as Error).message === 'jpeg' || (err as Error).name === 'InvalidStateError' ? '이 브라우저에서 열 수 없는 사진이에요' : (err as Error).message || '실패'}`);
+					}
+				}
+				upBtn.removeAttribute('aria-disabled');
+				upMsg.textContent = `${done}장 올렸어요.` + (fails.length ? ` 못 올린 사진: ${fails.join(', ')}` : '');
+				render(await fetchPhotos());
 			});
 		</script>
 	</body>
@@ -193,6 +264,41 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		max-height: calc(100dvh - 140px);
 		object-fit: contain;
 		pointer-events: auto;
+	}
+	.up {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 10px 16px;
+		margin-bottom: 20px;
+	}
+	.up-btn {
+		cursor: pointer;
+	}
+	.up-btn[aria-disabled='true'] {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+	.up-login {
+		font-weight: 700;
+	}
+	.up-msg {
+		font-size: 14px;
+		color: #4a4d55;
+	}
+	.v-orig,
+	.v-del {
+		color: inherit;
+		font: inherit;
+		font-size: 13px;
+		opacity: 0.8;
+	}
+	.v-del {
+		margin-left: 8px;
+		border: 1px solid currentColor;
+		background: none;
+		padding: 2px 8px;
+		cursor: pointer;
 	}
 	.viewer figcaption {
 		margin-top: 14px;

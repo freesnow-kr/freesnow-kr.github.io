@@ -14,6 +14,8 @@
 			"migrations_dir": "migrations"
 		}
 	],
+	// 갤러리 사진 (R2). 처음 한 번 `npx wrangler r2 bucket create freesnow-photos`
+	"r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "freesnow-photos" }],
 	"vars": { "ALLOWED_ORIGINS": "https://freesnow-kr.github.io,http://localhost:4321" },
 	// 매일 03:00 KST: 90일 지난 로그인 이력, 끝난 세션, 지난 캐시 정리
 	"triggers": { "crons": ["0 18 * * *"] }

@@ -8,6 +8,7 @@ import { somoim } from './somoim.ts';
 import { avatar, signup } from './members.ts';
 import { chatRank, gallery } from './gallery.ts';
 import * as admin from './admin.ts';
+import * as photos from './photos.ts';
 
 export type Env = {
 	DB: D1Database;
@@ -18,6 +19,10 @@ export type Env = {
 	SOMOIM_URL: string; // secret (소모임 공개 모임 페이지)
 	GALLERY_FOLDER_ID: string; // secret (갤러리 드라이브 폴더)
 	GOOGLE_API_KEY?: string; // secret, 선택 (있으면 Drive API로 최신순)
+	PHOTOS: R2Bucket; // 갤러리 사진 원본·1800px·720px
+	GOOGLE_CLIENT_ID?: string; // secret, 시즌 사진을 드라이브로 보관할 때 (scripts/google-auth.mjs가 넣음)
+	GOOGLE_CLIENT_SECRET?: string;
+	GOOGLE_REFRESH_TOKEN?: string;
 };
 export type Ctx = { env: Env; req: Request; body: Record<string, any>; now: Date };
 
@@ -48,6 +53,9 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	'admin.audit': admin.audit,
 	'admin.roomOwners': admin.roomOwners,
 	'admin.chatUpload': admin.chatUpload,
+	photoDelete: photos.deletePhoto,
+	'admin.photoStatus': photos.archiveStatus,
+	'admin.photoArchive': photos.archiveAction,
 	'admin.reset': adminReset,
 };
 
@@ -55,7 +63,21 @@ export default {
 	async fetch(req: Request, env: Env): Promise<Response> {
 		const cors = corsHeaders(req, env);
 		if (req.method === 'OPTIONS') return new Response(null, { status: cors ? 204 : 403, headers: cors ?? {} });
+		const path = new URL(req.url).pathname;
+		// 사진 보기 (공개, <img>가 바로 부름)
+		const m = /^\/photo\/([\w-]+)\/(\w+)$/.exec(path);
+		if (req.method === 'GET' && m) return photos.serve(env, m[1], m[2]);
 		if (req.method !== 'POST') return json({ ok: true, service: 'Free Snow API', note: '사이트에서 POST로만 사용해요.' }, cors);
+		// 사진 올리기: multipart (사진 파일이라 JSON 대신. multipart도 CORS 사전요청 없음)
+		if (path === '/photos') {
+			try {
+				return json(await photos.upload(req, env, new Date()), cors);
+			} catch (err) {
+				if (err instanceof Reply) return json(err.body, cors);
+				console.error('photo upload', err);
+				return json({ ok: false, error: '사진을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.' }, cors, 500);
+			}
+		}
 		const text = await req.text();
 		if (text.length > MAX_BODY) return json({ ok: false, error: '요청이 너무 커요.' }, cors, 413);
 		let body: Record<string, any>;
@@ -83,6 +105,7 @@ export default {
 			env.DB.prepare('DELETE FROM sessions WHERE coalesce(revoked_at, expires_at) < ?').bind(iso(later(now, -30 * 864e5))),
 			env.DB.prepare('DELETE FROM cache WHERE expires_at < ?').bind(iso(now)),
 		]);
+		await photos.archiveDue(env, now); // 지난 시즌 사진을 드라이브로 한 묶음씩
 	},
 };
 

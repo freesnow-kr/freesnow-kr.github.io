@@ -23,7 +23,7 @@ report, skipped = [], []
 
 
 def norm_phone(v):  # Apps Script normPhone과 같은 규칙
-    d = re.sub(r'\D', '', str(v if v is not None else ''))
+    d = digits(v)
     if d.startswith('8210') and len(d) >= 12:
         d = '0' + d[2:]
     if len(d) == 10 and d.startswith('10'):
@@ -31,6 +31,12 @@ def norm_phone(v):  # Apps Script normPhone과 같은 규칙
     if len(d) == 8:
         d = '010' + d
     return d
+
+
+def digits(v):  # 엑셀 숫자 칸은 1984.0 처럼 소수로 옴 → '1984'
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return re.sub(r'\D', '', str(v if v is not None else ''))
 
 
 def ymd(v):
@@ -105,12 +111,13 @@ members, phones = [], {}
 for i, r in enumerate(table(member_tab, ['이름', '비상연락망'])):
     name, phone = text(r.get('이름'), 40), norm_phone(r.get('비상연락망'))
     if not name or not phone:
+        if name:
+            skipped.append(f'연락처 없음: {name} — 로그인할 수 없어 빼고 옮김')
         continue
     if phone in phones:
         skipped.append(f'회원 중복 연락처 {phone[-4:]} ({name}) — 첫 줄만 씀')
         continue
-    y = re.sub(r'\D', '', str(r.get('나이') or ''))
-    mo, d = re.sub(r'\D', '', str(r.get('(생일)월') or '')), re.sub(r'\D', '', str(r.get('(생일)일') or ''))
+    y, mo, d = digits(r.get('나이')), digits(r.get('(생일)월')), digits(r.get('(생일)일'))
     birth = f'{y}-{int(mo):02d}-{int(d):02d}' if len(y) == 4 and mo and d and 1 <= int(mo) <= 12 and 1 <= int(d) <= 31 else None
     grade = text(r.get('구분'), 20)
     role = 'master' if grade == '마스터' else 'staff' if grade == '운영진' else 'member'
@@ -137,7 +144,7 @@ for r in table('가입신청'):
     p = norm_phone(r.get('비상연락망'))
     if str(r.get('상태') or '').strip() != '대기' or p in phones:
         continue
-    y, mo, d = (re.sub(r'\D', '', str(r.get(k) or '')) for k in ['나이', '(생일)월', '(생일)일'])
+    y, mo, d = (digits(r.get(k)) for k in ['나이', '(생일)월', '(생일)일'])
     rows.append([when(r.get('신청일시')), text(r.get('이름'), 20), text(r.get('성별'), 2), f'{y}-{int(mo or 0):02d}-{int(d or 0):02d}', text(r.get('시도'), 20), text(r.get('거주지'), 20), p])
 insert('signup_requests', ['created_at', 'name', 'gender', 'birth', 'sido', 'area', 'phone'], rows)
 
@@ -175,7 +182,7 @@ insert('season_passes', ['member_id', 'season', 'price', 'day_price', 'updated_a
 links, recs = {}, []
 for r in table('스노우라이브기록'):
     m = who(r.get('연락처'), '스노우라이브기록', r.get('시즌'))
-    sid = re.sub(r'\D', '', str(r.get('스노우라이브ID') or ''))
+    sid = digits(r.get('스노우라이브ID'))
     if not m or not sid:
         continue
     links.setdefault(m, [m, sid, when(r.get('가져온시각'))])

@@ -6,3 +6,6 @@ SOMOIM_URL=
 GALLERY_FOLDER_ID=
 # 선택: 있으면 갤러리를 Drive API로 (만든 날짜 최신순)
 GOOGLE_API_KEY=
+# 선택: 시즌 사진을 드라이브로 보관 (node scripts/google-auth.mjs가 읽고 Worker secret으로 넣음)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=

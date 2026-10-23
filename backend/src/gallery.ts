@@ -1,18 +1,27 @@
-// 갤러리 (공개): 드라이브 폴더(GALLERY_FOLDER_ID, '링크가 있는 모든 사용자' 공유)의 사진 [{id, caption}] 최신순, D1 cache 5분
+// 갤러리 (공개): 회원이 올린 사진(photos 테이블, R2·보관한 드라이브) 먼저 + 예전 드라이브 폴더(GALLERY_FOLDER_ID, '링크가 있는 모든 사용자' 공유)의 사진 [{id, caption}] 최신순, D1 cache 5분
 // GOOGLE_API_KEY가 있으면 Drive API(만든 날짜 최신순), 없으면 공개 폴더 보기 페이지에서 읽음(이름순 — 비공식)
 // 채팅 랭킹: 운영진이 /admin에서 카톡 CSV를 고르면 브라우저가 집계해서 올린 결과를 저장해 두고 회원에게 줌 (Worker가 큰 CSV를 세지 않게)
 import type { Ctx } from './index.ts';
 import { need } from './auth.ts';
 import { iso, later } from './lib.ts';
+import { listPhotos } from './photos.ts';
 
 const CACHE_MS = 5 * 60 * 1000;
 
 export async function gallery(c: Ctx) {
+	const uploaded = await listPhotos(c);
+	const old = await driveFolder(c);
+	if (!old && !uploaded.length) return { ok: false, error: '사진을 불러오지 못했어요.' };
+	return { ok: true, photos: [...uploaded, ...(old ?? [])] };
+}
+
+// 예전 드라이브 폴더 사진 (5분 캐시, 실패하면 지난 목록)
+async function driveFolder(c: Ctx): Promise<{ id: string; caption: string }[] | null> {
 	const db = c.env.DB;
 	const folder = c.env.GALLERY_FOLDER_ID;
-	if (!folder) return { ok: false, error: '갤러리를 준비 중이에요.' };
+	if (!folder) return [];
 	const hit = await db.prepare("SELECT value FROM cache WHERE key = 'gallery' AND expires_at > ?").bind(iso(c.now)).first<{ value: string }>();
-	if (hit) return { ok: true, photos: JSON.parse(hit.value) };
+	if (hit) return JSON.parse(hit.value);
 
 	let photos: { id: string; caption: string }[] | null = null;
 	try {
@@ -22,11 +31,11 @@ export async function gallery(c: Ctx) {
 	}
 	if (!photos) {
 		const old = await db.prepare("SELECT value FROM cache WHERE key = 'gallery'").first<{ value: string }>();
-		return old ? { ok: true, photos: JSON.parse(old.value) } : { ok: false, error: '사진을 불러오지 못했어요.' };
+		return old ? JSON.parse(old.value) : null;
 	}
 	await db.prepare('INSERT INTO cache (key, value, expires_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = ?2, expires_at = ?3')
 		.bind('gallery', JSON.stringify(photos), iso(later(c.now, CACHE_MS))).run();
-	return { ok: true, photos };
+	return photos;
 }
 
 async function viaApi(folder: string, key: string) {

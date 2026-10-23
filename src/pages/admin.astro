@@ -74,7 +74,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<section class="panel" data-panel="room" hidden>
 						<p class="hint">모든 회원의 시즌방 사용 이력 (숙박 1박 10,000원 · 4시간 휴식 5,000원, 시즌방 주주는 0원). 회원 본인 것은 각자 마이페이지에서 봐요.</p>
 						<div class="row room-pick"><select class="room-season"></select><select class="room-month"></select></div>
-						<div class="scroll"><table><thead><tr><th>날짜</th><th>이름</th><th>구분</th><th>금액</th></tr></thead><tbody class="room-rows"></tbody><tfoot><tr><th>합계</th><th></th><th class="room-sum"></th><th class="room-won"></th></tr></tfoot></table></div>
+						<div class="scroll"><table><thead><tr><th>No</th><th>날짜</th><th>이름</th><th>구분</th><th>금액</th></tr></thead><tbody class="room-rows"></tbody><tfoot><tr><th></th><th>합계</th><th></th><th class="room-sum"></th><th class="room-won"></th></tr></tfoot></table></div>
 					</section>
 
 					<section class="panel" data-panel="owners" hidden>
@@ -383,12 +383,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const rows = res.nights.filter((n: any) => !roomMonth.value || n.date.startsWith(roomMonth.value));
 				const fee = (n: any) => (n.owner ? 0 : n.kind === '휴식' ? price.휴식 : price.숙박);
 				const body = $('.room-rows');
-				if (!rows.length) empty(body, 4, '기록이 없어요.');
+				if (!rows.length) empty(body, 5, '기록이 없어요.');
 				else
 					body.replaceChildren(
-						...rows.map((n: any) => {
+						...rows.map((n: any, i: number) => {
 							const [y, m, d] = n.date.split('-').map(Number);
-							return tr([`${m}.${d} (${WD[new Date(y, m - 1, d).getDay()]})`, `${n.name}${n.owner ? ' · 주주' : ''}`, n.kind === '휴식' ? '4시간 휴식' : '숙박', `${fee(n).toLocaleString()}원`]);
+							return tr([String(i + 1), `${m}.${d} (${WD[new Date(y, m - 1, d).getDay()]})`, `${n.name}${n.owner ? ' · 주주' : ''}`, n.kind === '휴식' ? '4시간 휴식' : '숙박', `${fee(n).toLocaleString()}원`]);
 						}),
 					);
 				const stays = rows.filter((n: any) => n.kind !== '휴식').length;
@@ -510,7 +510,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		border-bottom: 0;
 		font-size: 13px;
 	}
-	/* 금액은 오른쪽 정렬 */
+	/* No는 좁게 회색, 금액은 오른쪽 정렬 */
+	[data-panel='room'] th:first-child,
+	.room-rows :global(td:first-child) {
+		width: 44px;
+		color: #8a8d95;
+	}
 	[data-panel='room'] th:last-child,
 	.room-rows :global(td:last-child) {
 		text-align: right;

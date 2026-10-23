@@ -173,7 +173,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const dlg = document.querySelector<HTMLDialogElement>('.stay-dlg')!;
 				const sel = dlg.querySelector<HTMLSelectElement>('.stay-season')!;
 				const y = Number(current.slice(0, 2));
-				for (let a = y; a >= Math.max(y - 3, 24); a--) sel.append(new Option(`${a}-${a + 1} 시즌`, `${a}-${a + 1}`)); // 24-25부터
+				for (let a = y; a >= Math.max(y - 3, 24); a--) sel.append(new Option(`${a}-${a + 1}`, `${a}-${a + 1}`)); // 24-25부터
 				const cache: Record<string, any> = {};
 				const WD = '일월화수목금토';
 				async function draw() {
@@ -538,9 +538,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-size: 17px;
 		font-weight: 900;
 	}
+	/* 시즌 셀렉트: '26-27'이 잘리지 않게 폭을 넉넉히 (화살표 자리 36px) */
 	.stay-season {
+		flex: none;
+		min-width: 112px;
 		min-height: 38px;
-		padding: 0 36px 0 12px;
+		padding: 0 36px 0 14px;
 		border: 1.5px solid var(--black);
 		background-color: var(--white);
 		font: 700 14px 'Noto Sans KR', sans-serif;

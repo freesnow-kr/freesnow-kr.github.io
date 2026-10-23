@@ -38,8 +38,8 @@ export async function sendMail(env: Env, to: string[], subject: string, text: st
 export async function lessonRequested(env: Env, name: string, date: string) {
 	try {
 		const [y, m, d] = date.split('-').map(Number);
-		const day = `${m}/${d}(${'일월화수목금토'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})`;
-		await sendMail(env, (await staffEmails(env)).map((r) => r.email), `[프리스노우] 강습 요청 · ${day} ${name}`, `${name} 님이 ${day} 출격 날 강습을 요청했어요.\n\n운영진 화면에서 연결해 주세요:\n${ADMIN_URL}\n\n(강습 요청은 운영진만 볼 수 있어요.)`);
+		const day = `${date}(${'일월화수목금토'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})`; // 2026-10-29(목)
+		await sendMail(env, (await staffEmails(env)).map((r) => r.email), `[프리스노우][강습 요청] ${day} ${name}`, `${name} 님이 ${day} 출격 날 강습을 요청했어요.\n\n운영진 화면에서 연결해 주세요:\n${ADMIN_URL}\n\n(강습 요청은 운영진만 볼 수 있어요.)`);
 	} catch (e) {
 		console.error('lesson notify', e);
 	}

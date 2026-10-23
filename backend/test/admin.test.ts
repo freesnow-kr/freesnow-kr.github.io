@@ -37,7 +37,7 @@ test('승인: 운영진만, 회원이 되면 생년월일로 첫 로그인, 기�
 	const r = await post({ action: 'admin.signupDecide', id: list[0].id, approve: true }, S);
 	assert.equal(r.ok, true);
 	const m = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(r.memberId).first();
-	assert.deepEqual([m.name, m.grade, m.area, m.birth, m.role], ['새회원', '경기도', '의정부', '1998-03-07', 'member']);
+	assert.deepEqual([m.name, m.region, m.area, m.birth, m.role], ['새회원', '경기북부', '의정부', '1998-03-07', 'member']);
 	assert.equal((await post({ action: 'admin.signupDecide', id: list[0].id, approve: true }, S)).ok, false);
 	assert.equal((await post({ action: 'login', phone: '44445555', password: '19980307' })).mustChange, true);
 	assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM admin_logs WHERE action = 'signup.approve'").first()).n, 1);

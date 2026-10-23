@@ -1,5 +1,6 @@
-// 마이페이지에 보일 지역 이름: '경기북부 구리', '서울 노원구'
-// 시트 '구분'이 지역이면 그걸 쓰고, 운영진·마스터처럼 지역이 아니면 거주지로 시도를 찾음 (가입 목록 src/data/regions.json)
+// 회원 지역(members.region) 이름 맞추기: '경기북부', '서울', '충북' … (거주지와 같이 보이면 '경기북부 구리')
+// 주어진 값이 지역이면 그걸 짧게, 비었거나 운영진·마스터(예전 시트 '구분')면 거주지로 시도를 찾음 (가입 목록 src/data/regions.json)
+// 가입 승인 때(신청한 시도 → 지역)와 예전 데이터를 고칠 때 씀
 // 경기는 동호회 기준 북부·남부로 (Apps Script GYEONGGI_NORTH와 같음), 시도는 짧게(서울특별시 → 서울, 충청북도 → 충북)
 import regions from '../../src/data/regions.json' with { type: 'json' };
 
@@ -8,9 +9,9 @@ const SHORT: Record<string, string> = { 충청북도: '충북', 충청남도: '�
 // '구리시' → 구리, '가평군' → 가평, '노원구' 그대로 (승인 때 normArea와 같은 규칙)
 const bare = (a: string) => (a.length > 2 ? a.replace(/[시군]$/, '') : a);
 
-export function regionOf(grade: string, area: string): string {
-	const g = grade.trim();
-	const a = bare(area.trim());
+export function regionOf(given: string, area: string): string {
+	const g = (given ?? '').trim();
+	const a = bare((area ?? '').trim());
 	let sido = g && !['운영진', '마스터', '회원'].includes(g) ? g : '';
 	if (!sido && a) {
 		// 거주지 이름이 한 시도에만 있을 때만 (중구·동구처럼 여러 곳이면 모름)

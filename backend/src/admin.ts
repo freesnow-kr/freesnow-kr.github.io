@@ -6,6 +6,7 @@
 import type { Ctx } from './index.ts';
 import { need, Reply } from './auth.ts';
 import { iso, normPhone, randomToken } from './lib.ts';
+import { regionOf } from './region.ts';
 
 const log = (c: Ctx, actor: string, action: string, target: string | null, detail: object) =>
 	c.env.DB.prepare('INSERT INTO admin_logs (at, actor_id, action, target_id, detail) VALUES (?, ?, ?, ?, ?)').bind(iso(c.now), actor, action, target, JSON.stringify(detail));
@@ -36,7 +37,7 @@ export async function signups(c: Ctx) {
 	return { ok: true, signups: results };
 }
 
-// {id, approve: true|false} — 승인하면 회원으로 (구분 = 신청한 시도, 거주지는 시·군 뗀 값)
+// {id, approve: true|false} — 승인하면 회원으로 (지역 = 신청한 시도를 짧게 — 경기는 북부·남부, 거주지는 시·군 뗀 값)
 export async function signupDecide(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
@@ -51,9 +52,9 @@ export async function signupDecide(c: Ctx) {
 		memberId = 'm' + randomToken().slice(0, 15);
 		stmts.push(
 			db.prepare(
-				`INSERT INTO members (id, phone, name, gender, birth, grade, area, joined_at, approved_at, created_at, updated_at, sort_no)
+				`INSERT INTO members (id, phone, name, gender, birth, region, area, joined_at, approved_at, created_at, updated_at, sort_no)
 				 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, ?9, (SELECT coalesce(max(sort_no), 0) + 1 FROM members))`,
-			).bind(memberId, s.phone, s.name, s.gender, s.birth, s.sido, normArea(s.area), s.created_at, now),
+			).bind(memberId, s.phone, s.name, s.gender, s.birth, regionOf(s.sido, normArea(s.area)), normArea(s.area), s.created_at, now),
 		);
 	}
 	stmts.push(log(c, me.id, approve ? 'signup.approve' : 'signup.reject', memberId, { signup: s.id, name: s.name }));
@@ -65,7 +66,7 @@ export async function signupDecide(c: Ctx) {
 export async function members(c: Ctx) {
 	const me = await need(c, 'staff');
 	const { results } = await c.env.DB.prepare(
-		`SELECT m.id, m.name, m.phone, m.gender, m.birth, m.grade, m.area, m.private_contact, m.role, m.honorary, m.status, m.joined_at,
+		`SELECT m.id, m.name, m.phone, m.gender, m.birth, m.region, m.area, m.private_contact, m.role, m.honorary, m.status, m.joined_at,
 		        (SELECT max(at) FROM login_logs l WHERE l.member_id = m.id AND l.ok = 1) AS last_login,
 		        c.member_id IS NOT NULL AND c.hash IS NULL AS reset_pending, c.changed_at AS password_changed
 		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1
@@ -75,8 +76,8 @@ export async function members(c: Ctx) {
 	return { ok: true, role: me.role, members: results };
 }
 
-const FIELDS = ['name', 'phone', 'gender', 'birth', 'grade', 'area', 'private_contact'] as const;
-// {id, name?, phone?, gender?, birth?, grade?, area?, private_contact?} 운영진
+const FIELDS = ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact'] as const;
+// {id, name?, phone?, gender?, birth?, region?, area?, private_contact?, honorary?} 운영진
 export async function memberUpdate(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');

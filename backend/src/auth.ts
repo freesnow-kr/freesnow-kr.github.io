@@ -29,14 +29,14 @@ export class Reply {
 // 권한: member < staff(운영진) < admin(관리자). '마스터'는 명예 명칭(members.honorary)이라 권한과 무관
 const RANK = { member: 0, staff: 1, admin: 2 } as const;
 export type Role = keyof typeof RANK;
-export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; name: string; phone: string; grade: string; area: string; role: Role; honorary: number; birth: string | null };
+export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; name: string; phone: string; region: string; area: string; role: Role; honorary: number; birth: string | null };
 
 // 세션 확인 + 회원 상태·권한은 매번 DB에서 (정지·권한 변경이 바로 반영). 토큰은 Authorization 헤더, 전환 기간엔 body.token도
 export async function need(c: Ctx, role: Role = 'member', allowMustChange = false): Promise<Me> {
 	const token = /^Bearer (\S+)$/.exec(c.req.headers.get('Authorization') || '')?.[1] || String(c.body.token || '');
 	if (!token) throw new Reply(EXPIRED);
 	const me = await c.env.DB.prepare(
-		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.name, m.phone, m.grade, m.area, m.role, m.honorary, m.birth
+		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.name, m.phone, m.region, m.area, m.role, m.honorary, m.birth
 		 FROM sessions s JOIN members m ON m.id = s.member_id
 		 WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.is_active = 1 AND s.expires_at > ? AND m.status = 'active' AND m.is_active = 1`,
 	).bind(await sha256(token), iso(c.now)).first<Me>();
@@ -182,7 +182,7 @@ export async function me(c: Ctx) {
 	const pay = s!.owner ? 0 : s!.stays * ROOM_PRICES.숙박 + s!.rests * ROOM_PRICES.휴식;
 	return {
 		ok: true,
-		me: { name: me.name, grade: me.grade || '회원', area: me.area, region: regionOf(me.grade, me.area), phone: formatPhone(me.phone), photo: photoUrl(c, s!.photo), role: me.role, honorary: !!me.honorary },
+		me: { name: me.name, region: me.region || regionOf('', me.area), area: me.area, phone: formatPhone(me.phone), photo: photoUrl(c, s!.photo), role: me.role, honorary: !!me.honorary },
 		season: { season, rides: s!.rides, stays: s!.stays, rests: s!.rests, owner: !!s!.owner, pay, visits: s!.visits, spent: s!.spent, photos: s!.photos },
 	};
 }

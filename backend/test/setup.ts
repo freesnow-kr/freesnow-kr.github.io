@@ -28,8 +28,8 @@ export function useDb(members: string[][], seed?: () => Promise<unknown>) {
 		await env.DB.batch(stmts.map((x) => env.DB.prepare(x)));
 		const now = new Date().toISOString();
 		if (members.length) await env.DB.batch(members.map(([id, phone, name, birth, role = 'member', status = 'active']) =>
-			env.DB.prepare('INSERT INTO members (id, phone, name, birth, grade, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-				.bind(id, phone, name, birth, role === 'admin' ? '운영진' : '경기도', '구리', role, status, now, now)));
+			env.DB.prepare('INSERT INTO members (id, phone, name, birth, region, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+				.bind(id, phone, name, birth, '경기북부', '구리', role, status, now, now)));
 		await seed?.();
 	});
 	after(async () => {

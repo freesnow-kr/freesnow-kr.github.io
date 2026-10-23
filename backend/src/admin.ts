@@ -3,7 +3,7 @@
 // staff는 비밀번호 초기화(auth.ts adminReset)도 — 관리자 계정은 관리자만
 // admin(관리자): + 정지·탈퇴·권한 변경(마스터 지정 포함), 운영 기록. master(마스터)는 명예 — 권한은 회원과 같음
 // 바꾸는 일은 전부 admin_logs (누가·언제·무엇을·전후 값)
-import { notifyEmails, saveNotifyEmails, sendMail } from './notify.ts';
+import { EMAIL, sendMail, staffEmails } from './notify.ts';
 import type { Ctx } from './index.ts';
 import { need, Reply } from './auth.ts';
 import { iso, normPhone, randomToken } from './lib.ts';
@@ -69,7 +69,7 @@ export async function signupDecide(c: Ctx) {
 export async function members(c: Ctx) {
 	const me = await need(c, 'staff');
 	const { results } = await c.env.DB.prepare(
-		`SELECT m.id, m.name, m.phone, m.gender, m.birth, m.region, m.area, m.private_contact, m.role, m.status, m.joined_at,
+		`SELECT m.id, m.name, m.phone, m.gender, m.birth, m.region, m.area, m.private_contact, m.email, m.role, m.status, m.joined_at,
 		        (SELECT max(at) FROM login_logs l WHERE l.member_id = m.id AND l.ok = 1) AS last_login,
 		        c.member_id IS NOT NULL AND c.hash IS NULL AS reset_pending, c.changed_at AS password_changed
 		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1
@@ -80,8 +80,8 @@ export async function members(c: Ctx) {
 	return { ok: true, role: me.role, members: results };
 }
 
-const FIELDS = ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact'] as const;
-// {id, name?, phone?, gender?, birth?, region?, area?, private_contact?} 운영진
+const FIELDS = ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact', 'email'] as const;
+// {id, name?, phone?, gender?, birth?, region?, area?, private_contact?, email?} 운영진. email은 운영진 강습 알림용(notify.ts)
 export async function memberUpdate(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
@@ -90,8 +90,10 @@ export async function memberUpdate(c: Ctx) {
 	const next: Record<string, any> = {};
 	for (const k of FIELDS) {
 		if (c.body[k] === undefined) continue;
-		let v = String(c.body[k] ?? '').replace(/\s+/g, ' ').trim().slice(0, 60);
+		let v = String(c.body[k] ?? '').replace(/\s+/g, ' ').trim().slice(0, k === 'email' ? 100 : 60);
 		if (k === 'phone') v = normPhone(v);
+		if (k === 'email') v = v.toLowerCase();
+		if (k === 'email' && v && !EMAIL.test(v)) throw bad('메일 주소를 확인해 주세요.');
 		if (k === 'phone' && !/^01[016789]\d{7,8}$/.test(v)) throw bad('연락처를 확인해 주세요.');
 		if (k === 'name' && !v) throw bad('이름을 적어 주세요.');
 		if (k === 'gender' && v && v !== '남' && v !== '여') throw bad('성별을 확인해 주세요.');
@@ -143,7 +145,7 @@ export async function audit(c: Ctx) {
 	return { ok: true, logs: results };
 }
 
-// {notify: '주소, 주소'} 알림 받을 메일 저장, {test: true} 시험 메일. 응답에 notify(지금 목록)
+// {test: true} 시험 메일. 응답 notify = 알림 받는 운영진 이름(회원 정보에 메일이 있는 활동 운영진)
 // 강습 요청 (운영진이 회원 중 한 명과 연결): 2주 전부터 앞으로의 요청, 날짜순. 연락처는 운영진 회원 화면과 같은 범위
 // {memberId, date, teacherId?} 이면 연결(teacherId 비우면 연결 해제) 후 목록. riders = 그날 출격 체크한 회원 ID (연결 후보 먼저 보이게)
 export async function lessons(c: Ctx) {
@@ -157,14 +159,10 @@ export async function lessons(c: Ctx) {
 		if (!r.meta.changes) throw bad('요청을 찾지 못했어요. 회원이 취소했을 수 있어요.');
 		await log(c, me.id, 'lesson.match', memberId, { date, teacherId }).run();
 	}
-	if (typeof c.body.notify === 'string') {
-		const r = await saveNotifyEmails(c.env, c.body.notify);
-		if (r.bad) throw bad(`메일 주소를 확인해 주세요: ${r.bad}`);
-		await log(c, me.id, 'lesson.notify', null, { count: r.emails.length }).run();
-	}
+	const staff = await staffEmails(c.env);
 	if (c.body.test === true) {
-		const to = await notifyEmails(c.env);
-		if (!to.length) throw bad('알림 받을 메일을 먼저 저장해 주세요.');
+		const to = staff.map((r) => r.email);
+		if (!to.length) throw bad('메일이 등록된 운영진이 없어요. 회원 탭에서 운영진 정보에 메일을 넣어 주세요.');
 		try {
 			await sendMail(c.env, to, '[프리스노우] 강습 알림 시험 메일', `강습 요청이 들어오면 이렇게 메일이 와요.\n\n보낸 사람: ${me.name} (운영진 화면 '시험 메일')`);
 		} catch (e) {
@@ -180,7 +178,7 @@ export async function lessons(c: Ctx) {
 	const rides = (
 		await db.prepare("SELECT date, member_id FROM ride_checks WHERE date >= ? AND status = '출격' AND is_active = 1").bind(from).all<{ date: string; member_id: string }>()
 	).results;
-	return { ok: true, from, notify: await notifyEmails(c.env), lessons: results.map((l) => ({ ...l, riders: rides.filter((r) => r.date === l.date && r.member_id !== l.member_id).map((r) => r.member_id) })) };
+	return { ok: true, from, notify: staff.map((r) => r.name), lessons: results.map((l) => ({ ...l, riders: rides.filter((r) => r.date === l.date && r.member_id !== l.member_id).map((r) => r.member_id) })) };
 }
 
 // 시즌방 주주: {season} 목록 / {season, memberIds: []} 저장(그 시즌 전체를 바꿈)

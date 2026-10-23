@@ -152,10 +152,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 					<!-- 강습 요청: 회원이 출격한 날 요청 → 운영진이 회원 중 한 명과 연결. 요청·연결은 운영진만 봄(요청한 회원은 자기 요청만) -->
 					<section class="panel" data-panel="lessons" hidden>
-						<p class="hint">새 요청이 들어오면 아래 메일로 알려 드려요. 2주 전부터 앞으로의 요청이에요. '연결할 회원'에 이름을 쳐서 고르면 바로 저장되고, 지우면 연결이 풀려요. 연결은 운영진만 보니까, 정해지면 두 회원에게 따로 연락해 주세요. 그날 출격하는 회원이 목록 위에 나와요.</p>
+						<p class="hint">새 요청이 들어오면 회원 정보에 메일이 있는 운영진에게 메일로 알려 드려요. 2주 전부터 앞으로의 요청이에요. '연결할 회원'에 이름을 쳐서 고르면 바로 저장되고, 지우면 연결이 풀려요. 연결은 운영진만 보니까, 정해지면 두 회원에게 따로 연락해 주세요. 그날 출격하는 회원이 목록 위에 나와요.</p>
 						<div class="lesson-notify">
-							<label>알림 받을 메일 <input class="notify-emails" type="text" placeholder="운영진 메일, 쉼표로 구분" autocomplete="off" /></label>
-							<button class="btn-mini ink notify-save" type="button">저장</button>
+							<span class="notify-who"></span>
 							<button class="btn-mini notify-test" type="button">시험 메일</button>
 							<span class="notify-msg" role="status"></span>
 						</div>
@@ -195,6 +194,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<label>지역 <input name="region" placeholder="경기북부, 서울 …" /></label>
 						<label>거주지 <input name="area" /></label>
 						<label>비공개 연락처 <input name="private_contact" /></label>
+						<label>메일 <input name="email" type="email" placeholder="운영진은 강습 요청 알림을 받아요" /></label>
 						<fieldset class="admin-only">
 							<label>권한 <select name="role"><option value="member">회원</option><option value="master">마스터 (명예)</option><option value="staff">운영진</option><option value="admin">관리자</option></select></label>
 						</fieldset>
@@ -336,8 +336,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
 				};
 				const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('sv-SE') : '');
-				const head = ['No', '이름', '연락처', '성별', '생년월일', '지역', '거주지', '비공개연락처', '권한', '상태', '가입일', '최근 로그인'];
-				const rows = res.members.map((m: any, i: number) => [i + 1, m.name, phone(m.phone), m.gender, m.birth, m.region, m.area, m.private_contact, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login)]);
+				const head = ['No', '이름', '연락처', '성별', '생년월일', '지역', '거주지', '비공개연락처', '메일', '권한', '상태', '가입일', '최근 로그인'];
+				const rows = res.members.map((m: any, i: number) => [i + 1, m.name, phone(m.phone), m.gender, m.birth, m.region, m.area, m.private_contact, m.email, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login)]);
 				const csv = '\uFEFF' + [head, ...rows].map((r) => r.map(cell).join(',')).join('\r\n');
 				const a = document.createElement('a');
 				a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -380,7 +380,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			let editing: any = null;
 			function edit(m: any) {
 				editing = m;
-				for (const k of ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact', 'role']) (form.elements.namedItem(k) as HTMLInputElement).value = m[k] ?? '';
+				for (const k of ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact', 'email', 'role']) (form.elements.namedItem(k) as HTMLInputElement).value = m[k] ?? '';
 				$('.edit-error').textContent = '';
 				dialog.showModal();
 			}
@@ -820,8 +820,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const res = await api('admin.lessons', match);
 				if (!res) return void (match && loadLessons()); // 실패하면 고른 값을 되돌리게 다시 불러옴
 				if (match) loadSummary(); // 위 '강습 연결 대기' 숫자
-				const box = $<HTMLInputElement>('.notify-emails');
-				if (document.activeElement !== box) box.value = res.notify.join(', '); // 입력 중이면 안 덮음
+				$('.notify-who').textContent = res.notify.length ? `알림 받는 운영진: ${res.notify.join(', ')}` : '알림 받는 운영진이 없어요. 회원 탭 → 운영진 정보 수정에서 메일을 넣어 주세요.';
 				const body = $('.lesson-rows');
 				if (!res.lessons.length) return empty(body, 5, '강습 요청이 없어요.');
 				const active = members.filter((m) => m.status === 'active');
@@ -861,13 +860,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				}));
 			}
 
-			// 알림 받을 메일: 새 강습 요청이 들어오면 동호회 Gmail로 보냄(받는 사람끼리 주소 안 보임)
-			$('.notify-save').addEventListener('click', async () => {
-				if (await api('admin.lessons', { notify: $<HTMLInputElement>('.notify-emails').value })) {
-					$('.notify-msg').textContent = '저장했어요.';
-					loadLessons();
-				}
-			});
+			// 새 강습 요청 → 회원 정보에 메일이 있는 활동 운영진에게 동호회 Gmail로(받는 사람끼리 주소 안 보임)
 			$('.notify-test').addEventListener('click', async () => {
 				$('.notify-msg').textContent = '보내는 중…';
 				$('.notify-msg').textContent = (await api('admin.lessons', { test: true })) ? '시험 메일을 보냈어요. 메일함을 확인해 주세요.' : '';
@@ -1173,22 +1166,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		border-radius: 12px;
 		background: var(--white);
 	}
-	.lesson-notify label {
-		display: flex;
+	.notify-who {
 		flex: 1;
-		align-items: center;
-		gap: 8px;
-		min-width: 260px;
 		font-size: 13px;
 		font-weight: 700;
-	}
-	.notify-emails {
-		flex: 1;
-		min-height: 36px;
-		padding: 0 10px;
-		border: 1.5px solid var(--black);
-		font: inherit;
-		font-weight: 400;
 	}
 	.notify-msg {
 		color: #4a4d55;

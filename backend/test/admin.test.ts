@@ -140,3 +140,37 @@ test('조 편성: 운영진만, 행사 저장·목록·불러오기·고치기·
 	await post({ action: 'admin.teams.delete', id }, S);
 	assert.equal((await post({ action: 'admin.teams.list' }, S)).events.length, 0);
 });
+
+test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 들어간 신청만, 연락처·생년월일은 안 넣음, 구글 실패해도 신청은 저장', async () => {
+	await env.DB.prepare("UPDATE members SET email = 'staff@x.com' WHERE id = 'm-staff'").run();
+	await env.DB.prepare("UPDATE members SET email = 'member@x.com' WHERE id = 'm-1'").run(); // 일반 회원 → 안 받음
+	const sent: any[] = [];
+	const realFetch = globalThis.fetch;
+	globalThis.fetch = (async (url: string, init: any) => {
+		if (String(url).includes('oauth2')) return new Response(JSON.stringify({ access_token: 't' }));
+		sent.push(JSON.parse(init.body));
+		return new Response('{}');
+	}) as any;
+	Object.assign(env, { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 's', GOOGLE_REFRESH_TOKEN: 'r' });
+	try {
+		const f = { ...form, name: '알림신청', phone: '010-7777-1234' };
+		assert.equal((await post(f)).ok, true);
+		await post({ ...f, phone: '010-7777-9999', website: 'spam' }); // 숨은 칸 → 저장·메일 없음
+		await post(f); // 중복 → 거부, 메일 없음
+		assert.equal(sent.length, 1);
+		const mime = new TextDecoder().decode(Uint8Array.from(atob(sent[0].raw.replace(/-/g, '+').replace(/_/g, '/')), (ch) => ch.charCodeAt(0)));
+		assert.match(mime, /^Bcc: staff@x\.com\r\n/);
+		const subject = new TextDecoder().decode(Uint8Array.from(atob(/Subject: =\?UTF-8\?B\?([^?]+)\?=/.exec(mime)![1]), (ch) => ch.charCodeAt(0)));
+		assert.match(subject, /^\[프리스노우\]\[가입 신청\] \d{4}-\d{2}-\d{2}\([일월화수목금토]\) 알림신청$/);
+		const body = [...mime.matchAll(/base64\r\n\r\n([A-Za-z0-9+/=\r\n]+)/g)].map((m) => new TextDecoder().decode(Uint8Array.from(atob(m[1].replace(/\r\n/g, '')), (ch) => ch.charCodeAt(0)))).join('\n');
+		assert.match(body, /NEW<br>MEMBER\./);
+		assert.match(body, /지역: 경기도 의정부시/);
+		assert.equal(/7777|1234|1998|03-07/.test(body), false); // 연락처·생년월일 X
+		// 구글 실패해도 신청은 저장
+		globalThis.fetch = (async () => new Response('no', { status: 500 })) as any;
+		assert.equal((await post({ ...f, phone: '010-7777-5678' })).ok, true);
+	} finally {
+		globalThis.fetch = realFetch;
+		for (const k of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REFRESH_TOKEN']) delete env[k];
+	}
+});

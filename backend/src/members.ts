@@ -2,6 +2,7 @@
 import type { Ctx, Env } from './index.ts';
 import { need } from './auth.ts';
 import { iso, later, normPhone, randomToken } from './lib.ts';
+import { signupRequested } from './notify.ts';
 
 const SIGNUP_PER_HOUR = 30; // 전체 신청 시간당 상한 (스팸 방지)
 const PHOTO_MAX = 400_000; // base64 글자 수 (브라우저가 256px JPG로 줄여서 보냄 ≈ 20~60KB)
@@ -29,8 +30,9 @@ export async function signup(c: Ctx) {
 	if (n!.recent >= SIGNUP_PER_HOUR) return { ok: false, error: '신청이 많아요. 잠시 뒤 다시 시도해 주세요.' };
 	if (n!.dup) return { ok: false, error: '이미 신청했거나 가입된 연락처예요. 오픈채팅으로 문의해 주세요.' };
 	// 동시에 같은 번호로 두 번 와도 대기 중 신청은 하나 (UNIQUE 부분 인덱스)
-	await db.prepare("INSERT INTO signup_requests (created_at, name, gender, birth, sido, area, phone) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING")
+	const r = await db.prepare("INSERT INTO signup_requests (created_at, name, gender, birth, sido, area, phone) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING")
 		.bind(iso(c.now), name, gender, birth, sido, area, phone).run();
+	if (r.meta.changes) await signupRequested(c.env, { name, gender, region: `${sido} ${area}`, at: c.now }); // 실제로 들어간 신청만 운영진 메일
 	return { ok: true };
 }
 

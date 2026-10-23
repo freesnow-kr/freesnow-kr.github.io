@@ -82,12 +82,28 @@ test('사진: 글쓴이만 올림, JPG만, R2 board/ 폴더, 빼면 파일도 �
 	assert.equal((await send(A, [jpg('one'), jpg('two')])).count, 2);
 	const g = (await post({ action: 'board.get', id: free }, B)).post;
 	assert.equal(g.photos.length, 2);
-	const key = g.photos[0].url.replace('https://api.test/', '');
+	const key = new URL(g.photos[0].url).pathname.slice(1);
 	assert.match(key, /^board\/[\w-]+\/[\w-]+\.jpg$/);
 	const res = await worker.fetch(new Request(g.photos[0].url), env);
 	assert.deepEqual([res.status, await res.text()], [200, 'one']);
+	// 서명 없거나 틀리거나 기한 지나면 못 봄 (회원 글 사진은 글을 볼 수 있는 사람만)
+	assert.equal((await worker.fetch(new Request(`https://api.test/${key}`), env)).status, 403);
+	assert.equal((await worker.fetch(new Request(g.photos[0].url.replace(/s=\w/, 's=0')), env)).status, 403);
+	assert.equal((await worker.fetch(new Request(g.photos[0].url.replace(/e=\d+/, 'e=1000')), env)).status, 403);
+	assert.equal((await post({ action: 'board.get', id: free })).needLogin, true, '비회원은 서명된 주소도 못 받음');
 	assert.equal((await post({ action: 'board.photoDelete', id: g.photos[0].id }, A)).ok, true);
 	assert.equal(await env.PHOTOS.get(key), null);
 	assert.equal((await post({ action: 'board.get', id: free }, A)).post.photos.length, 1);
 	assert.equal((await post({ action: 'board.list' }, A)).posts.find((p: any) => p.id === free).photos, 1);
+});
+
+test('스팸 막기: 같은 제목 글 10분, 같은 댓글 5분, 1시간에 글 10개', async () => {
+	const t = await sessionFor('m-b');
+	assert.equal((await post({ action: 'board.write', category: 'free', title: '도배', body: '1' }, t)).ok, true);
+	assert.match((await post({ action: 'board.write', category: 'free', title: '도배', body: '2' }, t)).error, /같은 제목/);
+	const pid = (await post({ action: 'board.write', category: 'free', title: '댓글용', body: '' }, t)).id;
+	assert.equal((await post({ action: 'board.comment', postId: pid, body: 'ㅋㅋ' }, t)).ok, true);
+	assert.match((await post({ action: 'board.comment', postId: pid, body: 'ㅋㅋ' }, t)).error, /같은 댓글/);
+	for (let i = 0; i < 8; i++) await post({ action: 'board.write', category: 'free', title: `글${i}`, body: '' }, t);
+	assert.match((await post({ action: 'board.write', category: 'free', title: '11번째', body: '' }, t)).error, /너무 많이/);
 });

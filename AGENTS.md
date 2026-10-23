@@ -25,6 +25,12 @@
 - 비밀번호 해시 PBKDF2-SHA256 10만 회: 실제 Cloudflare에서 CPU 19~55ms(무료 한도 10ms 넘지만 40/40 성공, 2026-10-23). Workers는 10만 회 넘으면 오류. 로그인이 `exceeded CPU`로 실패하면 반복 횟수를 줄이거나 유료($5/월) 검토.
 - 되돌리기: GitHub Secret `PUBLIC_API_URL`을 예전 Apps Script 웹앱 주소로 바꿔도 **안 됨**(사이트 코드가 Worker 전용) → 이전 전 커밋으로 되돌려 배포 + Apps Script 다시 배포. 전환 뒤 D1에 쌓인 기록은 시트로 옮겨야 함.
 
+## 조 편성 (`/admin` '조 편성' 탭 + `backend/src/teams.ts`)
+
+- 사용자 요구(2026-10-23): 정모·체육대회 때 조 짜기. `~/develop/project/free-snow-summer`(여름 정모 레크레이션)의 **팀 수·팀 이름 + 게임별 이긴 팀 체크 점수판**을 참고하고, 거기 없던 **참가자 고르기·자동 편성**을 더함. 운영진 이상.
+- 행사 하나 = `team_events` 한 줄(`0013`), 참가자·팀·게임은 `data` JSON 한 칸(`{teams:[{name}], people:[{key,name,gender,memberId?,staff?,guest?,team}], games:[{name,points,winners:[팀]}]}`). 편성 계산은 브라우저, 서버는 저장만(`admin.teams.list/get/save/delete`). 저장 버튼 + '저장 안 됨' 표시.
+- ① 참가자: 활동 회원 칩 토글(검색, 전체 선택/해제) + 게스트(이름·성별). ② 자동 편성: 팀 수(2~12), '성별 고르게'·'운영진 나눠서' — **성별 묶음마다(큰 묶음부터) 운영진 먼저, 그 성별이 가장 적은 조 → 운영진이 가장 적은 조 → 인원이 가장 적은 조**(같으면 무작위) → 인원·성별·운영진 모두 차이 1 이하. 조 이름 고치기, 사람마다 '옮기기'. ③ 점수판: 게임(이름·점수) 추가, 칸 눌러 이긴 조 체크(여러 조 가능), 합계·🏆 1등.
+
 ## 게시판 (`/board/` + `backend/src/board.ts`)
 
 - 사용자 요구(2026-10-23, 소모임 게시판처럼): 말머리 **공지(notice) / 모임후기(review) / 가입인사(greeting) / 자유(free)**, 헤더 메뉴 **BOARD**(SEASON 다음). 페이지 `board/index`(목록·탭 `?c=`), `board/view?id=`, `board/write`(`?id=` 고치기, `?c=` 말머리 미리 고르기).

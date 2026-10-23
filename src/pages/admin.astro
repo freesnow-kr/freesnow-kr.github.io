@@ -58,6 +58,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<button type="button" data-tab="members">회원</button>
 						<button type="button" data-tab="room">시즌방 정산</button>
 						<button type="button" data-tab="owners">시즌방 주주</button>
+						<button type="button" data-tab="teams">조 편성</button>
 						<button type="button" data-tab="chat">채팅 랭킹</button>
 						<button type="button" data-tab="photos">사진 보관</button>
 						<button type="button" data-tab="logins">로그인 이력</button>
@@ -88,6 +89,63 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<p class="hint">시즌마다 주주를 정해요(주주는 그 시즌 시즌방 정산이 0원). 바꾸면 바로 저장돼요.</p>
 						<div class="owner-cards"></div>
 						<p class="owner-msg" role="status"></p>
+					</section>
+
+					<!-- 조 편성: 정모·체육대회 때 조 짜기 + 팀 대항 점수판 (free-snow-summer 홈 점수판 참고), 행사별 저장 -->
+					<section class="panel" data-panel="teams" hidden>
+						<div class="tm-top">
+							<select class="tm-pick" aria-label="행사"></select>
+							<button class="btn-mini tm-new" type="button">+ 새 행사</button>
+							<span class="tm-dirty" hidden>저장 안 됨</span>
+							<button class="btn-mini ink tm-save" type="button">저장</button>
+							<button class="btn-mini tm-del" type="button">지우기</button>
+						</div>
+						<div class="tm-meta">
+							<label>행사 이름 <input class="tm-title" maxlength="60" placeholder="예: 가을 체육대회" /></label>
+							<label>날짜 <input class="tm-date" type="date" /></label>
+						</div>
+						<div class="tm-steps" role="tablist">
+							<button type="button" data-step="people" aria-selected="true">① 참가자 <b class="tm-n"></b></button>
+							<button type="button" data-step="split">② 조 편성</button>
+							<button type="button" data-step="score">③ 점수판</button>
+						</div>
+
+						<div class="tm-step" data-step="people">
+							<div class="tm-row">
+								<input class="tm-find" type="search" placeholder="회원 이름·지역 찾기" />
+								<button class="btn-mini tm-all" type="button">전체 선택</button>
+								<button class="btn-mini tm-none" type="button">전체 해제</button>
+							</div>
+							<div class="tm-members"></div>
+							<div class="tm-row tm-guest">
+								<input class="tm-gname" maxlength="20" placeholder="게스트 이름 (회원 아닌 참가자)" />
+								<select class="tm-ggender" aria-label="게스트 성별"><option value="">성별</option><option>남</option><option>여</option></select>
+								<button class="btn-mini ink tm-gadd" type="button">게스트 추가</button>
+							</div>
+							<div class="tm-guests"></div>
+						</div>
+
+						<div class="tm-step" data-step="split" hidden>
+							<div class="tm-row">
+								<label>팀 수 <input class="tm-count" type="number" min="2" max="12" value="4" /></label>
+								<label class="tm-opt"><input class="tm-g" type="checkbox" checked /> 성별 고르게</label>
+								<label class="tm-opt"><input class="tm-s" type="checkbox" checked /> 운영진 나눠서</label>
+								<button class="btn-mini ink tm-auto" type="button">자동 편성</button>
+							</div>
+							<p class="hint">자동 편성은 인원 → 성별 → 운영진 순으로 고르게 나눠요. 다시 누르면 새로 섞어요. 이름 옆 칸으로 다른 조로 옮길 수 있어요.</p>
+							<div class="tm-teams"></div>
+						</div>
+
+						<div class="tm-step" data-step="score" hidden>
+							<div class="tm-row">
+								<input class="tm-gamename" maxlength="30" placeholder="게임 이름 (예: 줄다리기)" />
+								<input class="tm-gamepts" type="number" min="0" max="1000" value="10" aria-label="점수" />
+								<button class="btn-mini ink tm-gameadd" type="button">게임 추가</button>
+							</div>
+							<p class="hint">칸을 눌러 그 게임에서 이긴 조를 체크해요. 다시 누르면 해제.</p>
+							<div class="scroll"><table class="tm-board"><thead></thead><tbody></tbody></table></div>
+							<p class="tm-winner"></p>
+						</div>
 					</section>
 
 					<section class="panel" data-panel="chat" hidden>
@@ -426,6 +484,268 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				);
 			}
 
+			// ── 조 편성 ──
+			type Person = { key: string; name: string; gender: string; memberId?: string; staff?: boolean; guest?: boolean; team: number };
+			type Ev = { id?: string; title: string; date: string; data: { teams: { name: string }[]; people: Person[]; games: { name: string; points: number; winners: number[] }[] } };
+			let ev: Ev | null = null;
+			let tmEvents: any[] = [];
+			const blank = (): Ev => ({ title: '', date: new Date().toLocaleDateString('sv-SE'), data: { teams: [], people: [], games: [] } });
+			const dirty = (on = true) => ($('.tm-dirty').hidden = !on);
+			const tmTeamColor = ['#ff5a1f', '#2f6df6', '#1e9e5a', '#a64ce0', '#e0245e', '#d49b00', '#0aa5b8', '#6b6d73', '#8a4b20', '#3b3f8f', '#c76e00', '#2d7d2d'];
+
+			async function loadTeams() {
+				if (!members.length) await loadMembers();
+				const r = await api('admin.teams.list');
+				if (!r) return;
+				tmEvents = r.events;
+				const pick = $<HTMLSelectElement>('.tm-pick');
+				pick.replaceChildren(new Option('행사 고르기', ''), ...tmEvents.map((e) => new Option(`${e.date} ${e.title} (${e.people}명)`, e.id)));
+				if (ev?.id) pick.value = ev.id;
+				if (!ev) (ev = blank()), drawEvent();
+			}
+			$('.tm-pick').addEventListener('change', async (e) => {
+				const id = (e.target as HTMLSelectElement).value;
+				if (!id) return;
+				const r = await api('admin.teams.get', { id });
+				if (!r) return;
+				ev = r.event;
+				drawEvent();
+				dirty(false);
+			});
+			$('.tm-new').addEventListener('click', () => {
+				ev = blank();
+				$<HTMLSelectElement>('.tm-pick').value = '';
+				drawEvent();
+				dirty(false);
+			});
+			$('.tm-save').addEventListener('click', async () => {
+				ev!.title = $<HTMLInputElement>('.tm-title').value;
+				ev!.date = $<HTMLInputElement>('.tm-date').value;
+				const r = await api('admin.teams.save', { id: ev!.id, title: ev!.title, date: ev!.date, data: ev!.data });
+				if (!r) return;
+				ev!.id = r.id;
+				dirty(false);
+				loadTeams();
+			});
+			$('.tm-del').addEventListener('click', async () => {
+				if (!ev?.id) return void ((ev = blank()), drawEvent());
+				if (!confirm(`'${ev.title}' 행사를 지울까요?`)) return;
+				if (await api('admin.teams.delete', { id: ev.id })) (ev = null), loadTeams();
+			});
+			$('.tm-title').addEventListener('input', () => dirty());
+			$('.tm-date').addEventListener('input', () => dirty());
+			const tmSteps = [...document.querySelectorAll<HTMLButtonElement>('.tm-steps button')];
+			tmSteps.forEach((b) =>
+				b.addEventListener('click', () => {
+					tmSteps.forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+					document.querySelectorAll<HTMLElement>('.tm-step').forEach((x) => (x.hidden = x.dataset.step !== b.dataset.step));
+				}),
+			);
+			const genderCount = (list: Person[]) => {
+				const m = list.filter((p) => p.gender === '남').length, f = list.filter((p) => p.gender === '여').length;
+				return `${list.length}명${m || f ? ` (남 ${m} · 여 ${f})` : ''}`;
+			};
+
+			function drawEvent() {
+				$<HTMLInputElement>('.tm-title').value = ev!.title;
+				$<HTMLInputElement>('.tm-date').value = ev!.date;
+				drawPeople();
+				drawSplit();
+				drawScore();
+			}
+
+			// ① 참가자: 활동 회원 체크 + 게스트
+			function drawPeople() {
+				const d = ev!.data;
+				const on = new Set(d.people.filter((p) => p.memberId).map((p) => p.memberId));
+				const q = $<HTMLInputElement>('.tm-find').value.trim();
+				$('.tm-members').replaceChildren(
+					...members
+						.filter((m) => m.status === 'active' && (!q || [m.name, m.region, m.area].join(' ').includes(q)))
+						.map((m) => {
+							const b = document.createElement('button');
+							b.type = 'button';
+							b.className = 'tm-chip' + (on.has(m.id) ? ' on' : '');
+							b.textContent = `${on.has(m.id) ? '✓ ' : ''}${m.name}${m.gender ? ` · ${m.gender}` : ''}`;
+							b.addEventListener('click', () => {
+								if (on.has(m.id)) d.people = d.people.filter((p) => p.memberId !== m.id);
+								else d.people.push({ key: `m:${m.id}`, name: m.name, gender: m.gender ?? '', memberId: m.id, staff: m.role === 'staff' || m.role === 'admin', team: -1 });
+								dirty();
+								drawPeople();
+								drawSplit();
+							});
+							return b;
+						}),
+				);
+				$('.tm-guests').replaceChildren(
+					...d.people
+						.filter((p) => p.guest)
+						.map((p) => {
+							const t = document.createElement('span');
+							t.className = 'tm-chip on guest';
+							t.textContent = `${p.name}${p.gender ? ` · ${p.gender}` : ''} (게스트) `;
+							const x = document.createElement('button');
+							x.type = 'button';
+							x.textContent = '✕';
+							x.addEventListener('click', () => ((d.people = d.people.filter((v) => v !== p)), dirty(), drawPeople(), drawSplit()));
+							t.append(x);
+							return t;
+						}),
+				);
+				$('.tm-n').textContent = genderCount(d.people);
+			}
+			$('.tm-find').addEventListener('input', drawPeople);
+			$('.tm-all').addEventListener('click', () => {
+				const d = ev!.data;
+				const have = new Set(d.people.map((p) => p.memberId));
+				for (const m of members) if (m.status === 'active' && !have.has(m.id)) d.people.push({ key: `m:${m.id}`, name: m.name, gender: m.gender ?? '', memberId: m.id, staff: m.role === 'staff' || m.role === 'admin', team: -1 });
+				dirty(), drawPeople(), drawSplit();
+			});
+			$('.tm-none').addEventListener('click', () => ((ev!.data.people = ev!.data.people.filter((p) => p.guest)), dirty(), drawPeople(), drawSplit()));
+			$('.tm-gadd').addEventListener('click', () => {
+				const name = $<HTMLInputElement>('.tm-gname').value.trim();
+				if (!name) return;
+				ev!.data.people.push({ key: `g:${Date.now()}`, name, gender: $<HTMLSelectElement>('.tm-ggender').value, guest: true, team: -1 });
+				$<HTMLInputElement>('.tm-gname').value = '';
+				dirty(), drawPeople(), drawSplit();
+			});
+
+			// ② 조 편성: 인원 → (성별) → (운영진) 순으로 고르게. 같은 묶음끼리 섞어서 지금 가장 적은 조에 하나씩
+			function autoSplit() {
+				const d = ev!.data;
+				const n = Math.max(2, Math.min(12, Number($<HTMLInputElement>('.tm-count').value) || 2));
+				d.teams = Array.from({ length: n }, (_, i) => d.teams[i] ?? { name: `${i + 1}조` });
+				const byGender = $<HTMLInputElement>('.tm-g').checked, byStaff = $<HTMLInputElement>('.tm-s').checked;
+				const shuffle = <T,>(a: T[]) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+				// 성별 묶음마다(큰 묶음부터) 운영진 먼저 → 그 성별이 가장 적은 조 → 운영진이 가장 적은 조 → 인원이 가장 적은 조 (같으면 무작위)
+				const size = new Array(n).fill(0), staffN = new Array(n).fill(0);
+				const groups: Record<string, Person[]> = {};
+				for (const p of d.people) (groups[byGender ? p.gender || '?' : ''] ||= []).push(p);
+				for (const g of Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length)) {
+					const sameN = new Array(n).fill(0);
+					const list = shuffle(groups[g]).sort((a, b) => (byStaff ? Number(!!b.staff) - Number(!!a.staff) : 0));
+					for (const p of list) {
+						const t = shuffle([...Array(n).keys()]).sort((a, b) => sameN[a] - sameN[b] || (byStaff && p.staff ? staffN[a] - staffN[b] : 0) || size[a] - size[b])[0];
+						p.team = t;
+						sameN[t]++;
+						size[t]++;
+						if (p.staff) staffN[t]++;
+					}
+				}
+				dirty();
+				drawSplit();
+				drawScore();
+			}
+			$('.tm-auto').addEventListener('click', () => {
+				if (!ev!.data.people.length) return alert('먼저 ① 참가자를 골라 주세요.');
+				if (ev!.data.people.some((p) => p.team >= 0) && !confirm('지금 편성을 지우고 새로 짤까요?')) return;
+				autoSplit();
+			});
+			function drawSplit() {
+				const d = ev!.data;
+				if (d.teams.length) $<HTMLInputElement>('.tm-count').value = String(d.teams.length);
+				const box = $('.tm-teams');
+				const waiting = d.people.filter((p) => p.team < 0 || p.team >= d.teams.length);
+				const card = (title: string, list: Person[], ti: number) => {
+					const c = document.createElement('section');
+					c.className = 'tm-team';
+					c.style.setProperty('--tc', ti >= 0 ? tmTeamColor[ti % tmTeamColor.length] : '#8a8d95');
+					const h = document.createElement('div');
+					h.className = 'tm-team-head';
+					if (ti >= 0) {
+						const nm = document.createElement('input');
+						nm.value = title;
+						nm.maxLength = 20;
+						nm.ariaLabel = '조 이름';
+						nm.addEventListener('input', () => ((d.teams[ti].name = nm.value || `${ti + 1}조`), dirty(), drawScore()));
+						h.append(nm);
+					} else h.append(document.createTextNode(title));
+					const cnt = document.createElement('small');
+					cnt.textContent = genderCount(list);
+					h.append(cnt);
+					const ul = document.createElement('ul');
+					ul.append(
+						...list.map((p) => {
+							const li = document.createElement('li');
+							li.textContent = `${p.name}${p.staff ? ' ★' : ''}${p.guest ? ' (게스트)' : ''}${p.gender ? ` · ${p.gender}` : ''}`;
+							const mv = document.createElement('select');
+							mv.ariaLabel = `${p.name} 옮기기`;
+							mv.append(new Option('옮기기', ''), ...d.teams.map((t, i) => new Option(t.name, String(i))).filter((_, i) => i !== ti));
+							mv.addEventListener('change', () => ((p.team = Number(mv.value)), dirty(), drawSplit(), drawScore()));
+							li.append(mv);
+							return li;
+						}),
+					);
+					c.append(h, ul);
+					return c;
+				};
+				box.replaceChildren(...d.teams.map((t, i) => card(t.name, d.people.filter((p) => p.team === i), i)), ...(waiting.length ? [card('아직 안 나눔', waiting, -1)] : []));
+			}
+
+			// ③ 점수판: 게임마다 이긴 조 체크 → 그 게임 점수, 합계·우승
+			function drawScore() {
+				const d = ev!.data;
+				const head = $('.tm-board thead'), body = $('.tm-board tbody');
+				if (!d.teams.length) {
+					head.replaceChildren();
+					body.replaceChildren();
+					$('.tm-winner').textContent = '먼저 ② 조 편성을 해 주세요.';
+					return;
+				}
+				const hr = document.createElement('tr');
+				const th = (t: string) => { const x = document.createElement('th'); x.textContent = t; return x; };
+				hr.append(th('조'));
+				d.games.forEach((g, gi) => {
+					const x = th(`${g.name} (${g.points})`);
+					const rm = document.createElement('button');
+					rm.type = 'button';
+					rm.className = 'tm-x';
+					rm.textContent = '✕';
+					rm.ariaLabel = `${g.name} 빼기`;
+					rm.addEventListener('click', () => confirm(`'${g.name}' 게임을 뺄까요?`) && ((d.games.splice(gi, 1)), dirty(), drawScore()));
+					x.append(rm);
+					hr.append(x);
+				});
+				hr.append(th('합계'));
+				head.replaceChildren(hr);
+				const total = d.teams.map((_, ti) => d.games.reduce((t, g) => t + (g.winners.includes(ti) ? g.points : 0), 0));
+				const max = Math.max(...total);
+				body.replaceChildren(
+					...d.teams.map((t, ti) => {
+						const tr = document.createElement('tr');
+						const name = document.createElement('td');
+						name.textContent = t.name;
+						name.style.color = tmTeamColor[ti % tmTeamColor.length];
+						name.style.fontWeight = '900';
+						tr.append(name);
+						d.games.forEach((g) => {
+							const td = document.createElement('td');
+							const b = document.createElement('button');
+							b.type = 'button';
+							const won = g.winners.includes(ti);
+							b.className = 'tm-cell' + (won ? ' won' : '');
+							b.textContent = won ? `✓ ${g.points}` : '';
+							b.addEventListener('click', () => ((g.winners = won ? g.winners.filter((x) => x !== ti) : [...g.winners, ti]), dirty(), drawScore()));
+							td.append(b);
+							tr.append(td);
+						});
+						const sum = document.createElement('td');
+						sum.className = 'tm-sum' + (max > 0 && total[ti] === max ? ' top' : '');
+						sum.textContent = String(total[ti]);
+						tr.append(sum);
+						return tr;
+					}),
+				);
+				$('.tm-winner').textContent = max > 0 ? `🏆 1등: ${d.teams.filter((_, i) => total[i] === max).map((t) => t.name).join(', ')} (${max}점)` : '';
+			}
+			$('.tm-gameadd').addEventListener('click', () => {
+				const name = $<HTMLInputElement>('.tm-gamename').value.trim();
+				if (!name) return;
+				ev!.data.games.push({ name, points: Math.max(0, Number($<HTMLInputElement>('.tm-gamepts').value) || 0), winners: [] });
+				$<HTMLInputElement>('.tm-gamename').value = '';
+				dirty(), drawScore();
+			});
+
 			$('.chat-file').addEventListener('change', async (e) => {
 				const f = (e.target as HTMLInputElement).files?.[0];
 				if (!f) return;
@@ -549,7 +869,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			}
 
 			// 탭: 처음 열 때 불러옴
-			const loaders: Record<string, () => unknown> = { signups: loadSignups, members: loadMembers, room: loadRoom, owners: loadOwners, chat: () => {}, photos: loadPhotos, logins: loadLogins, audit: loadAudit };
+			const loaders: Record<string, () => unknown> = { signups: loadSignups, members: loadMembers, room: loadRoom, owners: loadOwners, teams: loadTeams, chat: () => {}, photos: loadPhotos, logins: loadLogins, audit: loadAudit };
 			const tabs = [...document.querySelectorAll<HTMLButtonElement>('.tabs button')];
 			const open = (name: string) => {
 				tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
@@ -797,6 +1117,192 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	.status-form input {
 		accent-color: var(--black);
+	}
+	/* 조 편성 */
+	.tm-top,
+	.tm-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+	}
+	.tm-top .tm-pick {
+		min-width: 260px;
+	}
+	.tm-dirty {
+		margin-left: auto;
+		color: var(--accent);
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.tm-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+	}
+	.tm-meta label,
+	.tm-row label {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.tm-meta input,
+	.tm-row input:not([type='checkbox']) {
+		min-height: 40px;
+		padding: 0 12px;
+		border: 1.5px solid var(--black);
+		font: inherit;
+	}
+	.tm-row .tm-count,
+	.tm-row .tm-gamepts {
+		width: 80px;
+	}
+	.tm-row .tm-find,
+	.tm-row .tm-gname,
+	.tm-row .tm-gamename {
+		flex: 1;
+		min-width: 180px;
+	}
+	.panel .tm-row select {
+		min-width: 90px;
+	}
+	.tm-steps {
+		display: flex;
+		gap: 6px;
+		border-bottom: 1.5px solid var(--black);
+	}
+	.tm-steps button {
+		padding: 10px 16px;
+		border: 0;
+		border-bottom: 3px solid transparent;
+		background: none;
+		font: 700 14px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.tm-steps button[aria-selected='true'] {
+		border-bottom-color: var(--accent);
+	}
+	.tm-steps b {
+		color: var(--accent);
+	}
+	.tm-step {
+		display: grid;
+		gap: 12px;
+	}
+	.tm-step[hidden] {
+		display: none;
+	}
+	.tm-members,
+	.tm-guests {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.panel :global(.tm-chip) {
+		padding: 8px 14px;
+		border: 1.5px solid var(--line);
+		border-radius: 999px;
+		background: var(--white);
+		font: 700 14px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.panel :global(.tm-chip.on) {
+		border-color: var(--accent);
+		background: var(--accent);
+	}
+	.panel :global(.tm-chip.guest button) {
+		border: 0;
+		background: none;
+		cursor: pointer;
+	}
+	.tm-teams {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: 12px;
+	}
+	.tm-teams :global(.tm-team) {
+		border: 1px solid var(--line);
+		border-top: 6px solid var(--tc);
+		border-radius: 12px;
+		background: var(--white);
+		overflow: hidden;
+	}
+	.tm-teams :global(.tm-team-head) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 10px 12px;
+		font-weight: 900;
+	}
+	.tm-teams :global(.tm-team-head input) {
+		width: 100%;
+		min-width: 0;
+		border: 0;
+		color: var(--tc);
+		font: 900 18px 'Noto Sans KR', sans-serif;
+	}
+	.tm-teams :global(.tm-team-head small) {
+		flex: none;
+		color: #4a4d55;
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.tm-teams :global(ul) {
+		margin: 0;
+		padding: 0 12px 12px;
+		list-style: none;
+	}
+	.tm-teams :global(li) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 6px;
+		padding: 6px 0;
+		border-top: 1px solid var(--line);
+		font-size: 14px;
+	}
+	.tm-teams :global(li select) {
+		min-height: 28px;
+		padding: 0 24px 0 6px;
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		background-color: var(--white);
+		background-position: right 8px center;
+		font-size: 12px;
+	}
+	.tm-board :global(.tm-cell) {
+		width: 100%;
+		min-width: 70px;
+		min-height: 40px;
+		border: 1px dashed var(--line);
+		border-radius: 8px;
+		background: none;
+		font: 700 14px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.tm-board :global(.tm-cell.won) {
+		border: 0;
+		background: var(--accent);
+	}
+	.tm-board :global(.tm-sum) {
+		font: 1.6rem var(--display);
+	}
+	.tm-board :global(.tm-sum.top) {
+		color: var(--accent);
+	}
+	.tm-board :global(.tm-x) {
+		margin-left: 4px;
+		border: 0;
+		background: none;
+		color: #8a8d95;
+		cursor: pointer;
+	}
+	.tm-winner {
+		font-size: 18px;
+		font-weight: 900;
 	}
 	/* 시즌방 주주: 시즌 카드 3장 */
 	.owner-cards {

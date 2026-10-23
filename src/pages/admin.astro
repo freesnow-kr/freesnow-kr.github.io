@@ -547,6 +547,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	/* 셀렉트: 공통 화살표(ride.css)와 안 겹치게 오른쪽 여백 */
 	.panel select {
+		flex: none;
+		min-width: 150px; /* '26-27 시즌', '2026년 10월'이 … 으로 잘리지 않게 */
 		min-height: 40px;
 		padding: 0 38px 0 12px;
 		border: 1.5px solid var(--black);

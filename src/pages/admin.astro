@@ -261,6 +261,39 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				b.addEventListener('click', onClick);
 				return b;
 			};
+			// 회원 이름 검색 칸(회원이 많아서, 사용자 요구): <input list> + datalist '이름 (지역)'. first는 위에 꼬리표와 함께(예: 그날 출격)
+			// 고르면 onPick(id), 비우면 onPick(null), 목록에 없는 이름이면 안내 후 되돌림
+			let pickerN = 0;
+			function memberPicker(o: { list: any[]; first?: any[]; firstLabel?: string; value?: string | null; placeholder: string; label: string; onPick: (id: string | null) => void }) {
+				const byLabel = new Map<string, string>();
+				const dl = document.createElement('datalist');
+				dl.id = `member-pick-${++pickerN}`;
+				for (const m of [...(o.first ?? []), ...o.list]) {
+					let text = `${m.name} (${[m.region, m.area].filter(Boolean).join(' ') || '-'})`;
+					if (byLabel.has(text)) text += ` ${m.phone.slice(-4)}`; // 이름·지역이 같은 회원 구분
+					byLabel.set(text, m.id);
+					const opt = new Option(text);
+					if (o.first?.includes(m) && o.firstLabel) opt.label = o.firstLabel;
+					dl.append(opt);
+				}
+				const input = document.createElement('input');
+				input.type = 'search';
+				input.setAttribute('list', dl.id);
+				input.placeholder = o.placeholder;
+				input.ariaLabel = o.label;
+				const current = [...byLabel].find(([, id]) => id === o.value)?.[0] ?? '';
+				input.value = current;
+				input.addEventListener('change', () => {
+					const v = input.value.trim();
+					const id = v ? byLabel.get(v) : null;
+					if (id === undefined) return void (alert('목록에서 회원을 골라 주세요.'), (input.value = current));
+					if ((id ?? null) !== (o.value ?? null)) o.onPick(id);
+				});
+				const wrap = document.createElement('span');
+				wrap.className = 'member-pick';
+				wrap.append(input, dl);
+				return wrap;
+			}
 			const empty = (body: HTMLElement, cols: number, text: string) => {
 				const row = tr([text]);
 				(row.firstChild as HTMLTableCellElement).colSpan = cols;
@@ -462,11 +495,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							li.textContent = '주주가 없어요.';
 							ul.append(li);
 						}
-						const add = document.createElement('select');
-						add.className = 'owner-add';
-						add.ariaLabel = `${season} 주주 더하기`;
-						add.append(new Option('+ 주주 더하기', ''), ...members.filter((m) => m.status === 'active' && !own.has(m.id)).map((m) => new Option(`${m.name} (${m.region || m.area || '-'})`, m.id)));
-						add.addEventListener('change', () => add.value && saveOwners(season, [...own, add.value], `${season} 주주에 ${name(add.value)} 님을 더했어요.`));
+						const add = memberPicker({
+							list: members.filter((m) => m.status === 'active' && !own.has(m.id)),
+							placeholder: '+ 주주 더하기 (이름 검색)',
+							label: `${season} 주주 더하기`,
+							onPick: (id) => id && saveOwners(season, [...own, id], `${season} 주주에 ${name(id)} 님을 더했어요.`),
+						});
+						add.classList.add('owner-add');
 						card.append(ul, add);
 						const prev = ownerSeasons[si + 1];
 						if (si === 0 && prev && owners[prev]) {
@@ -825,35 +860,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (!res.lessons.length) return empty(body, 5, '강습 요청이 없어요.');
 				const active = members.filter((m) => m.status === 'active');
 				body.replaceChildren(...res.lessons.map((l: any) => {
-					// 이름으로 찾아 고르기(회원이 많아서): <input list> + 줄마다 datalist, 그날 출격하는 회원 먼저. 비우면 연결 해제
-					const riders = active.filter((m) => l.riders.includes(m.id));
-					const others = active.filter((m) => m.id !== l.member_id && !l.riders.includes(m.id));
-					const byLabel = new Map<string, string>();
-					const list = document.createElement('datalist');
-					list.id = `lesson-${l.member_id}-${l.date}`;
-					for (const m of [...riders, ...others]) {
-						let text = `${m.name} (${[m.region, m.area].filter(Boolean).join(' ') || '-'})`;
-						if (byLabel.has(text)) text += ` ${m.phone.slice(-4)}`; // 이름·지역이 같은 회원 구분
-						byLabel.set(text, m.id);
-						const o = new Option(text);
-						if (riders.includes(m)) o.label = '그날 출격';
-						list.append(o);
-					}
-					const sel = document.createElement('input');
-					sel.type = 'search';
-					sel.setAttribute('list', list.id);
-					sel.placeholder = '이름 검색';
-					sel.ariaLabel = `${l.name} 강습 연결할 회원`;
-					const current = [...byLabel].find(([, id]) => id === l.teacher_id)?.[0] ?? '';
-					sel.value = current;
-					sel.addEventListener('change', () => {
-						const v = sel.value.trim();
-						const id = v ? byLabel.get(v) : null;
-						if (id === undefined) return void (alert('목록에서 회원을 골라 주세요.'), (sel.value = current));
-						if ((id ?? null) !== (l.teacher_id ?? null)) loadLessons({ memberId: l.member_id, date: l.date, teacherId: id });
+					// 이름으로 찾아 고르기, 그날 출격하는 회원 먼저. 비우면 연결 해제
+					const cell = memberPicker({
+						first: active.filter((m) => l.riders.includes(m.id)),
+						firstLabel: '그날 출격',
+						list: active.filter((m) => m.id !== l.member_id && !l.riders.includes(m.id)),
+						value: l.teacher_id,
+						placeholder: '이름 검색',
+						label: `${l.name} 강습 연결할 회원`,
+						onPick: (id) => loadLessons({ memberId: l.member_id, date: l.date, teacherId: id }),
 					});
-					const cell = document.createElement('span');
-					cell.append(sel, list);
 					const row = tr([l.date.replace(/-/g, '.'), l.name, phone(l.phone), [l.region, l.area].filter(Boolean).join(' '), cell]);
 					if (!l.teacher_id) row.className = 'todo';
 					return row;
@@ -1493,10 +1509,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		color: #8a8d95;
 		cursor: pointer;
 	}
-	.owner-cards :global(select.owner-add) {
+	.owner-cards :global(.owner-add input) {
+		box-sizing: border-box;
 		width: 100%;
 		min-height: 38px;
-		padding: 0 36px 0 12px;
+		padding: 0 12px;
 		border: 1.5px dashed var(--black);
 		border-radius: 8px;
 		background-color: var(--white);

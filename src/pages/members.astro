@@ -68,7 +68,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							<p class="me-meta"></p>
 						</div>
 						<div class="me-btns">
-							{club.workerApi && <a class="btn btn-line-dark" href={`${base}/password/`}>비밀번호 변경</a>}
+							<a class="btn btn-line-dark staff-link" href={`${base}/admin/`} hidden>운영진 화면</a>
+							<a class="btn btn-line-dark" href={`${base}/password/`}>비밀번호 변경</a>
 							<button class="btn btn-line-dark logout" type="button">로그아웃</button>
 						</div>
 					</div>
@@ -103,6 +104,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					// 시트 값은 textContent로만 넣음 (HTML 주입 방지)
 					store.setName(res.me.name);
 					dash.querySelector('.me-name')!.textContent = `${res.me.name}님`;
+					// 운영진·마스터에게만 링크 (권한은 서버가 따로 확인)
+					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'master'].includes(res.me.role);
 					dash.querySelector('.me-meta')!.textContent = [res.me.grade, res.me.area, res.me.phone].filter(Boolean).join(' · ');
 					setupAvatar(res.me.name, res.me.photo || '');
 				}

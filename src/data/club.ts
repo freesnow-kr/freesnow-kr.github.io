@@ -1,15 +1,13 @@
 // 일정·링크는 여기만 고치면 모든 페이지에 반영됨
 // 링크·API 주소는 코드에 안 둠 → 빌드할 때 환경변수로 (로컬: .env, 배포: GitHub 저장소 Secrets/Variables → deploy.yml)
-// 브라우저가 쓰는 값이라 배포된 사이트에선 보임 (숨길 값은 Apps Script 스크립트 속성에)
+// 브라우저가 쓰는 값이라 배포된 사이트에선 보임 (숨길 값은 Worker secret에 — backend/wrangler.jsonc)
 export const club = {
 	name: 'Free Snow',
 	joinUrl: import.meta.env.PUBLIC_JOIN_URL ?? '', // 카카오 오픈채팅
-	// 소모임 모임 페이지 (THE SEASON 정모 일정·참석). Apps Script 스크립트 속성 SOMOIM_URL 과 같게
+	// 소모임 모임 페이지 ('소모임에서 전체 일정 보기' 링크). Worker secret SOMOIM_URL 과 같게
 	somoimUrl: import.meta.env.PUBLIC_SOMOIM_URL ?? '',
-	// Apps Script 웹앱 배포 URL (apps-script/Code.gs). 비어 있으면 회원 페이지는 '준비 중'
-	membersApi: import.meta.env.PUBLIC_MEMBERS_API ?? '',
-	// Cloudflare Worker API (backend/). 비어 있으면 전부 Apps Script — 전환 전엔 비워 둠 (docs/migration/02-design.md §5)
-	workerApi: import.meta.env.PUBLIC_WORKER_API ?? '',
+	// API 서버 = Cloudflare Worker (backend/, https://api.freesnow.workers.dev). 비어 있으면 회원 페이지는 '준비 중'
+	api: import.meta.env.PUBLIC_API_URL ?? '',
 };
 
 export const trips = [

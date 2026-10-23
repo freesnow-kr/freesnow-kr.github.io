@@ -4,7 +4,7 @@ import Meta from '../components/Meta.astro';
 import '../styles/ride.css';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
-// 사진은 드라이브 폴더에서 실시간으로 (apps-script/Code.gs 의 GALLERY_FOLDER_ID)
+// 사진은 드라이브 폴더에서 실시간으로 (Worker secret GALLERY_FOLDER_ID)
 ---
 
 <html lang="ko">
@@ -17,9 +17,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<Meta title={`${club.name} — Gallery`} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<!-- 사진 목록(Apps Script)·사진(드라이브) 서버에 미리 연결 -->
-		<link rel="preconnect" href="https://script.google.com" />
-		<link rel="preconnect" href="https://script.googleusercontent.com" />
+		<!-- API(Worker)·사진(드라이브) 서버에 미리 연결 -->
+		<link rel="preconnect" href="https://api.freesnow.workers.dev" crossorigin />
 		<link rel="preconnect" href="https://lh3.googleusercontent.com" />
 		<link
 			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"

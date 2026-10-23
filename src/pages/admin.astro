@@ -1,0 +1,507 @@
+---
+import { club } from '../data/club';
+import Meta from '../components/Meta.astro';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
+// 운영진 화면. 주소를 숨기는 건 보안이 아님 — 권한은 전부 서버(backend/src/admin.ts)가 확인
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="robots" content="noindex" />
+		<Meta title={`${club.name} — Admin`} />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav id="site-nav" aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/members/`}>MEMBERS</a>
+				<a href={`${base}/rank/`}>CHAT RANK</a>
+				<a href={`${base}/shredlog/`}>SHRED LOG</a>
+				<a href={`${base}/seasonroom/`}>RIDE &amp; STAY</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">STAFF ONLY</p>
+				<h1>ADMIN.</h1>
+			</section>
+
+			<section class="mem-body">
+				<p class="mem-msg loading">불러오는 중…</p>
+				<div class="adm" hidden>
+					<p class="stats"></p>
+					<div class="tabs" role="tablist">
+						<button type="button" data-tab="signups">가입 신청</button>
+						<button type="button" data-tab="members">회원</button>
+						<button type="button" data-tab="owners">시즌방 주주</button>
+						<button type="button" data-tab="chat">채팅 랭킹</button>
+						<button type="button" data-tab="logins">로그인 이력</button>
+						<button type="button" data-tab="audit" class="master-only">운영 기록</button>
+					</div>
+
+					<section class="panel" data-panel="signups">
+						<p class="hint">승인하면 회원이 되고, 아이디(010 뺀 번호) + 생년월일 8자리로 처음 한 번 로그인해서 새 비밀번호를 정해요.</p>
+						<div class="scroll"><table><thead><tr><th>신청일</th><th>이름</th><th>성별</th><th>생년월일</th><th>지역</th><th>연락처</th><th></th></tr></thead><tbody class="signup-rows"></tbody></table></div>
+					</section>
+
+					<section class="panel" data-panel="members" hidden>
+						<input class="search" type="search" placeholder="이름·연락처·지역으로 찾기" />
+						<p class="hint">초기화는 마스터만: 그 회원의 로그인이 모두 끊기고 72시간 동안 공용 초기화 비밀번호로만 들어올 수 있어요.</p>
+						<div class="scroll"><table><thead><tr><th>이름</th><th>연락처</th><th>구분</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
+					</section>
+
+					<section class="panel" data-panel="owners" hidden>
+						<label class="row">시즌 <select class="owner-season"></select></label>
+						<div class="owner-list"></div>
+						<button class="btn btn-ink owner-save" type="button">주주 저장</button>
+						<p class="owner-msg" role="status"></p>
+					</section>
+
+					<section class="panel" data-panel="chat" hidden>
+						<p class="hint">카카오톡 오픈채팅방 → 대화 내보내기(CSV) 파일을 고르면, 이 브라우저에서 닉네임별 메시지 수만 세서 올려요. 대화 내용은 서버로 가지 않아요. 전체 기록이라 가장 최근 파일 하나면 돼요.</p>
+						<input class="chat-file" type="file" accept=".csv,text/csv,.txt" />
+						<p class="chat-msg" role="status"></p>
+					</section>
+
+					<section class="panel" data-panel="logins" hidden>
+						<p class="hint">최근 300건. IP는 앞부분만 저장해요. 90일 지나면 자동으로 지워져요.</p>
+						<div class="scroll"><table><thead><tr><th>시각</th><th>이름</th><th>결과</th><th>IP</th><th>브라우저</th></tr></thead><tbody class="login-rows"></tbody></table></div>
+					</section>
+
+					<section class="panel" data-panel="audit" hidden>
+						<div class="scroll"><table><thead><tr><th>시각</th><th>누가</th><th>무엇을</th><th>내용</th></tr></thead><tbody class="audit-rows"></tbody></table></div>
+					</section>
+				</div>
+
+				<dialog class="edit">
+					<form method="dialog" class="edit-form">
+						<h2>회원 정보 수정</h2>
+						<label>이름 <input name="name" required /></label>
+						<label>연락처 <input name="phone" inputmode="numeric" required /></label>
+						<label>성별 <select name="gender"><option value="">-</option><option>남</option><option>여</option></select></label>
+						<label>생년월일 <input name="birth" placeholder="1996-02-12" /></label>
+						<label>구분 <input name="grade" /></label>
+						<label>거주지 <input name="area" /></label>
+						<label>비공개 연락처 <input name="private_contact" /></label>
+						<fieldset class="master-only">
+							<label>권한 <select name="role"><option value="member">회원</option><option value="staff">운영진</option><option value="master">마스터</option></select></label>
+							<label>상태 <select name="status"><option value="active">활동</option><option value="suspended">정지</option><option value="withdrawn">탈퇴</option></select></label>
+						</fieldset>
+						<p class="edit-error" role="alert"></p>
+						<div class="edit-btns">
+							<button class="btn btn-line-dark" value="cancel" formnovalidate>닫기</button>
+							<button class="btn btn-ink edit-save" value="save">저장</button>
+						</div>
+					</form>
+				</dialog>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<a href={`${base}/members/`}>MEMBERS로</a>
+				<span>© {new Date().getFullYear()} {club.name}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { call, loginUrl, store } from '../scripts/session';
+			import { parseChat } from '../scripts/chat';
+
+			const $ = <T extends Element = HTMLElement>(s: string, root: ParentNode = document) => root.querySelector<T>(s)!;
+			const token = store.get();
+			const back = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
+			const ROLE: Record<string, string> = { member: '회원', staff: '운영진', master: '마스터' };
+			const STATUS: Record<string, string> = { active: '활동', suspended: '정지', withdrawn: '탈퇴' };
+			const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '-');
+			const phone = (d: string) => (d?.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : d ?? '');
+			let role = 'staff';
+
+			// 서버 호출: 만료면 로그인으로, 실패면 알림 후 null
+			async function api(action: string, body: object = {}) {
+				const res = await call({ action, token, ...body }).catch(() => null);
+				if (res?.expired) {
+					store.clear();
+					location.replace(`${back}&expired`);
+					return null;
+				}
+				if (!res?.ok) {
+					alert(res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
+					return null;
+				}
+				return res;
+			}
+			// 표 한 줄: 글자는 textContent로만 (HTML 주입 방지), 노드는 그대로
+			const tr = (cells: (string | Node)[]) => {
+				const row = document.createElement('tr');
+				for (const c of cells) {
+					const td = document.createElement('td');
+					td.append(c);
+					row.append(td);
+				}
+				return row;
+			};
+			const button = (text: string, onClick: () => void, cls = 'btn-mini') => {
+				const b = document.createElement('button');
+				b.type = 'button';
+				b.className = cls;
+				b.textContent = text;
+				b.addEventListener('click', onClick);
+				return b;
+			};
+			const empty = (body: HTMLElement, cols: number, text: string) => {
+				const row = tr([text]);
+				(row.firstChild as HTMLTableCellElement).colSpan = cols;
+				body.replaceChildren(row);
+			};
+
+			async function loadSignups() {
+				const res = await api('admin.signups');
+				if (!res) return;
+				const body = $('.signup-rows');
+				if (!res.signups.length) return empty(body, 7, '대기 중인 신청이 없어요.');
+				body.replaceChildren(
+					...res.signups.map((s: any) => {
+						const decide = async (approve: boolean) => {
+							if (!confirm(`${s.name} 님 신청을 ${approve ? '승인' : '거절'}할까요?`)) return;
+							if (await api('admin.signupDecide', { id: s.id, approve })) Promise.all([loadSignups(), loadSummary()]);
+						};
+						const btns = document.createElement('span');
+						btns.className = 'btns';
+						btns.append(button('승인', () => decide(true), 'btn-mini ink'), button('거절', () => decide(false)));
+						return tr([when(s.created_at), s.name, s.gender ?? '', s.birth ?? '', `${s.sido} ${s.area}`, phone(s.phone), btns]);
+					}),
+				);
+			}
+
+			let members: any[] = [];
+			async function loadMembers() {
+				const res = await api('admin.members');
+				if (!res) return;
+				members = res.members;
+				drawMembers();
+				drawOwners();
+			}
+			function drawMembers() {
+				const q = $<HTMLInputElement>('.search').value.trim().replace(/-/g, '');
+				const list = members.filter((m) => !q || [m.name, m.phone, m.grade, m.area].join(' ').includes(q));
+				const body = $('.member-rows');
+				if (!list.length) return empty(body, 9, '없어요.');
+				body.replaceChildren(
+					...list.map((m) => {
+						const btns = document.createElement('span');
+						btns.className = 'btns';
+						btns.append(button('수정', () => edit(m)));
+						if (role === 'master')
+							btns.append(
+								button('비번 초기화', async () => {
+									if (!confirm(`${m.name} 님 비밀번호를 초기화할까요? 지금 로그인도 모두 끊겨요.`)) return;
+									const r = await api('admin.reset', { memberId: m.id });
+									if (r) alert(`초기화했어요. ${new Date(r.resetUntil).toLocaleString('ko-KR')}까지 공용 초기화 비밀번호로 로그인하면 새 비밀번호를 정하게 돼요.`), loadMembers();
+								}),
+							);
+						const pw = m.reset_pending ? '초기화 대기' : m.password_changed ? '설정함' : '첫 로그인 전';
+						const row = tr([m.name, phone(m.phone), m.grade, m.area, ROLE[m.role], STATUS[m.status], when(m.last_login), pw, btns]);
+						if (m.status !== 'active') row.className = 'off';
+						return row;
+					}),
+				);
+			}
+			$('.search').addEventListener('input', drawMembers);
+
+			// 수정 창: 운영진은 정보만, 마스터는 권한·상태도
+			const dialog = $<HTMLDialogElement>('.edit');
+			const form = $<HTMLFormElement>('.edit-form');
+			let editing: any = null;
+			function edit(m: any) {
+				editing = m;
+				for (const k of ['name', 'phone', 'gender', 'birth', 'grade', 'area', 'private_contact', 'role', 'status']) (form.elements.namedItem(k) as HTMLInputElement).value = m[k] ?? '';
+				$('.edit-error').textContent = '';
+				dialog.showModal();
+			}
+			form.addEventListener('submit', async (e) => {
+				if ((e.submitter as HTMLButtonElement)?.value !== 'save') return;
+				e.preventDefault();
+				const d = Object.fromEntries(new FormData(form)) as Record<string, string>;
+				const { role: newRole, status, ...info } = d;
+				const r1 = await call({ action: 'admin.memberUpdate', token, id: editing.id, ...info }).catch(() => null);
+				if (!r1?.ok) return void ($('.edit-error').textContent = r1?.error ?? '저장하지 못했어요.');
+				if (role === 'master' && (newRole !== editing.role || status !== editing.status)) {
+					const r2 = await call({ action: 'admin.memberStatus', token, id: editing.id, role: newRole, status }).catch(() => null);
+					if (!r2?.ok) return void ($('.edit-error').textContent = r2?.error ?? '권한·상태를 저장하지 못했어요.');
+				}
+				dialog.close();
+				loadMembers();
+			});
+
+			// 시즌방 주주: 시즌 고르고 회원 체크 → 그 시즌 전체를 저장
+			const seasonSel = $<HTMLSelectElement>('.owner-season');
+			{
+				const now = new Date();
+				const cur = (now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1) % 100;
+				for (const s of [cur + 1, cur, cur - 1]) seasonSel.append(new Option(`${s}-${s + 1}`, `${s}-${s + 1}`));
+				seasonSel.value = `${cur}-${cur + 1}`;
+			}
+			let owners = new Set<string>();
+			async function loadOwners() {
+				const res = await api('admin.roomOwners', { season: seasonSel.value });
+				if (!res) return;
+				owners = new Set(res.memberIds);
+				drawOwners();
+			}
+			function drawOwners() {
+				$('.owner-list').replaceChildren(
+					...members
+						.filter((m) => m.status === 'active' || owners.has(m.id))
+						.map((m) => {
+							const label = document.createElement('label');
+							const box = document.createElement('input');
+							box.type = 'checkbox';
+							box.value = m.id;
+							box.checked = owners.has(m.id);
+							label.append(box, ` ${m.name}`);
+							return label;
+						}),
+				);
+			}
+			seasonSel.addEventListener('change', loadOwners);
+			$('.owner-save').addEventListener('click', async () => {
+				const ids = [...document.querySelectorAll<HTMLInputElement>('.owner-list input:checked')].map((b) => b.value);
+				const res = await api('admin.roomOwners', { season: seasonSel.value, memberIds: ids });
+				if (res) (owners = new Set(res.memberIds)), ($('.owner-msg').textContent = `${seasonSel.value} 주주 ${res.memberIds.length}명 저장했어요.`);
+			});
+
+			$('.chat-file').addEventListener('change', async (e) => {
+				const f = (e.target as HTMLInputElement).files?.[0];
+				if (!f) return;
+				const msg = $('.chat-msg');
+				msg.textContent = '세는 중…';
+				const stats = parseChat(await f.text());
+				if (!stats.total) return void (msg.textContent = '메시지를 찾지 못했어요. 카톡 대화 내보내기 CSV가 맞는지 확인해 주세요.');
+				msg.textContent = '올리는 중…';
+				const res = await api('admin.chatUpload', stats);
+				msg.textContent = res ? `올렸어요: ${stats.from} ~ ${stats.to}, 메시지 ${stats.total.toLocaleString()}개, ${stats.ranks.length}명` : '';
+			});
+
+			async function loadLogins() {
+				const res = await api('admin.logins');
+				if (!res) return;
+				const body = $('.login-rows');
+				if (!res.logins.length) return empty(body, 5, '아직 기록이 없어요.');
+				const REASON: Record<string, string> = { password: '성공', birth: '성공(첫 로그인)', reset: '성공(초기화)', wrong: '비밀번호 틀림', unknown: '없는 아이디', locked: '잠김', suspended: '정지된 계정', withdrawn: '탈퇴한 계정' };
+				body.replaceChildren(...res.logins.map((l: any) => {
+					const row = tr([when(l.at), l.name ?? '-', REASON[l.reason] ?? l.reason ?? '', l.ip_masked ?? '', (l.ua ?? '').slice(0, 60)]);
+					if (!l.ok) row.className = 'off';
+					return row;
+				}));
+			}
+			async function loadAudit() {
+				const res = await api('admin.audit');
+				if (!res) return;
+				const body = $('.audit-rows');
+				if (!res.logs.length) return empty(body, 4, '아직 기록이 없어요.');
+				body.replaceChildren(...res.logs.map((l: any) => tr([when(l.at), l.actor ?? '-', l.action, (l.detail ?? '').slice(0, 200)])));
+			}
+			async function loadSummary() {
+				const res = await api('admin.summary');
+				if (!res) return null;
+				role = res.role;
+				$('.stats').textContent = `활동 회원 ${res.active}명 (전체 ${res.total}) · 가입 대기 ${res.pending}건 · 24시간 로그인 실패 ${res.fails}건`;
+				return res;
+			}
+
+			// 탭: 처음 열 때 불러옴
+			const loaders: Record<string, () => unknown> = { signups: loadSignups, members: loadMembers, owners: loadOwners, chat: () => {}, logins: loadLogins, audit: loadAudit };
+			const tabs = [...document.querySelectorAll<HTMLButtonElement>('.tabs button')];
+			const open = (name: string) => {
+				tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+				document.querySelectorAll<HTMLElement>('.panel').forEach((p) => (p.hidden = p.dataset.panel !== name));
+				loaders[name]();
+			};
+			tabs.forEach((t) => t.addEventListener('click', () => open(t.dataset.tab!)));
+
+			if (!token) location.replace(back);
+			else if (await loadSummary()) {
+				$('.loading').remove();
+				$('.adm').hidden = false;
+				document.querySelectorAll<HTMLElement>('.master-only').forEach((el) => (el.hidden = role !== 'master'));
+				await loadMembers(); // 주주 체크 목록에도 씀
+				open('signups');
+			} else $('.loading').textContent = '운영진만 볼 수 있어요.';
+		</script>
+	</body>
+</html>
+
+<style>
+	.adm {
+		display: grid;
+		gap: 18px;
+	}
+	.stats {
+		font-weight: 700;
+	}
+	.tabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.tabs button {
+		min-height: 40px;
+		padding: 0 14px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+		color: var(--black);
+		font: 700 13px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.tabs button[aria-selected='true'] {
+		background: var(--black);
+		color: var(--white);
+	}
+	.tabs button[hidden] {
+		display: none;
+	}
+	.panel {
+		display: grid;
+		gap: 12px;
+		align-content: start;
+	}
+	.hint {
+		font-size: 14px;
+		color: #4a4d55;
+	}
+	.scroll {
+		overflow-x: auto;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 13px;
+	}
+	th,
+	.panel :global(td) {
+		padding: 9px 8px;
+		border-bottom: 1px solid var(--line);
+		text-align: left;
+		white-space: nowrap;
+	}
+	th {
+		font-size: 12px;
+		border-bottom: 1.5px solid var(--black);
+	}
+	.panel :global(tr.off td) {
+		color: #8a8d95;
+	}
+	.panel :global(.btns) {
+		display: inline-flex;
+		gap: 6px;
+	}
+	.panel :global(.btn-mini) {
+		min-height: 30px;
+		padding: 0 10px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+		color: var(--black);
+		font: 700 12px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.panel :global(.btn-mini.ink) {
+		background: var(--black);
+		color: var(--white);
+	}
+	.search {
+		max-width: 360px;
+		min-height: 44px;
+		padding: 0 14px;
+		border: 1.5px solid var(--black);
+		font: inherit;
+	}
+	.row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		font-weight: 700;
+	}
+	.owner-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 18px;
+	}
+	.owner-save {
+		justify-self: start;
+	}
+	.edit {
+		width: min(440px, 92vw);
+		border: 1.5px solid var(--black);
+		padding: 24px;
+	}
+	.edit::backdrop {
+		background: rgb(0 0 0 / 0.4);
+	}
+	.edit-form {
+		display: grid;
+		gap: 12px;
+	}
+	.edit-form h2 {
+		font-size: 1.3rem;
+		font-weight: 900;
+	}
+	.edit-form label {
+		display: grid;
+		gap: 4px;
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.edit-form input,
+	.edit-form select {
+		min-height: 40px;
+		padding: 0 10px;
+		border: 1.5px solid var(--black);
+		background-color: var(--white);
+		font: inherit;
+		font-weight: 400;
+	}
+	.edit-form fieldset {
+		display: grid;
+		gap: 12px;
+		border: 0;
+		padding: 0;
+	}
+	.edit-form fieldset[hidden] {
+		display: none;
+	}
+	.edit-error {
+		color: #c4320a;
+		font-weight: 700;
+		min-height: 1.4em;
+	}
+	.edit-btns {
+		display: flex;
+		gap: 8px;
+		justify-content: flex-end;
+	}
+	.edit-btns .btn {
+		min-height: 44px;
+		padding: 0 18px;
+	}
+</style>

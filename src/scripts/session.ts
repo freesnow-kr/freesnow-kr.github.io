@@ -6,7 +6,7 @@ export const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 export const loginUrl = `${base}/login/`;
 export const membersUrl = `${base}/members/`;
 
-// 토큰은 이 브라우저 편의용. 만료·위조는 서버(Apps Script)가 판정
+// 토큰은 이 브라우저 편의용. 만료·위조는 서버(Worker 세션)가 판정
 const KEY = 'fs-member-token';
 const NAME = 'fs-member-name'; // 화면 표시용 (권한 판단엔 안 씀)
 const ID = 'fs-member-id'; // '로그인 상태 유지' 때 아이디 기억 (비밀번호는 저장 안 함)
@@ -20,15 +20,11 @@ export const store = {
 	setId: (v: string | null) => { try { v ? localStorage.setItem(ID, v) : localStorage.removeItem(ID); } catch {} },
 };
 
-// Worker(club.workerApi)가 맡는 action. 나머지는 Apps Script. 로그인 토큰이 서버마다 달라서 회원 기능은 한꺼번에 옮김
-// (docs/migration/02-design.md §5) — Worker로 옮긴 action을 여기 추가. workerApi가 비어 있으면 전부 Apps Script
-const WORKER_ACTIONS = new Set(['login', 'logout', 'password', 'renew', 'me', 'seasonroom', 'shredlog', 'snowlive']);
-const apiFor = (action: string) => (club.workerApi && WORKER_ACTIONS.has(action) ? club.workerApi : club.membersApi);
 export const passwordUrl = `${base}/password/`;
 
 // text/plain POST → CORS 사전요청 없이 호출 (Content-Type·Authorization 헤더 붙이지 말 것 — 토큰은 body.token)
 export const call = async (body: { action: string; [k: string]: unknown }) => {
-	const res = await (await fetch(apiFor(body.action), { method: 'POST', body: JSON.stringify(body) })).json();
+	const res = await (await fetch(club.api, { method: 'POST', body: JSON.stringify(body) })).json();
 	// 새 비밀번호를 정하기 전 세션(첫 전환·초기화)이면 어느 페이지든 비밀번호 화면으로
 	if (res?.mustChange && body.action !== 'login' && !location.pathname.startsWith(passwordUrl)) { // login은 토큰 저장 후 login.astro가 보냄
 		location.href = `${passwordUrl}?first`;
@@ -37,10 +33,10 @@ export const call = async (body: { action: string; [k: string]: unknown }) => {
 	return res;
 };
 
-// 로그아웃: Worker면 서버 세션도 끝냄(페이지를 떠나도 보내지게 keepalive). Apps Script 토큰은 서버에 저장이 없어 지우기만
+// 로그아웃: 서버 세션도 끝냄 (페이지를 떠나도 보내지게 keepalive)
 export const logout = () => {
 	const token = store.get();
-	if (token && club.workerApi) fetch(club.workerApi, { method: 'POST', body: JSON.stringify({ action: 'logout', token }), keepalive: true }).catch(() => {});
+	if (token) fetch(club.api, { method: 'POST', body: JSON.stringify({ action: 'logout', token }), keepalive: true }).catch(() => {});
 	store.clear();
 };
 
@@ -49,7 +45,7 @@ export const driveImg = (id: string, w: number) => `https://lh3.googleuserconten
 // 프로필 사진: 드라이브 파일 id 또는 시트에 저장된 작은 사진('data:image/jpeg…')
 export const photoSrc = (photo: string, w: number) => (photo.startsWith('data:image/') ? photo : driveImg(photo, w));
 
-// 갤러리 사진 목록: 이 브라우저에 저장해 두고 다시 열 때 바로 보여 줌 (Apps Script 응답이 1~2초라)
+// 갤러리 사진 목록: 이 브라우저에 저장해 두고 다시 열 때 바로 보여 줌
 // 저장본이 10분 지났으면 보여 주는 동시에 뒤에서 새로 받아 둠 → 새 사진은 그다음 방문에 (서버도 5분 캐시)
 type Photo = { id: string; caption: string };
 const GKEY = 'fs-gallery';
@@ -80,7 +76,7 @@ export const busy = (form: HTMLFormElement, on: boolean, label: string) => {
 };
 
 // 로그인 연장: 로그인은 30일, 사이트를 쓰는 동안은 하루에 한 번 다시 30일로 → 한 달 안에 한 번만 들어와도 안 풀림
-// (사용자 요구 2026-10-23). Apps Script는 새 토큰을, Worker는 세션 기한만 늘리고 토큰은 그대로
+// (사용자 요구 2026-10-23). 서버가 세션 기한을 늘림 (토큰은 그대로, res.token이 오면 바꿔 씀)
 const RENEWED = 'fs-member-renewed';
 {
 	const token = store.get();

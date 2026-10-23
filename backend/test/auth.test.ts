@@ -126,6 +126,6 @@ test('CORS: 허용한 출처만, 이상한 요청은 같은 오류', async () =>
 	assert.equal((await pre('https://evil.example')).status, 403);
 	assert.equal((await post({ action: 'me' }, undefined, 'https://evil.example')).cors, null);
 	assert.equal((await post({ action: 'nope' })).error, '잘못된 요청이에요.');
-	const big = await worker.fetch(new Request('https://api.test/', { method: 'POST', body: 'x'.repeat(600_001) }), env);
+	const big = await worker.fetch(new Request('https://api.test/', { method: 'POST', body: 'x'.repeat(3_000_001) }), env);
 	assert.equal(big.status, 413);
 });

@@ -7,8 +7,19 @@
 - **스택**: Astro 7 정적 사이트 (프레임워크·CSS 라이브러리 없음, 의존성 `astro` 하나). Node ≥ 22.22 (로컬 24).
 - **호스팅**: GitHub Pages, 저장소 `freesnow-kr/freesnow-kr.github.io` (조직 `freesnow-kr`, public), `main` push → `.github/workflows/deploy.yml` (withastro/action, `node-version: 24`).
 - **주소**: `https://freesnow-kr.github.io/` — 하위 경로 없음(`astro.config.mjs`에 `base` 없음).
-- **Apps Script 서버 코드 `apps-script/Code.gs`는 저장소에 없음**(사용자 요구, 2026-10-22, `.gitignore`) — 이 컴퓨터와 Apps Script 편집기에만. 테스트 `Code.test.mjs`·`appsscript.json`은 저장소에 있음. 다른 컴퓨터에서 작업하면 Apps Script 편집기에서 복사해 와야 함. 예전 커밋 기록에는 남아 있음.
+- **서버 = Cloudflare Worker `backend/` + D1**(2026-10-23 이전, 사용자 요구: Apps Script 쓰는 코드 제거). 주소 `https://api.freesnow.workers.dev`, 계정 `yunj213@gmail.com`, D1 `freesnow`. 사이트는 `club.api`(`PUBLIC_API_URL`)만 부름. 자세한 건 아래 '서버 (Cloudflare Worker)'.
+- 예전 **Apps Script**(`apps-script/`)는 저장소에서 뺌(`.gitignore`) — 이 컴퓨터에만 되돌리기용으로 보관, 사이트는 안 씀. 아래 기능별 절에 나오는 '탭'·스크립트 속성·`Code.gs` 설명은 **옮기기 전 기준**: 규칙·응답 모양은 Worker가 그대로 따르고, 저장 위치는 D1 테이블(`backend/migrations/`, `docs/migration/02-design.md` §8).
 - **사용자**: 한국어 사용. 화면 문구는 한국어 존댓말(해요체), 디자인 문구는 영문 대문자.
+
+## 서버 (Cloudflare Worker, `backend/`)
+
+- 배포: `cd backend && npx wrangler deploy` (사이트 배포와 따로, 사용자 확인 후). DB 바꾸기: `migrations/000N_*.sql` 추가 → `npx wrangler d1 migrations apply DB --remote`.
+- Secrets(`npx wrangler secret put 이름`, 코드·저장소에 없음): `LOGIN_KEY_SECRET`(로그인 이력 HMAC), `RESET_PASSWORD`(공용 초기화 비밀번호 — **사용자가 직접 넣음**), `SNOWLIVE_API`, `SOMOIM_URL`, `GALLERY_FOLDER_ID`, 선택 `GOOGLE_API_KEY`(있으면 갤러리를 Drive API로 만든 날짜 최신순, 없으면 공개 폴더 보기 페이지 `embeddedfolderview`에서 이름순 — 비공식). 로컬은 `backend/.dev.vars`.
+- 드라이브: 갤러리만 읽음(공개 폴더). **프로필 사진은 D1에 data URL**(256px JPG, 예전 드라이브 사진 ID도 `photoSrc`로 그대로 보임). **채팅 랭킹은 운영진이 `/admin`에서 CSV를 고르면 브라우저가 세서(`src/scripts/chat.ts`) 결과만 올림** — 드라이브 폴더·Worker CPU 안 씀, 대화 내용은 서버로 안 감.
+- **운영진 화면 `/admin/`**(`src/pages/admin.astro`, `backend/src/admin.ts`): 가입 승인·거절(시트 드롭다운 대신), 회원 수정, 마스터는 권한·상태·비밀번호 초기화, 시즌방 주주(시즌별), 채팅 랭킹 올리기, 로그인 이력, 운영 기록(마스터). `/members`에 운영진에게만 링크. 권한은 서버가 매번 DB로 확인.
+- 데이터 이전: 구글 시트 → 파일 → 다운로드 → `.xlsx` → `python3 -I backend/scripts/import.py 파일.xlsx migration-*.sql` → `npx wrangler d1 execute DB --remote --file …`. 회원 ID = `'m' + sha256(전화)[:12]`. 출력 SQL은 옮기는 테이블을 비우고 다시 채움(비밀번호·세션도) → **운영 시작 전에만**. xlsx·SQL은 개인정보라 저장소 밖에(`.gitignore`).
+- 비밀번호 해시 PBKDF2-SHA256 10만 회: 실제 Cloudflare에서 CPU 19~55ms(무료 한도 10ms 넘지만 40/40 성공, 2026-10-23). Workers는 10만 회 넘으면 오류. 로그인이 `exceeded CPU`로 실패하면 반복 횟수를 줄이거나 유료($5/월) 검토.
+- 되돌리기: GitHub Secret `PUBLIC_API_URL`을 예전 Apps Script 웹앱 주소로 바꿔도 **안 됨**(사이트 코드가 Worker 전용) → 이전 전 커밋으로 되돌려 배포 + Apps Script 다시 배포. 전환 뒤 D1에 쌓인 기록은 시트로 옮겨야 함.
 
 ## 라우트와 파일
 
@@ -23,7 +34,8 @@
 | `/rank/` | `src/pages/rank.astro` | 회원 전용 오픈채팅 메시지 수 랭킹, 끝난 달만 달별로 고름(기본: 항상 지난달 1일~말일, 이번 달은 숨김, '전체' 없음 — 사용자 요구). 헤더 메뉴 **CHAT RANK** |
 | `/shredlog/` | `src/pages/shredlog.astro` | SHRED LOG: 개인 시즌 출격·지출 기록(24-25/25-26/26-27), 시즌권 본전 계산, 시즌 비교, 지출 CSV. 비회원도 사용(브라우저 저장) + 로그인 유도, 회원은 시트 저장. 시즌 = 7/1~6/30 |
 | `/seasonroom/` | `src/pages/seasonroom.astro` | 회원 전용 **RIDE & STAY**(예전 SEASON ROOM, 주소는 그대로): 출격·시즌방 숙박 체크 달력, 달별 시즌방 사용 이력 |
-| `/password/` | `src/pages/password.astro` | 비밀번호 변경 (Worker 로그인 전용, `club.workerApi` 비면 '준비 중') |
+| `/password/` | `src/pages/password.astro` | 비밀번호 변경·첫 로그인 후 새 비밀번호 (`?first`) |
+| `/admin/` | `src/pages/admin.astro` | 운영진 화면 (위 '서버' 참고) |
 | `/cute/` | `src/pages/cute.astro` | 픽셀아트(Kizupi 느낌), 자체 `<style is:global>` |
 | `/ride/` | `astro.config.mjs` `redirects` | 예전 공개 주소 → `/` |
 
@@ -186,10 +198,9 @@
 - 설계 `02-design.md`(2026-10-23) — 사용자 결정: workers.dev(`https://api.freesnow.workers.dev`, 계정 `yunj213@gmail.com`, 하위 도메인 `freesnow`, Worker 이름 `api`), 최고관리자 = 마스터, 탈퇴 회원 기록은 그대로, 비밀번호 초기화는 공용 초기화 비밀번호(Worker Secret, 초기화 대기 72시간 동안 그 회원에게만 통함).
 - 코드는 **같은 저장소 `backend/`**(사용자 결정). 의존성은 `wrangler` 하나(사이트 쪽 `package.json`과 별개), 프레임워크 없음. `src/index.ts`(라우팅·CORS·body 600KB 제한·오류), `src/auth.ts`(로그인·세션·비밀번호·권한·초기화), `src/lib.ts`(normPhone — Apps Script와 같은 규칙, PBKDF2·HMAC), `migrations/0001_init.sql`.
   - 테스트 `cd backend && npm test` = `node --test`(Node가 TS를 바로 실행) + wrangler `getPlatformProxy`의 진짜 로컬 D1, 가짜 회원만. 로컬 서버 `npm run db:local` 후 `npm run dev`(http://localhost:8787, 비밀값은 `.dev.vars` — 양식 `.dev.vars.example`).
-  - `wrangler.jsonc`의 `database_id`는 아직 가짜(실제 D1 안 만듦). Cloudflare에 만들기·배포는 사용자 확인 후에만.
   - 인증 규칙: 비밀번호 없는 회원(첫 전환)은 생년월일로 한 번 → `mustChange` 세션은 `password`·`logout`만 됨. 초기화(마스터만) = 해시 삭제 + 그 회원 세션 전부 폐기 + 72시간 동안 공용 `RESET_PASSWORD`만 통함. 실패 문구 하나, 아이디 5회·IP 30회/1시간 잠금(`login_logs`로 셈). 세션 토큰은 SHA-256만 저장, 로그인 이력엔 비밀번호·토큰·전화·IP 원문 없음.
   - 옮긴 action(응답 모양 Apps Script와 같음, 테스트가 `Code.test.mjs`와 같은 경우): `seasonroom`(+출격 `ride_checks`, `0002`), `shredlog`(메모 앞 `'` 안 붙임 — 시트로 내보낼 때 막을 것), `snowlive`(저장된 기록이 캐시 역할), `somoim`(+`meetups` 이력, `0003`). 세션 30일, 하루 넘게 지났으면 쓸 때마다 다시 30일(`need()`), `renew`는 토큰 그대로.
-  - 화면 전환 스위치: `club.workerApi`(`PUBLIC_WORKER_API`, 비면 전부 Apps Script) + `session.ts`의 `WORKER_ACTIONS`. 로그인 응답 `mustChange`면 `/password/?first`로, 다른 action이 `mustChange`면 `call()`이 비밀번호 화면으로 보내고 응답을 돌려주지 않음(페이지 alert 방지). 로그아웃은 `logout()`(Worker 세션도 끝냄). 로컬 확인: `PUBLIC_WORKER_API=http://localhost:8787 npx astro build --outDir …` + 정적 서버 + `wrangler dev --var ALLOWED_ORIGINS:…`(astro dev는 하나만 뜸).
+  - 화면: `session.ts` `call()`은 `club.api`만 부름. 로그인 응답 `mustChange`면 `/password/?first`로, 다른 action이 `mustChange`면 `call()`이 비밀번호 화면으로 보내고 응답을 돌려주지 않음(페이지 alert 방지). 로그아웃은 `logout()`(서버 세션도 끝냄).
   - 시즌방 Worker 다른 점: 이름은 저장 당시 값이 아니라 지금 회원 이름, 연락처 대신 회원 ID로 연결. 시트 이전 때 할 일: 구분 빈 칸 → 숙박, 연락처는 `normPhone`으로 회원 찾기(하이픈·띄어쓰기·앞 0 빠짐), 같은 회원·날짜가 여러 줄이면 마지막 체크시각 것.
   - 테스트 공통 `test/setup.ts`: `useDb(회원, seed)`, `post`, `sessionFor(회원ID)`(로그인 없이 세션).
   - PBKDF2 10만 회: 로컬 workerd ≈ 6ms(무료 CPU 10ms) → 실제 Cloudflare에서 다시 잴 것.

@@ -19,9 +19,8 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 		<Meta title={`${club.name} — Ride Together`} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<!-- 사진 목록(Apps Script)·사진(드라이브) 서버에 미리 연결 -->
-		<link rel="preconnect" href="https://script.google.com" />
-		<link rel="preconnect" href="https://script.googleusercontent.com" />
+		<!-- API(Worker)·사진(드라이브) 서버에 미리 연결 -->
+		<link rel="preconnect" href="https://api.freesnow.workers.dev" crossorigin />
 		<link rel="preconnect" href="https://lh3.googleusercontent.com" />
 		<link
 			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
@@ -80,7 +79,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 					<h2>THE SEASON</h2>
 					<p>소모임 정모 일정이에요. 참석 신청은 소모임에서 해 주세요.</p>
 				</div>
-				<!-- 소모임 공개 페이지의 '정모 일정' (apps-script/Code.gs somoim) -->
+				<!-- 소모임 공개 페이지의 '정모 일정' (backend/src/somoim.ts) -->
 				<p class="mem-msg season-msg" role="status">정모 일정 불러오는 중…</p>
 				<ol class="trip-list"></ol>
 				<a class="season-more" href={club.somoimUrl} target="_blank" rel="noopener">소모임에서 전체 일정 보기 ↗</a>
@@ -151,7 +150,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 			sync();
 		</script>
 		<script>
-			// THE SEASON: 소모임 '정모 일정'을 Apps Script가 1시간마다 읽어 옴 (참석은 소모임에서)
+			// THE SEASON: 소모임 '정모 일정'을 서버가 1시간마다 읽어 옴 (참석은 소모임에서)
 			import { call } from '../scripts/session';
 
 			type Meetup = { title: string; date: string; time: string; place: string; fee: string; count: number | null; cap: number | null };

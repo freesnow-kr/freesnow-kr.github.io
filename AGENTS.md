@@ -58,6 +58,7 @@
 | `/seasonroom/` | `src/pages/seasonroom.astro` | 회원 전용 **RIDE & STAY**(예전 SEASON ROOM, 주소는 그대로): 출격·시즌방 숙박 체크 달력, 달별 시즌방 사용 이력 |
 | `/password/` | `src/pages/password.astro` | 비밀번호 변경·첫 로그인 후 새 비밀번호 (`?first`) |
 | `/admin/` | `src/pages/admin.astro` | 운영진 화면 (위 '서버' 참고) |
+| `/privacy/` | `src/pages/privacy.astro` | 개인정보처리방침(2026-10-23, 구글 OAuth 앱 게시에 링크 필요). 모으는 항목·보관·맡기는 곳(Cloudflare·GitHub·Google)을 바꾸면 같이 고칠 것, 가입 화면 동의 안내에서 링크 |
 | `/cute/` | `src/pages/cute.astro` | 픽셀아트(Kizupi 느낌), 자체 `<style is:global>` |
 | `/ride/` | `astro.config.mjs` `redirects` | 예전 공개 주소 → `/` |
 

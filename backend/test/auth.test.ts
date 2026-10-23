@@ -7,7 +7,7 @@ import { ORIGIN, RESET, env, post, useDb } from './setup.ts';
 useDb([
 	['m-kim', '01011112222', '김보드', '1996-02-12'],
 	['m-lee', '01033334444', '이스키', '1990-12-01'],
-	['m-boss', '01055556666', '박마스터', '1985-05-05', 'master'],
+	['m-boss', '01055556666', '박관리', '1985-05-05', 'admin'],
 	['m-staff', '01077778888', '최운영', '1992-07-07', 'staff'],
 	['m-gone', '01099990000', '정탈퇴', '1999-09-09', 'member', 'withdrawn'],
 ]);
@@ -28,7 +28,7 @@ test('첫 전환: 생년월일로 한 번 → 새 비밀번호 전에는 다른 
 	assert.equal((await post({ action: 'password', next: 'powder-day-26' }, first.token)).ok, true);
 
 	const me = await post({ action: 'me' }, first.token);
-	assert.deepEqual(me.me, { name: '김보드', grade: '경기도', area: '구리', phone: '010-1111-2222', photo: '', role: 'member' });
+	assert.deepEqual(me.me, { name: '김보드', grade: '경기도', area: '구리', phone: '010-1111-2222', photo: '', role: 'member', honorary: false });
 	assert.deepEqual({ ...me.season, season: 'x' }, { season: 'x', rides: 0, stays: 0, rests: 0, owner: false, pay: 0, visits: 0, spent: 0, photos: 0 });
 	assert.equal(JSON.stringify(me).includes('1996'), false); // 생년월일은 응답에 없음
 
@@ -65,17 +65,18 @@ test('같은 IP에서 30번 실패하면 다른 아이디도 막힘', async () =
 	assert.match((await tryLogin('01055556666')).error, /시도 횟수/);
 });
 
-test('초기화: 마스터만, 그 회원 세션 끊김, 기한 안에만 공용 초기화 비밀번호', async () => {
+test('초기화: 운영진 이상(관리자 계정은 관리자만), 그 회원 세션 끊김, 기한 안에만 공용 초기화 비밀번호', async () => {
 	const boss = await login('01055556666', '19850505');
 	await post({ action: 'password', next: 'master-pass-1' }, boss.token);
 	const staff = await login('01077778888', '19920707');
 	await post({ action: 'password', next: 'staff-pass-1' }, staff.token);
 	const kim = await login('01011112222', 'powder-day-26');
 
-	assert.match((await post({ action: 'admin.reset', memberId: 'm-kim' }, staff.token)).error, /권한/); // 운영진은 안 됨
+	assert.match((await post({ action: 'admin.reset', memberId: 'm-kim' }, kim.token)).error, /권한/); // 일반 회원은 안 됨
+	assert.match((await post({ action: 'admin.reset', memberId: 'm-boss' }, staff.token)).error, /관리자만/); // 운영진이 관리자 계정은 안 됨
 	assert.equal((await login('01055556666', RESET)).ok, false); // 초기화 안 된 계정엔 공용 비밀번호가 안 통함
 
-	const r = await post({ action: 'admin.reset', memberId: 'm-kim' }, boss.token);
+	const r = await post({ action: 'admin.reset', memberId: 'm-kim' }, staff.token); // 운영진도 됨
 	assert.equal(r.ok, true);
 	assert.equal((await post({ action: 'me' }, kim.token)).expired, true);
 	assert.equal((await login('01011112222', 'powder-day-26')).ok, false);
@@ -92,7 +93,7 @@ test('초기화: 마스터만, 그 회원 세션 끊김, 기한 안에만 공용
 
 	const log = await env.DB.prepare("SELECT * FROM admin_logs WHERE action = 'password.reset'").all();
 	assert.equal(log.results.length, 2);
-	assert.equal(log.results[0].actor_id, 'm-boss');
+	assert.equal(log.results[0].actor_id, 'm-staff');
 });
 
 test('로그아웃하면 그 세션 끝, 로그인 이력엔 비밀번호·토큰·전화번호 원문이 없음', async () => {

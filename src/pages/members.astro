@@ -131,19 +131,27 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					store.setName(res.me.name);
 					store.setPhoto(res.me.photo ? photoSrc(res.me.photo, 96) : ''); // 헤더 내 메뉴 동그라미
 					dash.querySelector('.me-name')!.textContent = res.me.name;
-					const chips = [{ master: 'MASTER', staff: 'STAFF' }[res.me.role as string] ?? 'MEMBER', [res.me.grade, res.me.area].filter(Boolean).join(' '), res.me.phone];
+					// 칩: 권한(ADMIN/STAFF/MEMBER) · 마스터(명예) · 지역 · 연락처
+					// 시트 '구분'이 운영진·마스터면 칩과 겹치니 지역만 (사용자 요구: STAFF 옆에 '운영진 구리' 중복 X)
+					const region = ['운영진', '마스터'].includes(res.me.grade) ? res.me.area : [res.me.grade, res.me.area].filter(Boolean).join(' ');
+					const chips: [string, string][] = [
+						[{ admin: 'ADMIN', staff: 'STAFF' }[res.me.role as string] ?? 'MEMBER', 'role'],
+						...(res.me.honorary ? [['MASTER', 'honor'] as [string, string]] : []),
+						[region, ''],
+						[res.me.phone, ''],
+					];
 					dash.querySelector('.me-chips')!.replaceChildren(
-						...chips.filter(Boolean).map((t, i) => {
+						...chips.filter(([t]) => t).map(([t, cls]) => {
 							const li = document.createElement('li');
 							li.textContent = t;
-							if (i === 0) li.className = 'role';
+							if (cls) li.className = cls;
 							return li;
 						}),
 					);
 					showSeason(res.season);
 					setupStays(res.season?.season);
-					// 운영진·마스터에게만 링크 (권한은 서버가 따로 확인)
-					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'master'].includes(res.me.role);
+					// 운영진·관리자에게만 링크 (권한은 서버가 따로 확인)
+					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'admin'].includes(res.me.role);
 					setupAvatar(res.me.name, res.me.photo || '');
 				}
 			}
@@ -456,6 +464,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.me-chips :global(li.role) {
 		background: var(--black);
 		color: var(--white);
+	}
+	.me-chips :global(li.honor) {
+		background: var(--accent);
+		color: var(--black);
 	}
 	.avatar-msg {
 		min-height: 1.2em;

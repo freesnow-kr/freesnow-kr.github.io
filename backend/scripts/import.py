@@ -120,15 +120,15 @@ for i, r in enumerate(table(member_tab, ['이름', '비상연락망'])):
     y, mo, d = digits(r.get('나이')), digits(r.get('(생일)월')), digits(r.get('(생일)일'))
     birth = f'{y}-{int(mo):02d}-{int(d):02d}' if len(y) == 4 and mo and d and 1 <= int(mo) <= 12 and 1 <= int(d) <= 31 else None
     grade = text(r.get('구분'), 20)
-    role = 'master' if grade == '마스터' else 'staff' if grade == '운영진' else 'member'
+    role = 'staff' if grade == '운영진' else 'member'  # 관리자(admin)는 옮긴 뒤 운영진 화면에서 지정. 마스터는 명예 명칭(honorary)
     gender = text(r.get('성별'), 2)
     phones[phone] = mid(phone)
-    members.append([phones[phone], phone, name, gender if gender in ('남', '여') else None, birth, grade, text(r.get('거주지'), 40), text(r.get('비공개연락처'), 60) or None, role, 'active', i + 1, now, now])
+    members.append([phones[phone], phone, name, gender if gender in ('남', '여') else None, birth, grade, text(r.get('거주지'), 40), text(r.get('비공개연락처'), 60) or None, role, 1 if grade == '마스터' else 0, 'active', i + 1, now, now])
     if not birth:
         skipped.append(f'생년월일 없음: {name} — 첫 로그인을 못 하니 운영진이 초기화해 줘야 함')
 
 sql += [f'DELETE FROM {t};' for t in ['meetup_attendees', 'meetups', 'ride_checks', 'room_owners', 'room_stays', 'snowlive_records', 'snowlive_links', 'season_passes', 'expense_logs', 'ride_logs', 'profiles', 'signup_requests', 'admin_logs', 'login_logs', 'sessions', 'member_credentials', 'members']]
-insert('members', ['id', 'phone', 'name', 'gender', 'birth', 'grade', 'area', 'private_contact', 'role', 'status', 'sort_no', 'created_at', 'updated_at'], members)
+insert('members', ['id', 'phone', 'name', 'gender', 'birth', 'grade', 'area', 'private_contact', 'role', 'honorary', 'status', 'sort_no', 'created_at', 'updated_at'], members)
 
 
 def who(v, tab, line):

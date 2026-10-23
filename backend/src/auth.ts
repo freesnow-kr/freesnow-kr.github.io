@@ -24,16 +24,17 @@ export class Reply {
 	}
 }
 
-const RANK = { member: 0, staff: 1, master: 2 } as const;
+// 권한: member < staff(운영진) < admin(관리자). '마스터'는 명예 명칭(members.honorary)이라 권한과 무관
+const RANK = { member: 0, staff: 1, admin: 2 } as const;
 export type Role = keyof typeof RANK;
-export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; name: string; phone: string; grade: string; area: string; role: Role; birth: string | null };
+export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; name: string; phone: string; grade: string; area: string; role: Role; honorary: number; birth: string | null };
 
 // 세션 확인 + 회원 상태·권한은 매번 DB에서 (정지·권한 변경이 바로 반영). 토큰은 Authorization 헤더, 전환 기간엔 body.token도
 export async function need(c: Ctx, role: Role = 'member', allowMustChange = false): Promise<Me> {
 	const token = /^Bearer (\S+)$/.exec(c.req.headers.get('Authorization') || '')?.[1] || String(c.body.token || '');
 	if (!token) throw new Reply(EXPIRED);
 	const me = await c.env.DB.prepare(
-		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.name, m.phone, m.grade, m.area, m.role, m.birth
+		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.name, m.phone, m.grade, m.area, m.role, m.honorary, m.birth
 		 FROM sessions s JOIN members m ON m.id = s.member_id
 		 WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.is_active = 1 AND s.expires_at > ? AND m.status = 'active' AND m.is_active = 1`,
 	).bind(await sha256(token), iso(c.now)).first<Me>();
@@ -179,18 +180,19 @@ export async function me(c: Ctx) {
 	const pay = s!.owner ? 0 : s!.stays * ROOM_PRICES.숙박 + s!.rests * ROOM_PRICES.휴식;
 	return {
 		ok: true,
-		me: { name: me.name, grade: me.grade || '회원', area: me.area, phone: formatPhone(me.phone), photo: s!.photo ?? '', role: me.role },
+		me: { name: me.name, grade: me.grade || '회원', area: me.area, phone: formatPhone(me.phone), photo: s!.photo ?? '', role: me.role, honorary: !!me.honorary },
 		season: { season, rides: s!.rides, stays: s!.stays, rests: s!.rests, owner: !!s!.owner, pay, visits: s!.visits, spent: s!.spent, photos: s!.photos },
 	};
 }
 
-// 마스터만: {memberId} → 비밀번호 지우고, 그 회원 세션 전부 끊고, 72시간 동안 공용 초기화 비밀번호로 로그인 가능
+// 운영진 이상: {memberId} → 비밀번호 지우고, 그 회원 세션 전부 끊고, 72시간 동안 공용 초기화 비밀번호로 로그인 가능
 export async function adminReset(c: Ctx) {
 	const db = c.env.DB;
-	const actor = await need(c, 'master');
+	const actor = await need(c, 'staff'); // 사용자 요구 2026-10-23: 운영진도 초기화 가능
 	const id = String(c.body.memberId ?? '');
-	const target = await db.prepare('SELECT id FROM members WHERE id = ? AND is_active = 1').bind(id).first();
+	const target = await db.prepare('SELECT id, role FROM members WHERE id = ? AND is_active = 1').bind(id).first<{ id: string; role: Role }>();
 	if (!target) return { ok: false, error: '회원을 찾지 못했어요.' };
+	if (RANK[target.role] > RANK[actor.role]) return { ok: false, error: '관리자 비밀번호는 관리자만 초기화할 수 있어요.' };
 	if (!c.env.RESET_PASSWORD) return { ok: false, error: '초기화 비밀번호가 설정되지 않았어요.' };
 	const until = iso(later(c.now, RESET_MS));
 	await db.batch([

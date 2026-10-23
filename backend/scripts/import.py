@@ -102,6 +102,26 @@ def table(name, head_has=None):
     return [dict(zip(labels, r)) for r in rows[h + 1 :] if any(c is not None and str(c).strip() for c in r)]
 
 
+# backend/src/region.ts regionOf와 같은 규칙: 지역이면 짧게, 운영진·마스터면 거주지로 시도 찾기, 경기는 북부·남부
+REGIONS = __import__('json').load(open(__import__('os').path.join(__import__('os').path.dirname(__file__), '../../src/data/regions.json'), encoding='utf-8'))
+NORTH = ['의정부', '남양주', '구리', '양주', '포천', '동두천', '가평', '고양', '파주', '연천', '하남', '김포']
+SHORT = {'충청북도': '충북', '충청남도': '충남', '경상북도': '경북', '경상남도': '경남', '전라북도': '전북', '전북특별자치도': '전북', '전라남도': '전남', '전남광주통합특별시': '전남'}
+bare = lambda a: re.sub(r'[시군]$', '', a) if len(a) > 2 else a
+
+
+def region_of(given, area):
+    g, a = (given or '').strip(), bare((area or '').strip())
+    sido = g if g and g not in ('운영진', '마스터', '회원') else ''
+    if not sido and a:
+        hits = [k for k, v in REGIONS.items() if any(bare(x) == a for x in v)]
+        sido = hits[0] if len(hits) == 1 else ''
+    if not sido:
+        return ''
+    if sido.startswith('경기'):
+        return sido if re.search('북부|남부', sido) else ('경기북부' if a in NORTH else '경기남부')
+    return SHORT.get(sido) or re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', sido)
+
+
 now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
 mid = lambda phone: 'm' + hashlib.sha256(phone.encode()).hexdigest()[:12]
 
@@ -119,16 +139,16 @@ for i, r in enumerate(table(member_tab, ['이름', '비상연락망'])):
         continue
     y, mo, d = digits(r.get('나이')), digits(r.get('(생일)월')), digits(r.get('(생일)일'))
     birth = f'{y}-{int(mo):02d}-{int(d):02d}' if len(y) == 4 and mo and d and 1 <= int(mo) <= 12 and 1 <= int(d) <= 31 else None
-    grade = text(r.get('구분'), 20)
+    grade = text(r.get('구분'), 20)  # 시트 '구분' = 지역 또는 운영진·마스터
     role = 'staff' if grade == '운영진' else 'member'  # 관리자(admin)는 옮긴 뒤 운영진 화면에서 지정. 마스터는 명예 명칭(honorary)
     gender = text(r.get('성별'), 2)
     phones[phone] = mid(phone)
-    members.append([phones[phone], phone, name, gender if gender in ('남', '여') else None, birth, grade, text(r.get('거주지'), 40), text(r.get('비공개연락처'), 60) or None, role, 1 if grade == '마스터' else 0, 'active', i + 1, now, now])
+    members.append([phones[phone], phone, name, gender if gender in ('남', '여') else None, birth, region_of(grade, text(r.get('거주지'), 40)), text(r.get('거주지'), 40), text(r.get('비공개연락처'), 60) or None, role, 1 if grade == '마스터' else 0, 'active', i + 1, now, now])
     if not birth:
         skipped.append(f'생년월일 없음: {name} — 첫 로그인을 못 하니 운영진이 초기화해 줘야 함')
 
 sql += [f'DELETE FROM {t};' for t in ['meetup_attendees', 'meetups', 'ride_checks', 'room_owners', 'room_stays', 'snowlive_records', 'snowlive_links', 'season_passes', 'expense_logs', 'ride_logs', 'profiles', 'signup_requests', 'admin_logs', 'login_logs', 'sessions', 'member_credentials', 'members']]
-insert('members', ['id', 'phone', 'name', 'gender', 'birth', 'grade', 'area', 'private_contact', 'role', 'honorary', 'status', 'sort_no', 'created_at', 'updated_at'], members)
+insert('members', ['id', 'phone', 'name', 'gender', 'birth', 'region', 'area', 'private_contact', 'role', 'honorary', 'status', 'sort_no', 'created_at', 'updated_at'], members)
 
 
 def who(v, tab, line):

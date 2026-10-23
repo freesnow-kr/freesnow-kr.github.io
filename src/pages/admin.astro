@@ -106,6 +106,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							<label>날짜 <input class="tm-date" type="date" /></label>
 							<button class="btn-mini ink tm-save" type="button">저장</button>
 							<span class="tm-dirty" hidden>저장 안 됨</span>
+							<button class="btn-mini tm-xlsx" type="button">엑셀 다운로드</button>
 							<button class="btn-mini tm-del" type="button">지우기</button>
 						</div>
 						<!-- 시안 A: 왼쪽 명단 체크, 오른쪽에 바로 조 (단계 탭 없음) -->
@@ -231,6 +232,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<script>
 			import { call, loginUrl, store } from '../scripts/session';
 			import { parseChat } from '../scripts/chat';
+			import { xlsx, type Cell } from '../scripts/xlsx';
 
 			const $ = <T extends Element = HTMLElement>(s: string, root: ParentNode = document) => root.querySelector<T>(s)!;
 			const token = store.get();
@@ -369,26 +371,23 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			}
 			$('.search').addEventListener('input', drawMembers);
 
-			// TODO(2026-10-23, 사용자): 엑셀 양식(열 구성·순서·서식, CSV → .xlsx 여부)은 나중에 다시 정하기로 함 — 지금은 임시 양식
-			// 회원 명부 내려받기: 엑셀에서 바로 열리는 CSV (UTF-8 BOM으로 한글 안 깨짐, 연락처는 하이픈 넣어 앞 0 유지)
+			// TODO(2026-10-23, 사용자): 엑셀 양식(열 구성·순서·서식)은 나중에 다시 정하기로 함 — 지금은 임시 양식 (xlsx로는 바꿈)
+			// 회원 명부 내려받기: 엑셀 .xlsx (사용자 요구 2026-10-23, 예전엔 CSV — 내용은 그대로, 꾸밈 없이). 칸은 모두 글자라 수식으로 안 읽힘, 연락처 앞 0 유지.
 			// 서버에 export: true로 다시 받아서 운영 기록을 남김 (개인정보)
 			$('.member-export').addEventListener('click', async () => {
 				const res = await api('admin.members', { export: true });
 				if (!res) return;
-				const cell = (v: unknown) => {
-					let t = v == null ? '' : String(v);
-					if (/^[=+\-@]/.test(t)) t = "'" + t; // 엑셀 수식으로 안 읽히게
-					return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-				};
 				const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('sv-SE') : '');
 				const head = ['No', '이름', '연락처', '성별', '생년월일', '지역', '거주지', '비공개연락처', '메일', '권한', '상태', '가입일', '최근 로그인'];
-				const rows = res.members.map((m: any, i: number) => [i + 1, m.name, phone(m.phone), m.gender, m.birth, m.region, m.area, m.private_contact, m.email, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login)]);
-				const csv = '\uFEFF' + [head, ...rows].map((r) => r.map(cell).join(',')).join('\r\n');
+				const rows: Cell[][] = [
+					head,
+					...res.members.map((m: any, i: number) => [i + 1, m.name, phone(m.phone), m.gender, m.birth, m.region, m.area, m.private_contact, m.email, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login)].map((v) => (v == null ? '' : String(v)))),
+				];
 				const a = document.createElement('a');
-				a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-				a.download = `프리스노우_회원명부_${new Date().toLocaleDateString('sv-SE')}.csv`;
+				a.href = URL.createObjectURL(xlsx(rows, { widths: [6, 10, 15, 6, 12, 12, 10, 15, 24, 10, 8, 12, 12], sheet: '회원명부' }));
+				a.download = `프리스노우_회원명부_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
 				a.click();
-				URL.revokeObjectURL(a.href);
+				setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 			});
 
 			// 상태는 표에 글자(배지)로, 바꾸기는 '상태 변경' 버튼 → 작은 창에서 고르기
@@ -570,14 +569,45 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				drawEvent();
 				$<HTMLInputElement>('.tm-title').focus();
 			});
-			$('.tm-save').addEventListener('click', async () => {
+			// 저장 (엑셀 다운로드 전에도 자동으로). 실패하면 false (api가 이유를 알려 줌)
+			async function saveEvent() {
 				ev!.title = $<HTMLInputElement>('.tm-title').value;
 				ev!.date = $<HTMLInputElement>('.tm-date').value;
 				const r = await api('admin.teams.save', { id: ev!.id, title: ev!.title, date: ev!.date, data: ev!.data });
-				if (!r) return;
+				if (!r) return false;
 				ev!.id = r.id;
 				dirty(false);
-				loadTeams();
+				await loadTeams();
+				return true;
+			}
+			$('.tm-save').addEventListener('click', saveEvent);
+			// 엑셀 내려받기 (사용자 요구 2026-10-23): 저장 안 됐으면 먼저 저장. 첫 줄 조 이름, 아래로 이름 — 조장 '이름 (조장)' 주황·굵게, 운영진 파랑.
+			// 그 밖의 내용(제목·인원·색 설명 등)은 넣지 않음(사용자 요구). '같은 조 안 됨' 짝도 안 넣음
+			$('.tm-xlsx').addEventListener('click', async () => {
+				if ((!$('.tm-dirty').hidden || !ev!.id) && !(await saveEvent())) return;
+				const d = ev!.data;
+				const LEADER = 'FFDCCB', STAFF = 'DCE7FF';
+				const cols = d.teams.map((t, i) => ({ name: t.name, people: d.people.filter((p) => p.team === i) }));
+				const waiting = d.people.filter((p) => p.team < 0 || p.team >= d.teams.length);
+				if (waiting.length) cols.push({ name: '아직 안 나눔', people: waiting });
+				for (const c of cols) c.people.sort((a, b) => Number(!!b.leader) - Number(!!a.leader) || Number(!!b.staff) - Number(!!a.staff) || a.name.localeCompare(b.name, 'ko'));
+				const most = Math.max(0, ...cols.map((c) => c.people.length));
+				const rows: Cell[][] = [
+					cols.map((c) => c.name),
+					...Array.from({ length: most }, (_, r) =>
+						cols.map((c) => {
+							const p = c.people[r];
+							if (!p) return null;
+							const v = `${p.name}${p.leader ? ' (조장)' : ''}${p.guest ? ' (게스트)' : ''}`;
+							return p.leader ? { v, bold: true, fill: LEADER } : p.staff ? { v, fill: STAFF } : v;
+						}),
+					),
+				];
+				const a = document.createElement('a');
+				a.href = URL.createObjectURL(xlsx(rows, { widths: cols.map(() => 18), sheet: '조 편성' }));
+				a.download = `프리스노우_조편성_${ev!.date}_${ev!.title}.xlsx`.replace(/[\\/:*?"<>|]/g, ' ');
+				a.click();
+				setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 			});
 			$('.tm-del').addEventListener('click', async () => {
 				if (!ev?.id) return void (leaveOk() && ((ev = null), drawEvent())); // 저장 전 새 행사 = 취소
@@ -1393,7 +1423,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		border-radius: 12px;
 		background: var(--bone);
 	}
-	.tm-meta .tm-del {
+	.tm-meta .tm-xlsx {
 		margin-left: auto;
 	}
 	.tm-meta label,

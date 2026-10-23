@@ -1,6 +1,6 @@
 // 테스트 공통: 임시 폴더에 진짜 로컬 D1(workerd) + 스키마, Worker fetch 직접 호출. 데이터는 전부 가짜
 import { after, before } from 'node:test';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getPlatformProxy } from 'wrangler';
@@ -16,11 +16,11 @@ export function useDb(members: string[][], seed?: () => Promise<unknown>) {
 	let proxy: Awaited<ReturnType<typeof getPlatformProxy>>;
 	before(async () => {
 		proxy = await getPlatformProxy({ configPath: new URL('../wrangler.jsonc', import.meta.url).pathname, persist: { path: dir } });
-		Object.assign(env, proxy.env, { RESET_PASSWORD: RESET, LOGIN_KEY_SECRET: 'test-key', SNOWLIVE_API: 'https://snowlive.example/api/' });
-		const sql = readFileSync(new URL('../migrations/0001_init.sql', import.meta.url), 'utf8').replace(/--.*$/gm, '');
+		Object.assign(env, proxy.env, { RESET_PASSWORD: RESET, LOGIN_KEY_SECRET: 'test-key', SNOWLIVE_API: 'https://snowlive.example/api/', SOMOIM_URL: 'https://somoim.example/group' });
+		const sql = readdirSync(new URL('../migrations/', import.meta.url)).sort().map((f) => readFileSync(new URL(`../migrations/${f}`, import.meta.url), 'utf8')).join(';\n').replace(/--.*$/gm, '');
 		await env.DB.batch(sql.split(';').map((s) => s.trim()).filter(Boolean).map((s) => env.DB.prepare(s)));
 		const now = new Date().toISOString();
-		await env.DB.batch(members.map(([id, phone, name, birth, role = 'member', status = 'active']) =>
+		if (members.length) await env.DB.batch(members.map(([id, phone, name, birth, role = 'member', status = 'active']) =>
 			env.DB.prepare('INSERT INTO members (id, phone, name, birth, grade, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
 				.bind(id, phone, name, birth, role === 'master' ? '마스터' : '경기도', '구리', role, status, now, now)));
 		await seed?.();

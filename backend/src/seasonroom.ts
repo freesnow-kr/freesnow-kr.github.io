@@ -6,8 +6,8 @@ import { iso } from './lib.ts';
 
 const PRICES = { 숙박: 10000, 휴식: 5000 }; // 1박 / 4시간 휴식, 시즌방 주주는 정산에서 빠짐
 
-// {season: '26-27', op?: 'add'|'remove', date?: '2026-12-13', kind?: '숙박'|'휴식'} → {ok, season, prices, nights: [{date, name, kind, me, owner}]}
-// 응답엔 취소 빼고, 회원에게 이름만 (연락처 X)
+// {season: '26-27', op?: 'add'|'remove', date?: '2026-12-13', kind?: '숙박'|'휴식'|'출격'} → {ok, season, prices, nights: [{date, name, kind, me, owner}], rides: [{date, name, me}]}
+// kind '출격'이면 출격 체크(ride_checks, 시즌방과 따로·정산 없음). 응답엔 취소 빼고, 회원에게 이름만 (연락처 X)
 export async function seasonRoom(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c);
@@ -18,7 +18,12 @@ export async function seasonRoom(c: Ctx) {
 	if (c.body.op === 'add' || c.body.op === 'remove') {
 		const date = String(c.body.date ?? '');
 		if (!isDate(date)) return { ok: false, error: '날짜를 확인해 주세요.' };
-		if (c.body.op === 'add') {
+		if (c.body.kind === '출격') {
+			await db.prepare(
+				`INSERT INTO ride_checks (member_id, date, status, updated_at) VALUES (?1, ?2, ?3, ?4)
+				 ON CONFLICT(member_id, date) DO UPDATE SET status = ?3, updated_at = ?4`,
+			).bind(me.id, date, c.body.op === 'add' ? '출격' : '취소', iso(c.now)).run(); // 기록 없는 날 취소면 '취소' 줄이 생길 뿐 (응답엔 안 나옴)
+		} else if (c.body.op === 'add') {
 			const kind = c.body.kind === '휴식' ? '휴식' : '숙박';
 			await db.prepare(
 				`INSERT INTO room_stays (member_id, date, kind, updated_at) VALUES (?1, ?2, ?3, ?4)
@@ -30,16 +35,22 @@ export async function seasonRoom(c: Ctx) {
 		}
 	}
 
+	const from = `20${m[1]}-07-01`, to = `20${m[2]}-06-30`;
+	const byDateName = (a: { date: string; name: string }, b: { date: string; name: string }) => (a.date === b.date ? a.name.localeCompare(b.name, 'ko') : a.date < b.date ? -1 : 1);
 	const { results } = await db.prepare(
 		`SELECT r.date, m.name, r.kind, r.member_id = ?1 AS me, o.member_id IS NOT NULL AS owner
 		 FROM room_stays r JOIN members m ON m.id = r.member_id
 		 LEFT JOIN room_owners o ON o.season = ?2 AND o.member_id = r.member_id
 		 WHERE r.date BETWEEN ?3 AND ?4 AND r.kind != '취소'`,
-	).bind(me.id, season, `20${m[1]}-07-01`, `20${m[2]}-06-30`).all<{ date: string; name: string; kind: string; me: number; owner: number }>();
-	const nights = results
-		.map((r) => ({ date: r.date, name: r.name, kind: r.kind, me: !!r.me, owner: !!r.owner }))
-		.sort((a, b) => (a.date === b.date ? a.name.localeCompare(b.name, 'ko') : a.date < b.date ? -1 : 1));
-	return { ok: true, season, prices: PRICES, nights };
+	).bind(me.id, season, from, to).all<{ date: string; name: string; kind: string; me: number; owner: number }>();
+	const nights = results.map((r) => ({ date: r.date, name: r.name, kind: r.kind, me: !!r.me, owner: !!r.owner })).sort(byDateName);
+	const rides = (
+		await db.prepare(
+			`SELECT r.date, m.name, r.member_id = ?1 AS me FROM ride_checks r JOIN members m ON m.id = r.member_id
+			 WHERE r.date BETWEEN ?2 AND ?3 AND r.status = '출격'`,
+		).bind(me.id, from, to).all<{ date: string; name: string; me: number }>()
+	).results.map((r) => ({ date: r.date, name: r.name, me: !!r.me })).sort(byDateName);
+	return { ok: true, season, prices: PRICES, nights, rides };
 }
 
 // 'YYYY-MM-DD' + 실제 있는 날 (2026-02-30 거부)

@@ -48,7 +48,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			<section class="mem-body">
 				<p class="mem-msg loading">불러오는 중…</p>
 				<div class="adm" hidden>
-					<p class="stats"></p>
+					<!-- 요약 칩: 가입 대기가 있으면 주황, 누르면 그 탭으로 -->
+					<div class="stats">
+						<button type="button" class="stat" data-go="members">활동 회원 <b class="stat-active">-</b><span class="stat-total"></span></button>
+						<button type="button" class="stat" data-go="signups">가입 대기 <b class="stat-pending">-</b></button>
+					</div>
 					<div class="tabs" role="tablist">
 						<button type="button" data-tab="signups">가입 신청</button>
 						<button type="button" data-tab="members">회원</button>
@@ -62,7 +66,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 					<section class="panel" data-panel="signups">
 						<p class="hint">승인하면 회원이 되고, 아이디(010 뺀 번호) + 생년월일 8자리로 처음 한 번 로그인해서 새 비밀번호를 정해요.</p>
-						<div class="scroll"><table><thead><tr><th>신청일</th><th>이름</th><th>성별</th><th>생년월일</th><th>지역</th><th>연락처</th><th></th></tr></thead><tbody class="signup-rows"></tbody></table></div>
+						<div class="scroll"><table><thead><tr><th>No</th><th>신청일</th><th>이름</th><th>성별</th><th>생년월일</th><th>지역</th><th>연락처</th><th></th></tr></thead><tbody class="signup-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="members" hidden>
@@ -194,9 +198,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const res = await api('admin.signups');
 				if (!res) return;
 				const body = $('.signup-rows');
-				if (!res.signups.length) return empty(body, 7, '대기 중인 신청이 없어요.');
+				if (!res.signups.length) return empty(body, 8, '대기 중인 신청이 없어요.');
 				body.replaceChildren(
-					...res.signups.map((s: any) => {
+					...res.signups.map((s: any, i: number) => {
 						const decide = async (approve: boolean) => {
 							if (!confirm(`${s.name} 님 신청을 ${approve ? '승인' : '거절'}할까요?`)) return;
 							if (await api('admin.signupDecide', { id: s.id, approve })) Promise.all([loadSignups(), loadSummary()]);
@@ -204,7 +208,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						const btns = document.createElement('span');
 						btns.className = 'btns';
 						btns.append(button('승인', () => decide(true), 'btn-mini ink'), button('거절', () => decide(false)));
-						return tr([when(s.created_at), s.name, s.gender ?? '', s.birth ?? '', `${s.sido} ${s.area}`, phone(s.phone), btns]);
+						return tr([String(i + 1), when(s.created_at), s.name, s.gender ?? '', s.birth ?? '', `${s.sido} ${s.area}`, phone(s.phone), btns]);
 					}),
 				);
 			}
@@ -422,7 +426,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const res = await api('admin.summary');
 				if (!res) return null;
 				role = res.role;
-				$('.stats').textContent = `활동 회원 ${res.active}명 (전체 ${res.total}) · 가입 대기 ${res.pending}건 · 24시간 로그인 실패 ${res.fails}건`;
+				$('.stat-active').textContent = String(res.active);
+				$('.stat-total').textContent = ` / ${res.total}`;
+				$('.stat-pending').textContent = String(res.pending);
+				$('.stat-pending').closest('.stat')!.classList.toggle('is-todo', res.pending > 0);
 				return res;
 			}
 
@@ -435,6 +442,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				loaders[name]();
 			};
 			tabs.forEach((t) => t.addEventListener('click', () => open(t.dataset.tab!)));
+			document.querySelectorAll<HTMLButtonElement>('.stat').forEach((b) => b.addEventListener('click', () => open(b.dataset.go!)));
 
 			if (!token) location.replace(back);
 			else if (await loadSummary()) {
@@ -454,7 +462,39 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		gap: 18px;
 	}
 	.stats {
-		font-weight: 700;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.stat {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 6px;
+		padding: 6px 14px;
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		background: var(--white);
+		color: #4a4d55;
+		font: 700 13px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.stat b {
+		color: var(--black);
+		font-size: 15px;
+	}
+	.stat-total {
+		font-weight: 400;
+	}
+	/* 가입 대기가 있으면 주황 */
+	.stat.is-todo {
+		border-color: var(--accent);
+		background: var(--accent);
+		color: var(--black);
+	}
+	@media (hover: hover) {
+		.stat:hover {
+			border-color: var(--black);
+		}
 	}
 	.tabs {
 		display: flex;
@@ -514,7 +554,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	[data-panel='room'] th:first-child,
 	.room-rows :global(td:first-child),
 	[data-panel='members'] th:first-child,
-	.member-rows :global(td:first-child) {
+	.member-rows :global(td:first-child),
+	[data-panel='signups'] th:first-child,
+	.signup-rows :global(td:first-child) {
 		width: 44px;
 		color: #8a8d95;
 	}

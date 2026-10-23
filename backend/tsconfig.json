@@ -1,0 +1,12 @@
+{
+	// 편집기 타입 확인용 (빌드는 wrangler, 테스트는 node가 타입을 지우고 바로 실행)
+	"compilerOptions": {
+		"target": "es2022",
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"noEmit": true,
+		"strict": true
+	},
+	"include": ["src", "worker-configuration.d.ts"]
+}

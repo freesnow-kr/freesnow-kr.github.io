@@ -1,0 +1,21 @@
+// Free Snow API — https://api.freesnow.workers.dev (계정 하위 도메인 freesnow + 이름 api)
+// 비밀값(RESET_PASSWORD, LOGIN_KEY_SECRET)은 여기 말고 `wrangler secret put` / 로컬은 .dev.vars
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "api",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-01",
+	"workers_dev": true,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "freesnow",
+			// 실제 DB는 아직 안 만듦 (로컬 개발만). `wrangler d1 create freesnow` 후 받은 id로 바꿀 것
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "migrations"
+		}
+	],
+	"vars": { "ALLOWED_ORIGINS": "https://freesnow-kr.github.io,http://localhost:4321" },
+	// 매일 03:00 KST: 90일 지난 로그인 이력, 끝난 세션, 지난 캐시 정리
+	"triggers": { "crons": ["0 18 * * *"] }
+}

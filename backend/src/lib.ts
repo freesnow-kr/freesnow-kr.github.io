@@ -1,0 +1,57 @@
+// 공통 도구: 전화번호, 시각, 암호 (WebCrypto만 — 외부 라이브러리 없음)
+
+// 010-1234-5678 / 01012345678 / 12345678(010 생략 아이디) / 1012345678(시트가 앞 0을 지움) / +82 10… → 01012345678
+// Apps Script normPhone과 같은 규칙 (시트 데이터 이전 때 같은 사람으로 묶여야 함)
+export function normPhone(v: unknown): string {
+	let d = String(v ?? '').replace(/\D/g, '');
+	if (d.startsWith('8210') && d.length >= 12) d = '0' + d.slice(2);
+	if (d.length === 10 && d.startsWith('10')) d = '0' + d;
+	if (d.length === 8) d = '010' + d;
+	return d;
+}
+
+export const formatPhone = (d: string) => (d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : d);
+
+export const iso = (d: Date) => d.toISOString();
+export const later = (d: Date, ms: number) => new Date(d.getTime() + ms);
+
+// 로그인 이력에 남기는 IP: 앞부분만 (203.0.113.x / 2001:db8:1::x)
+export function maskIp(ip: string): string {
+	if (!ip) return '';
+	if (ip.includes(':')) return ip.split(':').slice(0, 3).join(':') + '::x';
+	return ip.split('.').slice(0, 3).join('.') + '.x';
+}
+
+const enc = new TextEncoder();
+const b64 = (buf: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+export const randomB64 = (n: number) => b64(crypto.getRandomValues(new Uint8Array(n)));
+// 세션 토큰: 주소·헤더에 그대로 쓰게 URL-safe
+export const randomToken = () => randomB64(32).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+export const sha256 = async (s: string) => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
+
+export async function hmac(secret: string, s: string): Promise<string> {
+	if (!secret) throw new Error('LOGIN_KEY_SECRET 이 비어 있어요.');
+	const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+	return hex(await crypto.subtle.sign('HMAC', key, enc.encode(s)));
+}
+
+// 반복 횟수: 로컬 workerd에서 10만 회 ≈ 6ms(2026-10-23, Mac). 무료 플랜 CPU는 요청당 10ms라 실제 Cloudflare에서 다시 잴 것.
+// 예전 Workers는 10만 회 넘는 값을 거부했다고 알려져 있음(로컬에선 통과) → 10만을 넘기지 말 것. 바꿔도 예전 해시는 행마다 저장된 iter로 확인됨
+export const PBKDF2_ITER = 100_000;
+
+export async function pbkdf2(password: string, salt: string, iter: number): Promise<string> {
+	const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+	return b64(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: unb64(salt), iterations: iter }, key, 256));
+}
+
+// 길이가 달라도 같은 시간 (비밀번호·초기화 비밀번호 비교)
+export function safeEqual(a: string, b: string): boolean {
+	const x = enc.encode(a), y = enc.encode(b);
+	let diff = x.length ^ y.length;
+	for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+	return diff === 0;
+}

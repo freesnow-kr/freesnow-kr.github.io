@@ -32,3 +32,8 @@ data/*.csv
 
 # Apps Script 서버 코드 (저장소에 안 올림 — 이 컴퓨터와 Apps Script 편집기에만)
 apps-script/Code.gs
+
+# Cloudflare Worker (backend/) 로컬 파일
+backend/.wrangler/
+backend/.dev.vars
+backend/worker-configuration.d.ts

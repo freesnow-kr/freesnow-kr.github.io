@@ -54,6 +54,7 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	'admin.logins': admin.logins,
 	'admin.audit': admin.audit,
 	'admin.roomOwners': admin.roomOwners,
+	'admin.lessons': admin.lessons,
 	'admin.chatUpload': admin.chatUpload,
 	photoDelete: photos.deletePhoto,
 	'board.list': board.list,

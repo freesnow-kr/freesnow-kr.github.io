@@ -47,7 +47,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			<section class="mem-body">
 				<p class="mem-msg loading">불러오는 중…</p>
 				<div class="room" hidden>
-					<p class="room-hint">날짜를 누르면 그날 출격·시즌방을 쓴 사람이 보이고, 내 출격·숙박·4시간 휴식을 체크하거나 바꾸거나 취소할 수 있어요.</p>
+					<p class="room-hint">날짜를 누르면 그날 출격·시즌방을 쓴 사람이 보이고, 내 출격·숙박·4시간 휴식을 체크하거나 바꾸거나 취소할 수 있어요. 출격한 날엔 강습도 요청할 수 있어요.</p>
 
 					<!-- 넓은 화면: 달력 오른쪽에 고른 날 명단 (달력 높이만큼, 넘치면 안에서 스크롤) / 좁은 화면: 달력 아래 -->
 					<div class="room-main">
@@ -72,6 +72,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 								<p class="group-title ride-title"></p>
 								<ul class="day-names ride-names"></ul>
 								<div class="day-actions ride-actions"></div>
+								<p class="lesson-note" hidden>강습을 요청했어요. 운영진이 따로 연결해 드려요. (요청은 나와 운영진만 봐요)</p>
 							</div>
 							<div class="day-group">
 								<p class="group-title stay-title"></p>
@@ -133,11 +134,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			let month = today.slice(0, 7); // 'YYYY-MM' (한 달 보기)
 			let start = shift(weekStart(today), -7); // 3주 보기 첫날(일요일)
 			let selected = today;
-			const seasons: Record<string, { nights: Night[]; rides: Ride[] | null }> = {}; // 시즌별로 한 번 불러와서 달 이동은 바로
+			const seasons: Record<string, { nights: Night[]; rides: Ride[] | null; lessons: string[] | null }> = {}; // 시즌별로 한 번 불러와서 달 이동은 바로
 			// 불러온 시즌 전부 (3주가 시즌 경계 7/1에 걸칠 수 있어서). rides가 없는 시즌이 있으면(예전 서버) 출격 숨김
 			const loaded = () => {
 				const list = Object.values(seasons);
-				return { nights: list.flatMap((x) => x.nights), rides: list.length && list.every((x) => x.rides) ? list.flatMap((x) => x.rides!) : null };
+				return {
+					nights: list.flatMap((x) => x.nights),
+					rides: list.length && list.every((x) => x.rides) ? list.flatMap((x) => x.rides!) : null,
+					lessons: list.length && list.every((x) => x.lessons) ? list.flatMap((x) => x.lessons!) : null, // 내 강습 요청 날짜 (없으면 예전 서버 → 버튼 숨김)
+				};
 			};
 			// 화면에 보일 날짜 (한 달 보기는 첫 주 앞 빈 칸 수도)
 			const visible = (): { dates: string[]; blanks: number } => {
@@ -171,7 +176,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					return null;
 				}
 				// rides가 없으면 출격 기능이 없는 예전 서버 → 출격 버튼을 숨김 (예전 서버는 '출격'을 숙박으로 저장해 버림)
-				return (seasons[season] = { nights: res.nights, rides: Array.isArray(res.rides) ? res.rides : null });
+				return (seasons[season] = { nights: res.nights, rides: Array.isArray(res.rides) ? res.rides : null, lessons: Array.isArray(res.lessons) ? res.lessons : null });
 			}
 
 			// 버튼 묶음: [글자, op, kind, 진한 버튼?]
@@ -185,17 +190,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					b.dataset.kind = kind;
 					return b;
 				});
-			const names = (list: { name: string; me: boolean; kind?: Kind }[]) =>
+			const names = (list: { name: string; me: boolean; kind?: Kind; lesson?: boolean }[]) =>
 				(list.length ? list : [null]).map((n) => {
 					const li = document.createElement('li');
 					// 주주는 여기선 따로 안 적음 (정산표에만)
-					li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.kind === '휴식' ? ' · 4시간 휴식' : ''}` : '아직 아무도 없어요.';
+					li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.kind === '휴식' ? ' · 4시간 휴식' : ''}${n.lesson ? ' · 강습 요청' : ''}` : '아직 아무도 없어요.';
 					li.className = n?.me ? 'me' : n ? '' : 'empty';
 					return li;
 				});
 
 			function render() {
-				const { nights, rides } = loaded();
+				const { nights, rides, lessons } = loaded();
 				const { dates, blanks } = visible();
 				const md = (date: string) => date.slice(5).split('-').map(Number).join('.'); // '10.11'
 				$('.month-label').textContent = view === 'weeks' ? `${md(dates[0])} – ${md(dates.at(-1)!)}` : `${month.slice(0, 4)}년 ${Number(month.slice(5))}월`;
@@ -243,8 +248,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const dayRides = (rides ?? []).filter((n) => n.date === selected);
 				$('.ride-group').hidden = !rides;
 				$('.ride-title').textContent = `출격 ${dayRides.length}명`;
-				$('.ride-names').replaceChildren(...names(dayRides));
-				$('.ride-actions').replaceChildren(...buttons(dayRides.some((n) => n.me) ? [['출격 취소', 'remove', '출격', false]] : [['출격', 'add', '출격', true]]));
+				// 강습 요청: 내가 출격한 날만 버튼. 요청은 나만 보임(다른 회원 요청은 서버가 안 보냄) → 운영진이 따로 연결
+				const rode = dayRides.some((n) => n.me);
+				const asked = !!lessons?.includes(selected);
+				$('.ride-names').replaceChildren(...names(dayRides.map((n) => ({ ...n, lesson: n.me && asked }))));
+				$('.ride-actions').replaceChildren(
+					...buttons(
+						!rode
+							? [['출격', 'add', '출격', true]]
+							: [['출격 취소', 'remove', '출격', false], ...(lessons ? [asked ? ['강습 요청 취소', 'remove', '강습', false] : ['강습 요청', 'add', '강습', false]] : [])] as [string, string, string, boolean][],
+					),
+				);
+				$('.lesson-note').hidden = !asked;
 
 				const who = nights.filter((n) => n.date === selected);
 				const mine = who.find((n) => n.me);
@@ -513,6 +528,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.day-actions {
 		display: grid;
 		gap: 8px;
+	}
+	.lesson-note {
+		margin-top: 8px;
+		color: #4a4d55;
+		font-size: 13px;
 	}
 	.day-actions :global(.btn) {
 		justify-content: center;

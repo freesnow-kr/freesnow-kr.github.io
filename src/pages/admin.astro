@@ -52,10 +52,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<div class="stats">
 						<button type="button" class="stat" data-go="members">활동 회원 <b class="stat-active">-</b><span class="stat-total"></span></button>
 						<button type="button" class="stat" data-go="signups">가입 대기 <b class="stat-pending">-</b></button>
+						<button type="button" class="stat" data-go="lessons">강습 연결 대기 <b class="stat-lessons">-</b><span class="stat-lessons-total"></span></button>
 					</div>
 					<div class="tabs" role="tablist">
 						<button type="button" data-tab="signups">가입 신청</button>
 						<button type="button" data-tab="members">회원</button>
+						<button type="button" data-tab="lessons">강습 요청</button>
 						<button type="button" data-tab="room">시즌방 정산</button>
 						<button type="button" data-tab="owners">시즌방 주주</button>
 						<button type="button" data-tab="chat">채팅 랭킹</button>
@@ -146,6 +148,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<p class="photo-ready hint"></p>
 						<div class="scroll"><table><thead><tr><th>시즌</th><th>Cloudflare</th><th>드라이브</th><th></th></tr></thead><tbody class="photo-rows"></tbody></table></div>
 						<p class="photo-msg" role="status"></p>
+					</section>
+
+					<!-- 강습 요청: 회원이 출격한 날 요청 → 운영진이 회원 중 한 명과 연결. 요청·연결은 운영진만 봄(요청한 회원은 자기 요청만) -->
+					<section class="panel" data-panel="lessons" hidden>
+						<p class="hint">2주 전부터 앞으로의 요청이에요. '연결할 회원'에서 고르면 바로 저장돼요. 연결은 운영진만 보니까, 정해지면 두 회원에게 따로 연락해 주세요. 그날 출격하는 회원이 목록 위에 나와요.</p>
+						<div class="scroll"><table><thead><tr><th>날짜</th><th>요청한 회원</th><th>연락처</th><th>지역</th><th>연결할 회원</th></tr></thead><tbody class="lesson-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="logins" hidden>
@@ -801,6 +809,34 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			roomMonth.addEventListener('change', loadRoom);
 			fillMonths();
 
+			// 강습 요청: 고르면 바로 저장 (서버가 같은 응답으로 목록을 다시 줌)
+			async function loadLessons(match?: object) {
+				const res = await api('admin.lessons', match);
+				if (!res) return void (match && loadLessons()); // 실패하면 고른 값을 되돌리게 다시 불러옴
+				if (match) loadSummary(); // 위 '강습 연결 대기' 숫자
+				const body = $('.lesson-rows');
+				if (!res.lessons.length) return empty(body, 5, '강습 요청이 없어요.');
+				const active = members.filter((m) => m.status === 'active');
+				body.replaceChildren(...res.lessons.map((l: any) => {
+					const sel = document.createElement('select');
+					sel.ariaLabel = `${l.name} 강습 연결할 회원`;
+					const group = (label: string, list: any[]) => {
+						const g = document.createElement('optgroup');
+						g.label = label;
+						g.append(...list.map((m) => new Option(m.name, m.id)));
+						return g;
+					};
+					const riders = active.filter((m) => l.riders.includes(m.id));
+					const others = active.filter((m) => m.id !== l.member_id && !l.riders.includes(m.id));
+					sel.append(new Option('연결 전', ''), ...(riders.length ? [group('그날 출격하는 회원', riders)] : []), group('다른 회원', others));
+					sel.value = l.teacher_id ?? '';
+					sel.addEventListener('change', () => loadLessons({ memberId: l.member_id, date: l.date, teacherId: sel.value || null }));
+					const row = tr([l.date.replace(/-/g, '.'), l.name, phone(l.phone), [l.region, l.area].filter(Boolean).join(' '), sel]);
+					if (!l.teacher_id) row.className = 'todo';
+					return row;
+				}));
+			}
+
 			async function loadLogins() {
 				const res = await api('admin.logins');
 				if (!res) return;
@@ -828,11 +864,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				$('.stat-total').textContent = ` / ${res.total}`;
 				$('.stat-pending').textContent = String(res.pending);
 				$('.stat-pending').closest('.stat')!.classList.toggle('is-todo', res.pending > 0);
+				// 강습: 오늘부터 앞으로의 요청 중 아직 연결 안 한 것 / 전체
+				$('.stat-lessons').textContent = String(res.lessonsTodo ?? 0);
+				$('.stat-lessons-total').textContent = ` / 요청 ${res.lessons ?? 0}`;
+				$('.stat-lessons').closest('.stat')!.classList.toggle('is-todo', res.lessonsTodo > 0);
 				return res;
 			}
 
 			// 탭: 처음 열 때 불러옴
-			const loaders: Record<string, () => unknown> = { signups: loadSignups, members: loadMembers, room: loadRoom, owners: loadOwners, teams: loadTeams, chat: () => {}, photos: loadPhotos, logins: loadLogins, audit: loadAudit };
+			const loaders: Record<string, () => unknown> = { signups: loadSignups, members: loadMembers, room: loadRoom, owners: loadOwners, teams: loadTeams, lessons: () => loadLessons(), chat: () => {}, photos: loadPhotos, logins: loadLogins, audit: loadAudit };
 			const tabs = [...document.querySelectorAll<HTMLButtonElement>('.tabs button')];
 			const open = (name: string) => {
 				tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
@@ -1080,6 +1120,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	.status-form input {
 		accent-color: var(--black);
+	}
+	.lesson-rows :global(select) {
+		min-width: 180px;
+		min-height: 34px;
+		padding: 0 34px 0 10px;
+		border: 1.5px solid var(--black);
+		background-color: var(--white);
+		font: 700 13px 'Noto Sans KR', sans-serif;
+	}
+	/* 강습 요청: 아직 연결 안 한 줄은 주황 */
+	.panel :global(tr.todo td:first-child) {
+		box-shadow: inset 3px 0 0 var(--accent);
 	}
 	/* 조 편성 */
 	.tm-top,

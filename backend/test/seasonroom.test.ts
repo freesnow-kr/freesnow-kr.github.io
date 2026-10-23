@@ -3,15 +3,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { env, post, sessionFor, useDb } from './setup.ts';
 
-let A: string, B: string;
+let A: string, B: string, S: string;
 useDb(
 	[
 		['m-a', '01060000001', '회원A', '1990-01-01'],
 		['m-b', '01060000002', '회원B', '1991-02-02'],
+		['m-s', '01060000003', '운영진S', '1992-03-03', 'staff'],
 	],
 	async () => {
 		A = await sessionFor('m-a');
 		B = await sessionFor('m-b');
+		S = await sessionFor('m-s');
 		await env.DB.batch([
 			env.DB.prepare("INSERT INTO room_owners (season, member_id) VALUES ('26-27', 'm-b'), ('25-26', 'm-a')"), // 주주는 시즌마다
 			env.DB.prepare("INSERT INTO room_stays (member_id, date, kind, updated_at) VALUES ('m-a', '2026-11-01', '숙박', '2026-11-01T00:00:00.000Z')"),
@@ -24,7 +26,7 @@ const rows = async () => (await env.DB.prepare('SELECT * FROM room_stays ORDER B
 test('회원만, 응답 모양은 Apps Script와 같음', async () => {
 	assert.equal((await post({ action: 'seasonroom', season: '26-27' })).expired, true);
 	const { status, cors, ...r } = await room(A);
-	assert.deepEqual(r, { ok: true, season: '26-27', prices: { 숙박: 10000, 휴식: 5000 }, nights: [{ date: '2026-11-01', name: '회원A', kind: '숙박', me: true, owner: false }], rides: [] });
+	assert.deepEqual(r, { ok: true, season: '26-27', prices: { 숙박: 10000, 휴식: 5000 }, nights: [{ date: '2026-11-01', name: '회원A', kind: '숙박', me: true, owner: false }], rides: [], lessons: [] });
 });
 
 test('체크: 두 번 눌러도 한 줄, 지난 시즌 날짜도 되고 응답엔 그 시즌만, 이름만 (연락처 X)', async () => {
@@ -93,4 +95,45 @@ test('마이페이지 이번 시즌 요약: 내 숙박·휴식·출격, 주주�
 	assert.deepEqual([s.season, s.stays - before.stays, s.rests - before.rests, s.rides - before.rides, s.owner, s.pay - before.pay], [cur, 1, 1, 1, false, 15000]);
 	await env.DB.prepare('INSERT INTO room_owners (season, member_id) VALUES (?, ?)').bind(cur, 'm-a').run();
 	assert.equal((await post({ action: 'me' }, A)).season.pay, 0);
+});
+
+test('강습 요청: 출격한 날만, 본인 요청만 보임, 출격 취소하면 같이 취소, 운영진은 /admin 목록', async () => {
+	const day = '2026-12-20';
+	assert.equal((await room(A, { op: 'add', date: day, kind: '강습' })).ok, false); // 출격 전
+	await room(A, { op: 'add', date: day, kind: '출격' });
+	await room(B, { op: 'add', date: day, kind: '출격' });
+	assert.deepEqual((await room(A, { op: 'add', date: day, kind: '강습' })).lessons, [day]);
+	assert.deepEqual((await room(A, { op: 'add', date: day, kind: '강습' })).lessons, [day]); // 두 번 눌러도 한 줄
+	const b = await room(B);
+	assert.deepEqual(b.lessons, []); // 다른 회원 요청은 안 보임
+	assert.equal(JSON.stringify(b).includes('강습'), false);
+	// 운영진 목록: 오늘 기준 2주 전부터, 날짜순 (두 요청 모두 앞으로의 날짜)
+	const future = new Date(Date.now() + 30 * 86400e3).toISOString().slice(0, 10);
+	await env.DB.prepare("INSERT INTO lesson_requests (member_id, date) VALUES ('m-b', ?)").bind(future).run();
+	assert.equal((await post({ action: 'admin.lessons' }, A)).ok, false); // 회원은 못 봄
+	let list = await post({ action: 'admin.lessons' }, S);
+	assert.deepEqual(list.lessons.map((l: any) => [l.date, l.name, l.phone]), [[future, '회원B', '01060000002'], [day, '회원A', '01060000001']].sort());
+	assert.deepEqual(list.lessons.find((l: any) => l.member_id === 'm-a').riders, ['m-b']); // 그날 출격하는 다른 회원
+	// 연결: 운영진만, 활동 회원만, 본인 X. 연결해도 요청한 회원 응답엔 안 나옴(운영진만 봄)
+	assert.equal((await post({ action: 'admin.lessons', memberId: 'm-a', date: day, teacherId: 'm-b' }, A)).ok, false);
+	assert.equal((await post({ action: 'admin.lessons', memberId: 'm-a', date: day, teacherId: 'm-a' }, S)).ok, false);
+	const sum = async () => { const r = await post({ action: 'admin.summary' }, S); return [r.lessonsTodo, r.lessons]; };
+	assert.deepEqual(await sum(), [2, 2]); // 앞으로의 요청 2건, 둘 다 연결 전
+	list = await post({ action: 'admin.lessons', memberId: 'm-a', date: day, teacherId: 'm-b' }, S);
+	assert.deepEqual(await sum(), [1, 2]);
+	assert.equal(list.lessons.find((l: any) => l.member_id === 'm-a').teacher, '회원B');
+	const a = await room(A);
+	assert.deepEqual(a.lessons, [day]); // 날짜만, 연결한 회원 정보 없음
+	assert.equal(/teacher/.test(JSON.stringify(a)), false);
+	assert.equal(JSON.stringify(await room(B)).includes('강습'), false);
+	// 강습만 취소 → 출격은 그대로, 연결도 지워짐
+	let r = await room(A, { op: 'remove', date: day, kind: '강습' });
+	assert.deepEqual([r.lessons, r.rides.filter((x: any) => x.me && x.date === day).length], [[], 1]);
+	assert.equal((await env.DB.prepare("SELECT teacher_id FROM lesson_requests WHERE member_id = 'm-a'").first())!.teacher_id, null);
+	// 다시 요청 후 출격 취소 → 강습도 취소
+	await room(A, { op: 'add', date: day, kind: '강습' });
+	r = await room(A, { op: 'remove', date: day, kind: '출격' });
+	assert.deepEqual(r.lessons, []);
+	await room(A, { op: 'add', date: day, kind: '출격' }); // 다시 출격해도 강습은 꺼진 채
+	assert.deepEqual((await room(A)).lessons, []);
 });

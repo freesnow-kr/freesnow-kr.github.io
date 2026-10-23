@@ -1,4 +1,4 @@
-// 운영진 메일 알림 (사용자 요구 2026-10-23): 강습 요청이 들어오면 회원 정보에 메일이 있는 활동 운영진(staff·admin)에게만.
+// 운영진 메일 알림 (사용자 요구 2026-10-23): 강습 요청·가입 신청이 들어오면 회원 정보에 메일이 있는 활동 운영진(staff·admin)에게만.
 // 보내는 계정 = 사진 보관용으로 연결한 동호회 구글 계정의 Gmail. 권한은 scripts/google-auth.mjs가 drive.file + gmail.send로 받음
 import type { Env } from './index.ts';
 import { accessToken } from './photos.ts';
@@ -47,48 +47,93 @@ const dayOf = (date: string) => {
 	return `${date}(${'일월화수목금토'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})`; // 2026-10-29(목)
 };
 
-// 강습 요청 메일 (사용자가 고른 시안 A: 검정 머리 띠 + LESSON REQUEST. + 정보 표 + 주황 버튼). 메일 앱은 웹폰트·<style>을 잘 안 지켜서 인라인 스타일 + 기본 글꼴
-export function lessonMail(v: { name: string; date: string; riders: string[]; pending: number; test?: boolean }) {
-	const day = dayOf(v.date);
-	const riders = v.riders.length ? `${v.riders.join(', ')} (${v.riders.length}명)` : '아직 없어요';
-	const subject = `${v.test ? '[시험] ' : ''}[프리스노우][강습 요청] ${day} ${v.name}`;
-	const text = [
-		`${v.name} 님이 ${day} 출격 날 강습을 요청했어요.`,
-		'',
-		`날짜: ${day}`,
-		`요청한 회원: ${v.name}`,
-		`같은 날 출격: ${riders}`,
-		`연결 대기: ${v.pending}건`,
-		'',
-		`연결하러 가기: ${ADMIN_URL}`,
-		'',
-		'강습 요청과 연결은 운영진만 볼 수 있어요.',
-	].join('\n');
+// 운영진 알림 메일 틀 (사용자가 고른 시안 A: 검정 머리 띠 FREE SNOW + 큰 영문 제목 + 정보 표 + 주황 버튼). 강습 요청·가입 신청이 같이 씀
+// 메일 앱은 웹폰트·<style>을 잘 안 지켜서 인라인 스타일 + 기본 글꼴. rows = [이름표, HTML 값, 글자 값]
+function staffMail(v: { heading: string; lead: string; leadText: string; rows: [string, string, string][]; button: string; footer: string; test?: boolean }) {
 	const font = "-apple-system,'Apple SD Gothic Neo','Malgun Gothic',Arial,sans-serif";
-	const row = (k: string, val: string, last = false) => {
+	const row = ([k, val]: [string, string, string], last: boolean) => {
 		const line = last ? '' : 'border-bottom:1px solid #e6e3dc;';
 		return `<tr><td style="padding:10px 0;${line}color:#8b8f99;width:96px;vertical-align:top;">${k}</td><td style="padding:10px 0;${line}">${val}</td></tr>`;
 	};
+	const text = [v.leadText, '', ...v.rows.map(([k, , t]) => `${k}: ${t}`), '', `${v.button}: ${ADMIN_URL}`, '', v.footer].join('\n');
 	const html = `<!doctype html><html lang="ko"><body style="margin:0;padding:24px 12px;background:#e9e7e2;">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #d9d6cf;font-family:${font};color:#0b0d12;">
 <tr><td style="background:#0b0d12;padding:18px 24px;color:#ffffff;font:900 18px Arial,sans-serif;letter-spacing:2px;">FREE SNOW</td></tr>
 <tr><td style="padding:28px 24px 8px;">
 <div style="font:700 11px Arial,sans-serif;letter-spacing:3px;color:#ff5a1f;">STAFF ONLY${v.test ? ' · TEST' : ''}</div>
-<div style="margin-top:6px;font:900 34px/1.05 Arial,sans-serif;letter-spacing:-1px;">LESSON<br>REQUEST.</div>
-<p style="margin:16px 0 0;font-size:15px;line-height:1.6;"><b>${esc(v.name)}</b> 님이 출격 날 강습을 요청했어요.</p>
+<div style="margin-top:6px;font:900 34px/1.05 Arial,sans-serif;letter-spacing:-1px;">${v.heading}</div>
+<p style="margin:16px 0 0;font-size:15px;line-height:1.6;">${v.lead}</p>
 </td></tr>
 <tr><td style="padding:16px 24px;">
 <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #0b0d12;font-size:14px;font-family:${font};">
-${row('날짜', `<b>${day}</b>`)}
-${row('요청한 회원', `<b>${esc(v.name)}</b>`)}
-${row('같은 날 출격', v.riders.length ? `${esc(v.riders.join(', '))} <span style="color:#8b8f99;">(${v.riders.length}명)</span>` : '<span style="color:#8b8f99;">아직 없어요</span>')}
-${row('연결 대기', `<b style="color:#ff5a1f;">${v.pending}건</b>${v.test ? '' : ' <span style="color:#8b8f99;">(이 요청 포함)</span>'}`, true)}
+${v.rows.map((r, i) => row(r, i === v.rows.length - 1)).join('\n')}
 </table>
 </td></tr>
-<tr><td style="padding:8px 24px 28px;"><a href="${ADMIN_URL}" style="display:inline-block;padding:14px 22px;background:#ff5a1f;color:#0b0d12;font:900 14px Arial,sans-serif;letter-spacing:1px;text-decoration:none;">연결하러 가기 &rarr;</a></td></tr>
-<tr><td style="padding:14px 24px;background:#f1efea;color:#8b8f99;font-size:12px;line-height:1.5;">강습 요청과 연결은 운영진만 볼 수 있어요. 메일이 등록된 운영진에게만 보내요.</td></tr>
+<tr><td style="padding:8px 24px 28px;"><a href="${ADMIN_URL}" style="display:inline-block;padding:14px 22px;background:#ff5a1f;color:#0b0d12;font:900 14px Arial,sans-serif;letter-spacing:1px;text-decoration:none;">${v.button} &rarr;</a></td></tr>
+<tr><td style="padding:14px 24px;background:#f1efea;color:#8b8f99;font-size:12px;line-height:1.5;">${v.footer}</td></tr>
 </table></body></html>`;
-	return { subject, text, html };
+	return { text, html };
+}
+const gray = (s: string) => `<span style="color:#8b8f99;">${s}</span>`;
+
+// 강습 요청 메일
+export function lessonMail(v: { name: string; date: string; riders: string[]; pending: number; test?: boolean }) {
+	const day = dayOf(v.date);
+	const subject = `${v.test ? '[시험] ' : ''}[프리스노우][강습 요청] ${day} ${v.name}`;
+	return {
+		subject,
+		...staffMail({
+			heading: 'LESSON<br>REQUEST.',
+			lead: `<b>${esc(v.name)}</b> 님이 출격 날 강습을 요청했어요.`,
+			leadText: `${v.name} 님이 ${day} 출격 날 강습을 요청했어요.`,
+			rows: [
+				['날짜', `<b>${day}</b>`, day],
+				['요청한 회원', `<b>${esc(v.name)}</b>`, v.name],
+				['같은 날 출격', v.riders.length ? `${esc(v.riders.join(', '))} ${gray(`(${v.riders.length}명)`)}` : gray('아직 없어요'), v.riders.length ? `${v.riders.join(', ')} (${v.riders.length}명)` : '아직 없어요'],
+				['연결 대기', `<b style="color:#ff5a1f;">${v.pending}건</b>${v.test ? '' : ` ${gray('(이 요청 포함)')}`}`, `${v.pending}건`],
+			],
+			button: '연결하러 가기',
+			footer: '강습 요청과 연결은 운영진만 볼 수 있어요. 메일이 등록된 운영진에게만 보내요.',
+			test: v.test,
+		}),
+	};
+}
+
+// 가입 신청 메일 (사용자 요구 2026-10-23). 연락처·생년월일은 안 넣음(메일은 오래·넓게 남아서 — 승인할 때 운영진 화면에서)
+export function signupMail(v: { name: string; gender: string; region: string; at: Date; pending: number }) {
+	const k = new Date(v.at.getTime() + 9 * 3600e3);
+	const day = dayOf(k.toISOString().slice(0, 10));
+	const when = `${day} ${k.toISOString().slice(11, 16)}`;
+	return {
+		subject: `[프리스노우][가입 신청] ${day} ${v.name}`,
+		...staffMail({
+			heading: 'NEW<br>MEMBER.',
+			lead: `<b>${esc(v.name)}</b> 님이 가입을 신청했어요.`,
+			leadText: `${v.name} 님이 가입을 신청했어요.`,
+			rows: [
+				['이름', `<b>${esc(v.name)}</b>`, v.name],
+				['성별', esc(v.gender), v.gender],
+				['지역', esc(v.region), v.region],
+				['신청 시각', when, when],
+				['가입 대기', `<b style="color:#ff5a1f;">${v.pending}건</b> ${gray('(이 신청 포함)')}`, `${v.pending}건`],
+			],
+			button: '승인하러 가기',
+			footer: '연락처·생년월일은 운영진 화면에서 확인해 주세요. 메일이 등록된 운영진에게만 보내요.',
+		}),
+	};
+}
+
+// 가입 신청 알림. 실패해도 신청은 저장된 채로(로그만)
+export async function signupRequested(env: Env, v: { name: string; gender: string; region: string; at: Date }) {
+	try {
+		const to = (await staffEmails(env)).map((r) => r.email);
+		if (!to.length) return;
+		const { n } = (await env.DB.prepare("SELECT count(*) AS n FROM signup_requests WHERE status = 'pending' AND is_active = 1").first<{ n: number }>())!;
+		const mail = signupMail({ ...v, pending: n });
+		await sendMail(env, to, mail.subject, mail.text, mail.html);
+	} catch (e) {
+		console.error('signup notify', e);
+	}
 }
 
 // 오늘(한국)부터 앞으로 아직 연결 안 한 강습 요청 수

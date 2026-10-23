@@ -8,6 +8,8 @@ export const club = {
 	somoimUrl: import.meta.env.PUBLIC_SOMOIM_URL ?? '',
 	// Apps Script 웹앱 배포 URL (apps-script/Code.gs). 비어 있으면 회원 페이지는 '준비 중'
 	membersApi: import.meta.env.PUBLIC_MEMBERS_API ?? '',
+	// Cloudflare Worker API (backend/). 비어 있으면 전부 Apps Script — 전환 전엔 비워 둠 (docs/migration/02-design.md §5)
+	workerApi: import.meta.env.PUBLIC_WORKER_API ?? '',
 };
 
 export const trips = [

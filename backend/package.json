@@ -1,0 +1,13 @@
+{
+  "name": "free-snow-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "node --test test/*.test.ts",
+    "db:local": "wrangler d1 migrations apply DB --local"
+  },
+  "devDependencies": {
+    "wrangler": "^4.152.0"
+  }
+}

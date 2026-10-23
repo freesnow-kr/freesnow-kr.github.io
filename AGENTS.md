@@ -66,7 +66,7 @@
 - `action:'gallery'` → `DriveApp`으로 폴더의 이미지 파일만 최신순(생성일) `[{id, caption}]`. 5분 `CacheService` 캐시(새 사진은 최대 5분 뒤). caption = 파일 이름(확장자 제외, `_`→공백), 휴대폰 기본 이름(IMG_…, KakaoTalk… 등)이면 ''.
 - 이미지 주소 `https://lh3.googleusercontent.com/d/{id}=w720`(격자) / `=w1800`(크게) — 드라이브가 크기 조절. 비공식 주소라 막히면 `https://drive.google.com/thumbnail?id={id}&sz=w720`로 바꿔 볼 것.
 - 파일 이름은 `textContent`·속성으로만 렌더링(HTML 주입 방지). 하위 폴더는 읽지 않음.
-- 사진 목록은 `src/scripts/session.ts`의 `galleryPhotos()`로 받음: 브라우저 `localStorage`에 10분 캐시(서버 실패 시 예전 목록 사용). 이미지 주소는 `driveImg(id, w)`. 새 사진 반영은 최대 약 15분(서버 5분 + 브라우저 10분).
+- 사진 목록은 `src/scripts/session.ts`의 `galleryPhotos()`로 받음: 브라우저 `localStorage`(`fs-gallery`)에 저장본이 있으면 **기다리지 않고 바로 씀**(Apps Script 응답이 1~2초라 — 2026-10-23 사용자가 느리다고 함), 10분 지났으면 뒤에서 새로 받아 다음 방문에 반영. 처음 방문만 서버를 기다림. 이미지 주소는 `driveImg(id, w)` — 메인 띠와 갤러리 격자 둘 다 `w720`(같은 주소라 브라우저 캐시 공유, 드라이브 응답 `max-age=86400`). 두 페이지 `<head>`에 Apps Script·`lh3` preconnect.
 - 메인 `#ride` 섹션 = **두 줄 사진 띠**(사용자 선택 '시안 C'): 최근 20장을 두 줄로 나눠 윗줄 왼쪽·아랫줄 오른쪽으로 무한 흐름(같은 묶음 2번 이어붙임, 두 번째는 aria-hidden). 높이만 고정·가로 원래 비율(잘림 없음). hover·멈춤 버튼으로 정지, 모션 줄이기면 정지+가로 스크롤. 사진 클릭 → `/gallery`.
 
 ## 오픈채팅 랭킹 (`/rank` + `apps-script` chatrank)
@@ -178,6 +178,12 @@
 ## 백엔드 이전 (Cloudflare Workers + D1, 진행 중)
 
 - 문서는 `docs/migration/`. 1차 분석 `01-analysis.md`(2026-10-23) — 기능·API·시트 구조, 보안 위험, D1 초안, 단계 계획, 사용자 확인이 필요한 항목.
+- 설계 `02-design.md`(2026-10-23) — 사용자 결정: workers.dev(`https://api.freesnow.workers.dev`, 계정 `yunj213@gmail.com`, 하위 도메인 `freesnow`, Worker 이름 `api`), 최고관리자 = 마스터, 탈퇴 회원 기록은 그대로, 비밀번호 초기화는 공용 초기화 비밀번호(Worker Secret, 초기화 대기 72시간 동안 그 회원에게만 통함).
+- 코드는 **같은 저장소 `backend/`**(사용자 결정). 의존성은 `wrangler` 하나(사이트 쪽 `package.json`과 별개), 프레임워크 없음. `src/index.ts`(라우팅·CORS·body 600KB 제한·오류), `src/auth.ts`(로그인·세션·비밀번호·권한·초기화), `src/lib.ts`(normPhone — Apps Script와 같은 규칙, PBKDF2·HMAC), `migrations/0001_init.sql`.
+  - 테스트 `cd backend && npm test` = `node --test`(Node가 TS를 바로 실행) + wrangler `getPlatformProxy`의 진짜 로컬 D1, 가짜 회원만. 로컬 서버 `npm run db:local` 후 `npm run dev`(http://localhost:8787, 비밀값은 `.dev.vars` — 양식 `.dev.vars.example`).
+  - `wrangler.jsonc`의 `database_id`는 아직 가짜(실제 D1 안 만듦). Cloudflare에 만들기·배포는 사용자 확인 후에만.
+  - 인증 규칙: 비밀번호 없는 회원(첫 전환)은 생년월일로 한 번 → `mustChange` 세션은 `password`·`logout`만 됨. 초기화(마스터만) = 해시 삭제 + 그 회원 세션 전부 폐기 + 72시간 동안 공용 `RESET_PASSWORD`만 통함. 실패 문구 하나, 아이디 5회·IP 30회/1시간 잠금(`login_logs`로 셈). 세션 토큰은 SHA-256만 저장, 로그인 이력엔 비밀번호·토큰·전화·IP 원문 없음.
+  - PBKDF2 10만 회: 로컬 workerd ≈ 6ms(무료 CPU 10ms) → 실제 Cloudflare에서 다시 잴 것.
 - 사용자 원칙: 분석·설계를 먼저 보고하고 실제 변경은 따로 지시받아서. 기존 사이트·Apps Script·시트는 검증 전까지 건드리지 않음.
 
 ## 남은 일 / 주의

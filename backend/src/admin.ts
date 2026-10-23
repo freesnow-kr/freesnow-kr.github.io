@@ -1,7 +1,7 @@
 // 운영진 화면(/admin) API. 권한은 전부 여기서 확인 (화면에서 메뉴를 숨기는 건 편의일 뿐)
 // staff(운영진): 가입 승인·거절, 회원 목록·정보 수정, 로그인 이력, 시즌방 주주, 채팅 랭킹 올리기
 // staff는 비밀번호 초기화(auth.ts adminReset)도 — 관리자 계정은 관리자만
-// admin(관리자): + 정지·탈퇴·권한 변경, 운영 기록. '마스터'는 명예 명칭(honorary, 운영진이 지정)이라 권한 아님
+// admin(관리자): + 정지·탈퇴·권한 변경(마스터 지정 포함), 운영 기록. master(마스터)는 명예 — 권한은 회원과 같음
 // 바꾸는 일은 전부 admin_logs (누가·언제·무엇을·전후 값)
 import type { Ctx } from './index.ts';
 import { need, Reply } from './auth.ts';
@@ -66,7 +66,7 @@ export async function signupDecide(c: Ctx) {
 export async function members(c: Ctx) {
 	const me = await need(c, 'staff');
 	const { results } = await c.env.DB.prepare(
-		`SELECT m.id, m.name, m.phone, m.gender, m.birth, m.region, m.area, m.private_contact, m.role, m.honorary, m.status, m.joined_at,
+		`SELECT m.id, m.name, m.phone, m.gender, m.birth, m.region, m.area, m.private_contact, m.role, m.status, m.joined_at,
 		        (SELECT max(at) FROM login_logs l WHERE l.member_id = m.id AND l.ok = 1) AS last_login,
 		        c.member_id IS NOT NULL AND c.hash IS NULL AS reset_pending, c.changed_at AS password_changed
 		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1
@@ -76,15 +76,13 @@ export async function members(c: Ctx) {
 }
 
 const FIELDS = ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact'] as const;
-// {id, name?, phone?, gender?, birth?, region?, area?, private_contact?, honorary?} 운영진
+// {id, name?, phone?, gender?, birth?, region?, area?, private_contact?} 운영진
 export async function memberUpdate(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
-	const before = await db.prepare(`SELECT ${FIELDS.join(', ')}, honorary FROM members WHERE id = ?`).bind(String(c.body.id)).first<any>();
+	const before = await db.prepare(`SELECT ${FIELDS.join(', ')} FROM members WHERE id = ?`).bind(String(c.body.id)).first<any>();
 	if (!before) throw bad('회원을 찾지 못했어요.');
 	const next: Record<string, any> = {};
-	// 마스터(명예) 지정·해제
-	if (c.body.honorary !== undefined && (c.body.honorary ? 1 : 0) !== before.honorary) next.honorary = c.body.honorary ? 1 : 0;
 	for (const k of FIELDS) {
 		if (c.body[k] === undefined) continue;
 		let v = String(c.body[k] ?? '').replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -113,7 +111,7 @@ export async function memberStatus(c: Ctx) {
 	const before = await db.prepare('SELECT status, role FROM members WHERE id = ?').bind(id).first<{ status: string; role: string }>();
 	if (!before) throw bad('회원을 찾지 못했어요.');
 	const status = c.body.status ?? before.status, role = c.body.role ?? before.role;
-	if (!['active', 'suspended', 'withdrawn'].includes(status) || !['member', 'staff', 'admin'].includes(role)) throw bad('값을 확인해 주세요.');
+	if (!['active', 'suspended', 'withdrawn'].includes(status) || !['member', 'master', 'staff', 'admin'].includes(role)) throw bad('값을 확인해 주세요.');
 	if (id === me.id && (status !== 'active' || role !== 'admin')) throw bad('내 계정의 권한·상태는 바꿀 수 없어요. 다른 관리자에게 부탁해 주세요.');
 	const stmts = [db.prepare('UPDATE members SET status = ?, role = ?, updated_at = ? WHERE id = ?').bind(status, role, iso(c.now), id), log(c, me.id, 'member.status', id, { before, after: { status, role } })];
 	if (status !== 'active') stmts.push(db.prepare('UPDATE sessions SET revoked_at = ? WHERE member_id = ? AND revoked_at IS NULL').bind(iso(c.now), id));

@@ -59,10 +59,15 @@ test('회원 관리: 운영진은 정보 수정, 정지·권한은 관리자만,
 	assert.equal((await post({ action: 'admin.audit' }, S)).ok, false);
 });
 
-test('마스터(명예)는 운영진이 지정, 권한은 그대로 회원', async () => {
-	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-1', honorary: true }, S)).ok, true);
+test('마스터(명예)는 관리자가 role로 지정, 할 수 있는 일은 회원과 같음', async () => {
+	assert.match((await post({ action: 'admin.memberStatus', id: 'm-1', role: 'master' }, S)).error, /권한/); // 운영진은 못 함
+	assert.equal((await post({ action: 'admin.memberStatus', id: 'm-1', role: 'master' }, B)).ok, true);
 	const m = (await post({ action: 'admin.members' }, S)).members.find((x: any) => x.id === 'm-1');
-	assert.deepEqual([m.honorary, m.role], [1, 'member']);
+	assert.equal(m.role, 'master');
+	const T = await sessionFor('m-1');
+	await env.DB.prepare("UPDATE members SET status = 'active' WHERE id = 'm-1'").run();
+	assert.match((await post({ action: 'admin.signups' }, T)).error, /권한/); // 마스터는 운영진 화면 못 씀
+	assert.equal((await post({ action: 'me' }, T)).me.role, 'master');
 });
 
 test('시즌방 주주는 운영진이 시즌별로', async () => {

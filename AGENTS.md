@@ -25,6 +25,14 @@
 - 비밀번호 해시 PBKDF2-SHA256 10만 회: 실제 Cloudflare에서 CPU 19~55ms(무료 한도 10ms 넘지만 40/40 성공, 2026-10-23). Workers는 10만 회 넘으면 오류. 로그인이 `exceeded CPU`로 실패하면 반복 횟수를 줄이거나 유료($5/월) 검토.
 - 되돌리기: GitHub Secret `PUBLIC_API_URL`을 예전 Apps Script 웹앱 주소로 바꿔도 **안 됨**(사이트 코드가 Worker 전용) → 이전 전 커밋으로 되돌려 배포 + Apps Script 다시 배포. 전환 뒤 D1에 쌓인 기록은 시트로 옮겨야 함.
 
+## 게시판 (`/board/` + `backend/src/board.ts`)
+
+- 사용자 요구(2026-10-23, 소모임 게시판처럼): 말머리 **공지(notice) / 모임후기(review) / 가입인사(greeting) / 자유(free)**, 헤더 메뉴 **BOARD**(SEASON 다음). 페이지 `board/index`(목록·탭 `?c=`), `board/view?id=`, `board/write`(`?id=` 고치기, `?c=` 말머리 미리 고르기).
+- **공지만 전체 공개**, 나머지는 회원만(비회원 목록엔 공지만 + 로그인 안내, 글 보기는 로그인으로). **공지 쓰기·고정(📌)은 운영진 이상**, 고정 공지는 **메인 NOTICE 줄**(히어로 티커 아래, 최대 3개, 없으면 숨김). 고치기는 쓴 사람만, 지우기는 쓴 사람·운영진(남의 글이면 운영 기록). 댓글(지우기 쓴 사람·운영진), **좋아요**(다시 누르면 취소 — `board_likes.is_active` 토글).
+- 사진: 모든 말머리, 글당 10장, 브라우저가 1600px JPG로 줄여 `POST /board-photos`(multipart, 글쓴이만) → R2 `board/{글}/{사진}.jpg`, 보기 `GET /board/…`(무작위 이름, 1년 캐시 — 주소를 알면 볼 수 있음). 글을 먼저 저장하고 사진을 올림(사진 실패해도 글은 남음).
+- 테이블 `board_posts`·`board_photos`·`board_comments`·`board_likes`(`0012`, 규칙대로 is_active·시각 맨 뒤·트리거). 본문은 `white-space: pre-wrap` + textContent(줄바꿈 그대로, HTML 주입 X).
+- 나중에: 소모임 예전 글 가져오기(사용자: 추후 검토), 신입에게 가입인사 안내.
+
 ## 라우트와 파일
 
 | 라우트 | 파일 | 스타일 |

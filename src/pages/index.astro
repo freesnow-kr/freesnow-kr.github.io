@@ -32,6 +32,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
 			<nav id="site-nav" aria-label="메인">
 				<a href="#season">SEASON</a>
+				<a href={`${base}/board/`}>BOARD</a>
 				<a href={`${base}/gallery/`}>GALLERY</a>
 				<a href={`${base}/webcam/`}>WEBCAM</a>
 				<a href={`${base}/rank/`}>CHAT RANK</a>
@@ -72,6 +73,13 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 					{[0, 1].map(() => ticker.map((t) => <span>{t}<i>✱</i></span>))}
 				</div>
 			</div>
+
+			<!-- 고정 공지 (게시판 공지 중 운영진이 고정한 것, 없으면 안 보임) -->
+			<section class="notice" aria-label="공지" hidden>
+				<span class="notice-tag">NOTICE</span>
+				<ul class="notice-list"></ul>
+				<a class="notice-all" href={`${base}/board/?c=notice`}>전체 보기 →</a>
+			</section>
 
 			<section id="season" class="season">
 				<div class="head">
@@ -125,6 +133,28 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 			</div>
 			<p class="giant" aria-hidden="true">FREE SNOW</p>
 		</footer>
+		<script>
+			// 메인 NOTICE 줄: 고정 공지 최대 3개 (공지는 누구나 볼 수 있음)
+			import { base, call } from '../scripts/session';
+			const box = document.querySelector<HTMLElement>('.notice')!;
+			const res = await call({ action: 'board.list', category: 'notice', pinned: true }).catch(() => null);
+			const posts = (res?.posts ?? []).slice(0, 3);
+			if (posts.length) {
+				box.querySelector('.notice-list')!.replaceChildren(
+					...posts.map((p: { id: string; title: string; created_at: string }) => {
+						const li = document.createElement('li');
+						const a = document.createElement('a');
+						a.href = `${base}/board/view/?id=${encodeURIComponent(p.id)}`;
+						a.textContent = p.title; // textContent로만 (HTML 주입 방지)
+						const d = document.createElement('span');
+						d.textContent = new Date(p.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+						li.append(a, d);
+						return li;
+					}),
+				);
+				box.hidden = false;
+			}
+		</script>
 		<script>
 			import '../scripts/session';
 

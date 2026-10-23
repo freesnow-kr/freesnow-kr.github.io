@@ -1,0 +1,327 @@
+---
+import { club } from '../../data/club';
+import Meta from '../../components/Meta.astro';
+import '../../styles/ride.css';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<Meta title={`${club.name} — Board`} />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav id="site-nav" aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/board/`} aria-current="page">BOARD</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/rank/`}>CHAT RANK</a>
+				<a href={`${base}/shredlog/`}>SHRED LOG</a>
+				<a href={`${base}/seasonroom/`}>RIDE &amp; STAY</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">COMMUNITY</p>
+				<h1>BOARD.</h1>
+			</section>
+
+			<section class="mem-body">
+				<p class="mem-msg v-msg" role="status">불러오는 중…</p>
+				<article class="v" hidden>
+					<p class="v-cat"></p>
+					<h2 class="v-title"></h2>
+					<p class="v-meta"></p>
+					<div class="v-body"></div>
+					<div class="v-photos"></div>
+					<div class="v-actions">
+						<button class="v-like" type="button" aria-pressed="false">♥ <span>0</span></button>
+						<span class="v-own">
+							<a class="v-edit" hidden>수정</a>
+							<button class="v-del" type="button" hidden>삭제</button>
+						</span>
+					</div>
+					<section class="v-comments">
+						<h3>댓글 <span class="v-ccount"></span></h3>
+						<ul class="v-clist"></ul>
+						<form class="v-cform" hidden>
+							<textarea name="body" rows="2" maxlength="1000" placeholder="댓글을 남겨 주세요" required></textarea>
+							<button class="btn btn-ink" type="submit">등록</button>
+						</form>
+					</section>
+					<a class="v-back" href={`${base}/board/`}>← 목록으로</a>
+				</article>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<span>{club.footer}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { base, busy, call, loginUrl, store } from '../../scripts/session';
+			// 말머리 (서버 board.ts CATS와 같음)
+			const CAT: Record<string, string> = { notice: '공지', review: '모임후기', greeting: '가입인사', free: '자유' };
+			const when = (iso: string) => {
+				const d = new Date(iso);
+				const today = new Date().toDateString() === d.toDateString();
+				return today ? d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString('ko-KR', { year: '2-digit', month: 'numeric', day: 'numeric' });
+			};
+			const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
+				const e = document.createElement(tag);
+				if (cls) e.className = cls;
+				if (text) e.textContent = text; // 글·이름은 textContent로만 (HTML 주입 방지)
+				return e;
+			};
+
+			const id = new URLSearchParams(location.search).get('id') ?? '';
+			const token = store.get() ?? undefined;
+			const art = document.querySelector<HTMLElement>('.v')!;
+			const msg = document.querySelector<HTMLElement>('.v-msg')!;
+			const $ = <T extends Element = HTMLElement>(s: string) => art.querySelector<T>(s)!;
+
+			function draw(p: any, member: boolean) {
+				$('.v-cat').textContent = CAT[p.category] + (p.pinned ? ' · 📌 고정' : '');
+				$('.v-title').textContent = p.title;
+				document.title = `${p.title} — Free Snow`;
+				$('.v-meta').textContent = `${p.author} · ${new Date(p.created_at).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}${p.updated_at > p.created_at ? ' (수정됨)' : ''}`;
+				$('.v-body').textContent = p.body;
+				$('.v-photos').replaceChildren(
+					...p.photos.map((x: any) => {
+						const a = el('a');
+						a.href = x.url;
+						a.target = '_blank';
+						a.rel = 'noopener';
+						const img = el('img');
+						img.src = x.url;
+						img.alt = '';
+						img.loading = 'lazy';
+						a.append(img);
+						return a;
+					}),
+				);
+				const like = $<HTMLButtonElement>('.v-like');
+				like.querySelector('span')!.textContent = String(p.likes);
+				like.setAttribute('aria-pressed', String(p.liked));
+				like.disabled = !member;
+				const edit = $<HTMLAnchorElement>('.v-edit');
+				edit.hidden = !p.mine;
+				edit.href = `${base}/board/write/?id=${encodeURIComponent(p.id)}`;
+				$('.v-del').hidden = !p.canDelete;
+				$('.v-ccount').textContent = String(p.comments.length);
+				$('.v-clist').replaceChildren(
+					...p.comments.map((x: any) => {
+						const li = el('li');
+						const top = el('p', 'c-top');
+						top.append(el('b', '', x.author), el('span', '', when(x.created_at)));
+						if (x.canDelete) {
+							const d = el('button', 'c-del', '삭제');
+							d.type = 'button';
+							d.addEventListener('click', async () => {
+								if (!confirm('댓글을 지울까요?')) return;
+								const r = await call({ action: 'board.commentDelete', token, id: x.id }).catch(() => null);
+								r?.ok ? draw(r.post, r.member) : alert(r?.error ?? '지우지 못했어요.');
+							});
+							top.append(d);
+						}
+						li.append(top, el('p', 'c-body', x.body));
+						return li;
+					}),
+				);
+				$<HTMLFormElement>('.v-cform').hidden = !member;
+				msg.hidden = true;
+				art.hidden = false;
+			}
+
+			const res = await call({ action: 'board.get', token, id }).catch(() => null);
+			if (res?.needLogin) location.replace(`${loginUrl}?next=${encodeURIComponent(location.pathname + location.search)}`);
+			else if (!res?.ok) msg.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+			else draw(res.post, res.member);
+
+			$('.v-like').addEventListener('click', async () => {
+				const r = await call({ action: 'board.like', token, postId: id }).catch(() => null);
+				if (!r?.ok) return alert(r?.error ?? '서버에 연결하지 못했어요.');
+				$('.v-like span').textContent = String(r.likes);
+				$('.v-like').setAttribute('aria-pressed', String(r.liked));
+			});
+			$('.v-del').addEventListener('click', async () => {
+				if (!confirm('이 글을 지울까요?')) return;
+				const r = await call({ action: 'board.delete', token, id }).catch(() => null);
+				r?.ok ? location.replace(`${base}/board/`) : alert(r?.error ?? '지우지 못했어요.');
+			});
+			const form = $<HTMLFormElement>('.v-cform');
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				busy(form, true, '등록 중…');
+				const r = await call({ action: 'board.comment', token, postId: id, body: new FormData(form).get('body') }).catch(() => null);
+				busy(form, false, '');
+				if (!r?.ok) return alert(r?.error ?? '등록하지 못했어요.');
+				form.reset();
+				draw(r.post, r.member);
+			});
+		</script>
+	</body>
+</html>
+
+<style>
+	.v {
+		display: grid;
+		gap: 14px;
+		max-width: 760px;
+	}
+	.v-cat {
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--accent);
+	}
+	.v-title {
+		font: 900 clamp(1.6rem, 3.6vw, 2.2rem) 'Noto Sans KR', sans-serif;
+		letter-spacing: -0.03em;
+		line-height: 1.25;
+	}
+	.v-meta {
+		padding-bottom: 14px;
+		border-bottom: 1.5px solid var(--black);
+		color: #4a4d55;
+		font-size: 14px;
+	}
+	.v-body {
+		min-height: 80px;
+		font-size: 16px;
+		line-height: 1.8;
+		white-space: pre-wrap; /* 줄바꿈 그대로 */
+		overflow-wrap: anywhere;
+	}
+	.v-photos {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: 8px;
+	}
+	.v-photos :global(img) {
+		width: 100%;
+		border-radius: 10px;
+		display: block;
+	}
+	.v-actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 0;
+		border-bottom: 1px solid var(--line);
+	}
+	.v-like {
+		min-height: 40px;
+		padding: 0 18px;
+		border: 1.5px solid var(--black);
+		border-radius: 999px;
+		background: var(--white);
+		color: var(--black);
+		font: 700 15px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.v-like[aria-pressed='true'] {
+		border-color: #e0245e;
+		background: #e0245e;
+		color: var(--white);
+	}
+	.v-like:disabled {
+		cursor: default;
+		opacity: 0.6;
+	}
+	.v-own {
+		display: flex;
+		gap: 14px;
+		font-size: 14px;
+	}
+	.v-own a,
+	.v-own button {
+		border: 0;
+		background: none;
+		color: #4a4d55;
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+	.v-comments {
+		display: grid;
+		gap: 10px;
+	}
+	.v-comments h3 {
+		font-size: 15px;
+		font-weight: 900;
+	}
+	.v-clist {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.v-clist :global(li) {
+		padding: 12px 0;
+		border-bottom: 1px solid var(--line);
+	}
+	.v-clist :global(.c-top) {
+		display: flex;
+		gap: 10px;
+		align-items: baseline;
+		font-size: 13px;
+		color: #4a4d55;
+	}
+	.v-clist :global(.c-top b) {
+		color: var(--black);
+	}
+	.v-clist :global(.c-del) {
+		margin-left: auto;
+		border: 0;
+		background: none;
+		color: #4a4d55;
+		font-size: 12px;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+	.v-clist :global(.c-body) {
+		margin-top: 4px;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	.v-cform {
+		display: flex;
+		gap: 8px;
+		align-items: stretch;
+	}
+	.v-cform textarea {
+		flex: 1;
+		min-height: 48px;
+		padding: 10px 12px;
+		border: 1.5px solid var(--black);
+		font: inherit;
+		resize: vertical;
+	}
+	.v-cform .btn {
+		min-height: 48px;
+		padding: 0 18px;
+	}
+	.v-back {
+		margin-top: 10px;
+		font-weight: 700;
+	}
+</style>

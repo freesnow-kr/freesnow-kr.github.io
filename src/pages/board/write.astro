@@ -1,0 +1,308 @@
+---
+import { club } from '../../data/club';
+import Meta from '../../components/Meta.astro';
+import '../../styles/ride.css';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<Meta title={`${club.name} — Board`} />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav id="site-nav" aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/board/`} aria-current="page">BOARD</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/rank/`}>CHAT RANK</a>
+				<a href={`${base}/shredlog/`}>SHRED LOG</a>
+				<a href={`${base}/seasonroom/`}>RIDE &amp; STAY</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">COMMUNITY</p>
+				<h1>WRITE.</h1>
+			</section>
+
+			<section class="mem-body">
+				<p class="mem-msg w-msg" role="status">불러오는 중…</p>
+				<form class="w" hidden>
+					<label>말머리
+						<select name="category" required>
+							<option value="notice" class="staff-only">공지</option>
+							<option value="review">모임후기</option>
+							<option value="greeting">가입인사</option>
+							<option value="free" selected>자유</option>
+						</select>
+					</label>
+					<label>제목 <input name="title" maxlength="100" required /></label>
+					<label>내용 <textarea name="body" rows="12" maxlength="10000"></textarea></label>
+					<label class="w-check staff-only"><input name="pinned" type="checkbox" /> 맨 위에 고정 (고정한 공지는 메인 화면에도 보여요)</label>
+					<div class="w-photos">
+						<p class="w-label">사진 <small>(최대 10장)</small></p>
+						<div class="w-thumbs"></div>
+						<label class="btn btn-line-dark w-add">사진 추가<input class="w-file" type="file" accept="image/*" multiple hidden /></label>
+					</div>
+					<p class="mem-error w-error" role="alert"></p>
+					<div class="w-btns">
+						<a class="btn btn-line-dark w-cancel" href={`${base}/board/`}>취소</a>
+						<button class="btn btn-ink" type="submit">올리기</button>
+					</div>
+				</form>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<span>{club.footer}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { base, busy, call, loginUrl, store } from '../../scripts/session';
+			import { club } from '../../data/club';
+			// 말머리 (서버 board.ts CATS와 같음)
+			const CAT: Record<string, string> = { notice: '공지', review: '모임후기', greeting: '가입인사', free: '자유' };
+			const when = (iso: string) => {
+				const d = new Date(iso);
+				const today = new Date().toDateString() === d.toDateString();
+				return today ? d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString('ko-KR', { year: '2-digit', month: 'numeric', day: 'numeric' });
+			};
+			const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
+				const e = document.createElement(tag);
+				if (cls) e.className = cls;
+				if (text) e.textContent = text; // 글·이름은 textContent로만 (HTML 주입 방지)
+				return e;
+			};
+
+			const q = new URLSearchParams(location.search);
+			const editId = q.get('id');
+			const token = store.get();
+			const form = document.querySelector<HTMLFormElement>('.w')!;
+			const msg = document.querySelector<HTMLElement>('.w-msg')!;
+			const error = form.querySelector<HTMLElement>('.w-error')!;
+			const thumbs = form.querySelector<HTMLElement>('.w-thumbs')!;
+			const MAX = 10;
+			let newFiles: File[] = [];
+			let oldPhotos: { id: string; url: string }[] = [];
+
+			// 사진 미리보기: 이미 올린 것(고치기) + 새로 고른 것. ✕로 빼기
+			function drawThumbs() {
+				thumbs.replaceChildren(
+					...oldPhotos.map((p) => thumb(p.url, async () => {
+						const r = await call({ action: 'board.photoDelete', token, id: p.id }).catch(() => null);
+						if (!r?.ok) return alert(r?.error ?? '빼지 못했어요.');
+						oldPhotos = oldPhotos.filter((x) => x !== p);
+						drawThumbs();
+					})),
+					...newFiles.map((f) => thumb(URL.createObjectURL(f), () => ((newFiles = newFiles.filter((x) => x !== f)), drawThumbs()))),
+				);
+				form.querySelector<HTMLElement>('.w-add')!.hidden = oldPhotos.length + newFiles.length >= MAX;
+			}
+			function thumb(src: string, onRemove: () => void) {
+				const box = el('div', 'w-thumb');
+				const img = el('img');
+				img.src = src;
+				img.alt = '';
+				const x = el('button', 'w-x', '✕');
+				x.type = 'button';
+				x.ariaLabel = '사진 빼기';
+				x.addEventListener('click', onRemove);
+				box.append(img, x);
+				return box;
+			}
+			form.querySelector<HTMLInputElement>('.w-file')!.addEventListener('change', (e) => {
+				const input = e.target as HTMLInputElement;
+				newFiles = [...newFiles, ...(input.files ?? [])].slice(0, MAX - oldPhotos.length);
+				input.value = '';
+				drawThumbs();
+			});
+			// 브라우저에서 긴 쪽 1600px JPG로 줄여서 올림 (사진 방향은 브라우저가 맞춤)
+			const toJpeg = async (f: File) => {
+				const bmp = await createImageBitmap(f);
+				const s = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+				const c = document.createElement('canvas');
+				c.width = Math.round(bmp.width * s);
+				c.height = Math.round(bmp.height * s);
+				c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+				return new Promise<Blob>((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error('jpeg'))), 'image/jpeg', 0.85));
+			};
+
+			if (!token) location.replace(`${loginUrl}?next=${encodeURIComponent(location.pathname + location.search)}`);
+			else {
+				// 운영진이면 공지·고정 보이게 (서버도 따로 확인)
+				const me = await call({ action: 'me', token }).catch(() => null);
+				const staff = ['staff', 'admin'].includes(me?.me?.role);
+				if (!staff) form.querySelectorAll<HTMLElement>('.staff-only').forEach((x) => x.remove());
+				const sel = form.querySelector<HTMLSelectElement>('[name=category]')!;
+				const want = q.get('c');
+				if (want && [...sel.options].some((o) => o.value === want)) sel.value = want;
+				if (editId) {
+					const r = await call({ action: 'board.get', token, id: editId }).catch(() => null);
+					if (!r?.ok || !r.post.mine) {
+						msg.textContent = r?.error ?? '내가 쓴 글만 고칠 수 있어요.';
+						throw new Error('not mine');
+					}
+					document.querySelector('.mem-intro h1')!.textContent = 'EDIT.';
+					sel.value = r.post.category;
+					form.title.value = r.post.title;
+					(form.elements.namedItem('body') as HTMLTextAreaElement).value = r.post.body;
+					const pin = form.elements.namedItem('pinned') as HTMLInputElement | null;
+					if (pin) pin.checked = r.post.pinned;
+					oldPhotos = r.post.photos;
+					form.querySelector<HTMLAnchorElement>('.w-cancel')!.href = `${base}/board/view/?id=${encodeURIComponent(editId)}`;
+				}
+				drawThumbs();
+				msg.hidden = true;
+				form.hidden = false;
+			}
+
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				error.textContent = '';
+				busy(form, true, '올리는 중…');
+				const d = new FormData(form);
+				const r = await call({ action: 'board.write', token, id: editId || undefined, category: d.get('category'), title: d.get('title'), body: d.get('body'), pinned: d.get('pinned') === 'on' }).catch(() => null);
+				if (!r?.ok) {
+					busy(form, false, '');
+					error.textContent = r?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+					return;
+				}
+				if (newFiles.length) {
+					const up = new FormData();
+					up.set('token', token!);
+					up.set('postId', r.id);
+					try {
+						for (const f of newFiles) up.append('photo', await toJpeg(f), 'photo.jpg');
+						const u = await (await fetch(`${club.api}/board-photos`, { method: 'POST', body: up })).json();
+						if (!u.ok) alert(`글은 올렸지만 사진은 못 올렸어요: ${u.error}`);
+					} catch {
+						alert('글은 올렸지만 사진은 못 올렸어요. (이 브라우저에서 열 수 없는 사진일 수 있어요)');
+					}
+				}
+				location.replace(`${base}/board/view/?id=${encodeURIComponent(r.id)}`);
+			});
+		</script>
+	</body>
+</html>
+
+<style>
+	.w {
+		display: grid;
+		gap: 16px;
+		max-width: 760px;
+	}
+	.w label {
+		display: grid;
+		gap: 6px;
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.w input:not([type='checkbox']),
+	.w select,
+	.w textarea {
+		min-height: 48px;
+		padding: 10px 14px;
+		border: 1.5px solid var(--black);
+		background-color: var(--white);
+		font: inherit;
+		font-size: 16px;
+		font-weight: 400;
+	}
+	.w select {
+		max-width: 220px;
+		padding-right: 38px;
+	}
+	.w textarea {
+		resize: vertical;
+		line-height: 1.7;
+	}
+	.w .w-check {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.w-check input {
+		width: 18px;
+		height: 18px;
+		accent-color: var(--black);
+	}
+	.w-photos {
+		display: grid;
+		gap: 10px;
+	}
+	.w-label {
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.w-label small {
+		font-weight: 400;
+		color: #4a4d55;
+	}
+	.w-thumbs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.w-thumbs :global(.w-thumb) {
+		position: relative;
+		width: 96px;
+		height: 96px;
+	}
+	.w-thumbs :global(img) {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 10px;
+	}
+	.w-thumbs :global(.w-x) {
+		position: absolute;
+		top: -6px;
+		right: -6px;
+		width: 26px;
+		height: 26px;
+		border: 0;
+		border-radius: 50%;
+		background: var(--black);
+		color: var(--white);
+		font-size: 12px;
+		cursor: pointer;
+	}
+	.w .w-add {
+		display: inline-flex;
+		justify-self: start;
+		min-height: 42px;
+		padding: 0 18px;
+		cursor: pointer;
+	}
+	.w-btns {
+		display: flex;
+		gap: 10px;
+		justify-content: flex-end;
+	}
+	.mem-error {
+		color: #c4320a;
+		font-weight: 700;
+		min-height: 1.4em;
+	}
+</style>

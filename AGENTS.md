@@ -88,7 +88,7 @@
 - 원본 영상 `public/2526_*.mp4`는 **`.gitignore`로 배포 제외** (HEVC라 Chrome/Firefox 재생 불가, 용량 큼).
 - 영상 교체: `scripts/make-hero.swift` (macOS AVFoundation. 로컬 ffmpeg는 x265 라이브러리 문제로 깨져 있음). HEVC → H.264, 2.5Mbps, 소리 유지. 세로로 저장된 가로 영상이면 회전 처리 필요(첫 영상 `2526_season.mp4`가 그랬음).
 - 히어로 `<video autoplay muted loop playsinline>` — 자동재생은 음소거만 허용되므로 소리는 `.hero-sound` 버튼으로 켬. `.hero-pause` 버튼(5초 넘는 자동재생은 멈춤 수단 필요), `prefers-reduced-motion`이면 정지 상태로 시작.
-- **헤더 로고**(사용자 요구 2026-10-23, 예전 글자 'FREE SNOW' 대신): `public/logo-white.png` — 원본 `public/freesnow_logo3.jpeg`(저장소엔 안 올림)를 `scripts/make-logo.py`로 여백 자르고 배경 지우고 흰색으로(PIL). 모든 페이지 헤더 `.wordmark` 안 `<img>`, 높이 44px·원래 비율(좌우로 늘렸다가 사용자 요청으로 되돌리고 크기만 키움 — `ride.css`). 원본을 바꾸면 스크립트 다시 실행.
+- **헤더 로고**(사용자 요구 2026-10-23, 예전 글자 'FREE SNOW' 대신): `public/logo-white.png` — 원본 `public/freesnow_logo3.jpeg`(저장소엔 안 올림)를 `scripts/make-logo.py`로 여백 자르고 배경 지우고 흰색으로(PIL). 모든 페이지 헤더 `.wordmark` 안 `<img>`, 높이 50px·원래 비율(좌우로 늘렸다가 사용자 요청으로 되돌리고 크기만 키움 — `ride.css`). 원본을 바꾸면 스크립트 다시 실행.
 - 파비콘: `public/favicon.png`(원 바깥 투명), `public/apple-touch-icon.png`(흰 배경, iOS는 투명을 검게 칠함). 원본 `public/freesnow_logo5.jpeg`.
 - `public/mascot.svg`: `/cute` 픽셀 펭귄 (직접 그린 오리지널, crispEdges path).
 

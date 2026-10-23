@@ -3,6 +3,7 @@
 import type { Ctx } from './index.ts';
 import { need } from './auth.ts';
 import { ROOM_PRICES as PRICES, iso } from './lib.ts';
+import { lessonRequested } from './notify.ts';
 
 
 // {season: '26-27', op?: 'add'|'remove', date?: '2026-12-13', kind?: '숙박'|'휴식'|'출격'|'강습'} → {ok, season, prices, nights: [{date, name, kind, me, owner}], rides: [{date, name, me}], lessons: ['2026-12-13']}
@@ -30,7 +31,9 @@ export async function seasonRoom(c: Ctx) {
 			if (c.body.op === 'add') {
 				const rode = await db.prepare("SELECT 1 FROM ride_checks WHERE member_id = ? AND date = ? AND status = '출격' AND is_active = 1").bind(me.id, date).first();
 				if (!rode) return { ok: false, error: '먼저 그날 출격을 체크해 주세요.' };
+				const was = await db.prepare('SELECT is_active FROM lesson_requests WHERE member_id = ? AND date = ?').bind(me.id, date).first<{ is_active: number }>();
 				await db.prepare('INSERT INTO lesson_requests (member_id, date) VALUES (?, ?) ON CONFLICT(member_id, date) DO UPDATE SET is_active = 1').bind(me.id, date).run();
+				if (!was?.is_active) await lessonRequested(c.env, me.name, date); // 새 요청일 때만 운영진 메일 (두 번 눌러도 한 번)
 			} else await db.prepare('UPDATE lesson_requests SET is_active = 0, teacher_id = NULL WHERE member_id = ? AND date = ? AND is_active = 1').bind(me.id, date).run();
 		} else if (c.body.op === 'add') {
 			const kind = c.body.kind === '휴식' ? '휴식' : '숙박';

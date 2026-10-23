@@ -146,7 +146,7 @@ export async function audit(c: Ctx) {
 }
 
 // {test: true} 시험 메일. 응답 notify = 알림 받는 운영진 이름(회원 정보에 메일이 있는 활동 운영진)
-// 강습 요청 (운영진이 회원 중 한 명과 연결): 2주 전부터 앞으로의 요청, 날짜순. 연락처는 운영진 회원 화면과 같은 범위
+// 강습 요청 (운영진이 회원 중 한 명과 연결): 2주 전부터 앞으로의 요청, 연결 전 먼저·날짜 최신순. 연락처는 운영진 회원 화면과 같은 범위
 // {memberId, date, teacherId?} 이면 연결(teacherId 비우면 연결 해제) 후 목록. riders = 그날 출격 체크한 회원 ID (연결 후보 먼저 보이게)
 export async function lessons(c: Ctx) {
 	const db = c.env.DB;
@@ -175,7 +175,7 @@ export async function lessons(c: Ctx) {
 	const { results } = await db.prepare(
 		`SELECT l.date, l.member_id, l.teacher_id, l.created_at, m.name, m.phone, m.region, m.area, t.name AS teacher
 		 FROM lesson_requests l JOIN members m ON m.id = l.member_id LEFT JOIN members t ON t.id = l.teacher_id
-		 WHERE l.is_active = 1 AND l.date >= ? ORDER BY l.date, l.created_at`,
+		 WHERE l.is_active = 1 AND l.date >= ? ORDER BY l.teacher_id IS NOT NULL, l.date DESC, l.created_at`, // 연결 전 먼저, 날짜는 최신순 (사용자 요구)
 	).bind(from).all<any>();
 	const rides = (
 		await db.prepare("SELECT date, member_id FROM ride_checks WHERE date >= ? AND status = '출격' AND is_active = 1").bind(from).all<{ date: string; member_id: string }>()

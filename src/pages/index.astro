@@ -19,6 +19,10 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 		<Meta title={`${club.name} — Ride Together`} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<!-- 사진 목록(Apps Script)·사진(드라이브) 서버에 미리 연결 -->
+		<link rel="preconnect" href="https://script.google.com" />
+		<link rel="preconnect" href="https://script.googleusercontent.com" />
+		<link rel="preconnect" href="https://lh3.googleusercontent.com" />
 		<link
 			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
 			rel="stylesheet"
@@ -231,7 +235,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 						a.href = `${base}/gallery/`;
 						if (copy) { a.tabIndex = -1; a.ariaHidden = 'true'; }
 						const img = document.createElement('img');
-						img.src = driveImg(p.id, 800);
+						img.src = driveImg(p.id, 720) // 갤러리 격자와 같은 크기 → 브라우저에 저장된 사진을 같이 씀;
 						img.alt = copy ? '' : p.caption || `프리스노우 사진 ${i + 1}`;
 						img.referrerPolicy = 'no-referrer';
 						img.decoding = 'async';

@@ -80,17 +80,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						</form>
 					</div>
 
-					<section class="settle">
-						<h3 class="settle-title"></h3>
-						<div class="scroll">
-							<table>
-								<thead><tr><th>이름</th><th>숙박</th><th>휴식</th><th>금액</th></tr></thead>
-								<tbody></tbody>
-								<tfoot><tr><th>합계</th><th class="sum-stay"></th><th class="sum-rest"></th><th class="sum-won"></th></tr></tfoot>
-							</table>
-						</div>
-						<p class="mine"></p>
-					</section>
 				</div>
 			</section>
 		</main>
@@ -122,7 +111,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const s = (m >= 7 ? y : y - 1) % 100;
 				return `${String(s).padStart(2, '0')}-${String(s + 1).padStart(2, '0')}`;
 			};
-			const won = (n: number) => `${n.toLocaleString()}원`;
 			const WD = ['일', '월', '화', '수', '목', '금', '토'];
 			const label = (date: string) => {
 				const [y, m, d] = date.split('-').map(Number);
@@ -144,7 +132,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			let month = today.slice(0, 7); // 'YYYY-MM' (한 달 보기)
 			let start = shift(weekStart(today), -7); // 3주 보기 첫날(일요일)
 			let selected = today;
-			let prices: Record<Kind, number> = { 숙박: 10000, 휴식: 5000 }; // 1박 / 4시간 휴식 (서버 값으로 바뀜)
 			const seasons: Record<string, { nights: Night[]; rides: Ride[] | null }> = {}; // 시즌별로 한 번 불러와서 달 이동은 바로
 			// 불러온 시즌 전부 (3주가 시즌 경계 7/1에 걸칠 수 있어서). rides가 없는 시즌이 있으면(예전 서버) 출격 숨김
 			const loaded = () => {
@@ -182,7 +169,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					alert(res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
 					return null;
 				}
-				prices = res.prices ?? prices;
 				// rides가 없으면 출격 기능이 없는 예전 서버 → 출격 버튼을 숨김 (예전 서버는 '출격'을 숙박으로 저장해 버림)
 				return (seasons[season] = { nights: res.nights, rides: Array.isArray(res.rides) ? res.rides : null });
 			}
@@ -272,41 +258,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 								: [['시즌방 숙박으로 변경', 'add', '숙박', false], ['취소', 'remove', '', false]],
 					),
 				);
-
-				// 고른 날이 있는 달의 시즌방 사용 이력: 숙박 1박·4시간 휴식 각 금액, 주주 0원
-				const month0 = selected.slice(0, 7);
-				const m = Number(month0.slice(5));
-				type Person = { name: string; owner: boolean; me: boolean; stay: number; rest: number };
-				const people: Record<string, Person> = {};
-				nights
-					.filter((n) => n.date.startsWith(month0))
-					.forEach((n) => {
-						const p = (people[n.name] ||= { name: n.name, owner: n.owner, me: n.me, stay: 0, rest: 0 });
-						if (n.kind === '휴식') p.rest++;
-						else p.stay++;
-					});
-				const pay = (p: { owner: boolean; stay: number; rest: number }) => (p.owner ? 0 : p.stay * prices.숙박 + p.rest * prices.휴식);
-				const list = Object.values(people).sort((a, c) => pay(c) - pay(a) || c.stay - a.stay || a.name.localeCompare(c.name, 'ko'));
-				$('.settle-title').textContent = `${m}월 시즌방 사용 이력`;
-				$('.settle tbody').replaceChildren(
-					...(list.length ? list : [null]).map((p) => {
-						const tr = document.createElement('tr');
-						if (p?.me) tr.className = 'me';
-						const cells = p ? [`${p.name}${p.owner ? ' · 주주' : ''}`, `${p.stay}박`, `${p.rest}회`, won(pay(p))] : ['이번 달 기록이 없어요.', '', '', '']; // 주주는 0원
-						cells.forEach((c) => {
-							const td = document.createElement('td');
-							td.textContent = c;
-							tr.append(td);
-						});
-						return tr;
-					}),
-				);
-				$('.sum-stay').textContent = `${list.reduce((t, p) => t + p.stay, 0)}박`;
-				$('.sum-rest').textContent = `${list.reduce((t, p) => t + p.rest, 0)}회`;
-				$('.sum-won').textContent = won(list.reduce((t, p) => t + pay(p), 0));
-				const myAll = nights.filter((n) => n.me && seasonOf(n.date) === seasonOf(selected)); // 시즌방만 (출격은 정산 없음)
-				const my = { owner: !!myAll[0]?.owner, stay: myAll.filter((n) => n.kind !== '휴식').length, rest: myAll.filter((n) => n.kind === '휴식').length };
-				$('.mine').textContent = `내 ${seasonOf(selected)} 시즌: 숙박 ${my.stay}박 · 휴식 ${my.rest}회${my.owner ? ' · 주주라 정산 없음' : ` · ${won(pay(my))}`}`;
 			}
 
 			// ‹ ›: 3주 보기는 한 주씩, 한 달 보기는 한 달씩. 오늘이 보이면 오늘, 아니면 첫날을 고름
@@ -548,7 +499,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.day-names {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 6px 14px;
+		gap: 4px 12px;
+		font-size: 14px; /* 사용자 요구: 명단 이름 살짝 작게 */
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -566,44 +518,5 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		min-height: 44px;
 		padding: 0 16px;
 	}
-	.settle {
-		display: grid;
-		gap: 12px;
-	}
-	.settle-title {
-		font: 1.4rem var(--display);
-		font-weight: 400;
-		letter-spacing: 0.02em;
-	}
-	.scroll {
-		overflow-x: auto;
-	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 14px;
-	}
-	th,
-	.settle :global(td) {
-		padding: 10px 8px;
-		border-bottom: 1px solid var(--line);
-		text-align: left;
-	}
-	thead th,
-	tfoot th {
-		font-size: 12px;
-		letter-spacing: 0.08em;
-		border-bottom: 1.5px solid var(--black);
-	}
-	tfoot th {
-		border-top: 1.5px solid var(--black);
-		border-bottom: 0;
-		font-size: 14px;
-	}
-	.settle :global(tr.me td) {
-		font-weight: 700;
-	}
-	.mine {
-		font-weight: 700;
-	}
+	/* 시즌방 사용 이력·정산은 운영진 화면(/admin '시즌방 정산'), 본인 것은 마이페이지 (사용자 요구 2026-10-23) */
 </style>

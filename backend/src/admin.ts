@@ -72,6 +72,8 @@ export async function members(c: Ctx) {
 		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1
 		 ORDER BY m.sort_no, m.name`,
 	).all();
+	// {export: true} 명부 내려받기 — 개인정보라 누가 언제 받았는지 운영 기록
+	if (c.body.export === true) await log(c, me.id, 'members.export', null, { count: results.length }).run();
 	return { ok: true, role: me.role, members: results };
 }
 

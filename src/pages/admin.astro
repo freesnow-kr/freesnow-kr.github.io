@@ -70,7 +70,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					</section>
 
 					<section class="panel" data-panel="members" hidden>
-						<input class="search" type="search" placeholder="이름·연락처·지역으로 찾기" />
+						<div class="member-tools">
+							<input class="search" type="search" placeholder="이름·연락처·지역으로 찾기" />
+							<button class="btn-mini ink member-export" type="button">회원 명부 다운로드 (엑셀)</button>
+						</div>
 						<p class="hint">비밀번호 초기화(운영진 이상, 관리자 계정은 관리자만): 그 회원의 로그인이 모두 끊기고 72시간 동안 공용 초기화 비밀번호로만 들어올 수 있어요.</p>
 						<div class="scroll"><table><thead><tr><th>No</th><th>이름</th><th>연락처</th><th>지역</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
 					</section>
@@ -111,6 +114,19 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					</section>
 				</div>
 
+				<dialog class="status-dlg">
+					<form method="dialog" class="status-form">
+						<h2 class="status-who">상태</h2>
+						<label class="st"><input type="radio" name="st" value="active" /> 활동</label>
+						<label class="st"><input type="radio" name="st" value="suspended" /> 정지 <small>잠시 로그인 막기</small></label>
+						<label class="st"><input type="radio" name="st" value="withdrawn" /> 탈퇴 <small>기록은 그대로 두고 로그인 막기</small></label>
+						<div class="edit-btns">
+							<button class="btn btn-line-dark" value="cancel" formnovalidate>닫기</button>
+							<button class="btn btn-ink" value="save">저장</button>
+						</div>
+					</form>
+				</dialog>
+
 				<dialog class="edit">
 					<form method="dialog" class="edit-form">
 						<h2>회원 정보 수정</h2>
@@ -121,7 +137,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<label>지역 <input name="region" placeholder="경기북부, 서울 …" /></label>
 						<label>거주지 <input name="area" /></label>
 						<label>비공개 연락처 <input name="private_contact" /></label>
-						<label>상태 <select name="status"><option value="active">활동</option><option value="suspended">정지</option><option value="withdrawn">탈퇴</option></select></label>
 						<fieldset class="admin-only">
 							<label>권한 <select name="role"><option value="member">회원</option><option value="master">마스터 (명예)</option><option value="staff">운영진</option><option value="admin">관리자</option></select></label>
 						</fieldset>
@@ -240,8 +255,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 									if (r) alert(`초기화했어요. ${new Date(r.resetUntil).toLocaleString('ko-KR')}까지 공용 초기화 비밀번호로 로그인하면 새 비밀번호를 정하게 돼요.`), loadMembers();
 								}),
 							);
+						// 상태 변경: 운영진 이상 (관리자 계정은 관리자만 — 서버도 확인)
+						if (m.role !== 'admin' || role === 'admin') btns.append(button('상태 변경', () => changeStatus(m)));
 						const pw = m.reset_pending ? '초기화 대기' : m.password_changed ? '설정함' : '첫 로그인 전';
-						const row = tr([String(i + 1), m.name, phone(m.phone), m.region, m.area, ROLE[m.role], statusPicker(m), when(m.last_login), pw, btns]);
+						const row = tr([String(i + 1), m.name, phone(m.phone), m.region, m.area, ROLE[m.role], statusBadge(m.status), when(m.last_login), pw, btns]);
 						if (m.status !== 'active') row.className = 'off';
 						return row;
 					}),
@@ -249,24 +266,54 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			}
 			$('.search').addEventListener('input', drawMembers);
 
-			// 회원 표의 상태 칸: 바로 바꾸는 선택 칸 (운영진 이상, 관리자 계정은 관리자만 — 바꿀 수 없으면 글자만)
-			function statusPicker(m: any): Node | string {
-				if (m.role === 'admin' && role !== 'admin') return STATUS[m.status];
-				const sel = document.createElement('select');
-				sel.className = 'status-pick';
-				sel.ariaLabel = `${m.name} 상태`;
-				for (const [v, t] of Object.entries(STATUS)) sel.append(new Option(t, v, false, v === m.status));
-				sel.addEventListener('change', async () => {
-					const next = sel.value;
-					const warn = next === 'active' ? '' : ' 지금 로그인은 끊기고 다시 로그인할 수 없어요.';
-					if (!confirm(`${m.name} 님을 '${STATUS[next]}'(으)로 바꿀까요?${warn}`)) return void (sel.value = m.status);
-					const r = await api('admin.memberStatus', { id: m.id, status: next });
-					if (!r) return void (sel.value = m.status);
-					loadMembers();
-					loadSummary();
-				});
-				return sel;
+			// 회원 명부 내려받기: 엑셀에서 바로 열리는 CSV (UTF-8 BOM으로 한글 안 깨짐, 연락처는 하이픈 넣어 앞 0 유지)
+			// 서버에 export: true로 다시 받아서 운영 기록을 남김 (개인정보)
+			$('.member-export').addEventListener('click', async () => {
+				const res = await api('admin.members', { export: true });
+				if (!res) return;
+				const cell = (v: unknown) => {
+					let t = v == null ? '' : String(v);
+					if (/^[=+\-@]/.test(t)) t = "'" + t; // 엑셀 수식으로 안 읽히게
+					return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+				};
+				const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('sv-SE') : '');
+				const head = ['No', '이름', '연락처', '성별', '생년월일', '지역', '거주지', '비공개연락처', '권한', '상태', '가입일', '최근 로그인'];
+				const rows = res.members.map((m: any, i: number) => [i + 1, m.name, phone(m.phone), m.gender, m.birth, m.region, m.area, m.private_contact, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login)]);
+				const csv = '\uFEFF' + [head, ...rows].map((r) => r.map(cell).join(',')).join('\r\n');
+				const a = document.createElement('a');
+				a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+				a.download = `프리스노우_회원명부_${new Date().toLocaleDateString('sv-SE')}.csv`;
+				a.click();
+				URL.revokeObjectURL(a.href);
+			});
+
+			// 상태는 표에 글자(배지)로, 바꾸기는 '상태 변경' 버튼 → 작은 창에서 고르기
+			const statusBadge = (st: string) => {
+				const b = document.createElement('span');
+				b.className = `status-badge s-${st}`;
+				b.textContent = STATUS[st];
+				return b;
+			};
+			const statusDlg = $<HTMLDialogElement>('.status-dlg');
+			let statusFor: any = null;
+			function changeStatus(m: any) {
+				statusFor = m;
+				$('.status-who').textContent = `${m.name} 님 상태`;
+				statusDlg.querySelectorAll<HTMLInputElement>('input[name=st]').forEach((x) => (x.checked = x.value === m.status));
+				statusDlg.showModal();
 			}
+			statusDlg.querySelector('form')!.addEventListener('submit', async (e) => {
+				if ((e.submitter as HTMLButtonElement)?.value !== 'save') return;
+				e.preventDefault();
+				const next = statusDlg.querySelector<HTMLInputElement>('input[name=st]:checked')?.value;
+				if (!next || next === statusFor.status) return statusDlg.close();
+				if (next !== 'active' && !confirm(`${statusFor.name} 님을 '${STATUS[next]}'(으)로 바꾸면 지금 로그인이 끊기고 다시 로그인할 수 없어요. 바꿀까요?`)) return;
+				const r = await api('admin.memberStatus', { id: statusFor.id, status: next });
+				if (!r) return;
+				statusDlg.close();
+				loadMembers();
+				loadSummary();
+			});
 
 			// 수정 창: 운영진은 정보만, 마스터는 권한·상태도
 			const dialog = $<HTMLDialogElement>('.edit');
@@ -274,7 +321,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			let editing: any = null;
 			function edit(m: any) {
 				editing = m;
-				for (const k of ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact', 'role', 'status']) (form.elements.namedItem(k) as HTMLInputElement).value = m[k] ?? '';
+				for (const k of ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact', 'role']) (form.elements.namedItem(k) as HTMLInputElement).value = m[k] ?? '';
 				$('.edit-error').textContent = '';
 				dialog.showModal();
 			}
@@ -282,12 +329,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if ((e.submitter as HTMLButtonElement)?.value !== 'save') return;
 				e.preventDefault();
 				const d = Object.fromEntries(new FormData(form)) as Record<string, string>;
-				const { role: newRole, status, ...info } = d;
+				const { role: newRole, ...info } = d;
+				const status = editing.status; // 상태는 '상태 변경' 버튼에서
 				const r1 = await call({ action: 'admin.memberUpdate', token, id: editing.id, ...info }).catch(() => null);
 				if (!r1?.ok) return void ($('.edit-error').textContent = r1?.error ?? '저장하지 못했어요.');
-				// 상태는 운영진도, 권한은 관리자만 (서버가 다시 확인)
+				// 권한은 관리자만 (서버가 다시 확인)
 				const roleNext = role === 'admin' ? newRole : editing.role;
-				if (roleNext !== editing.role || status !== editing.status) {
+				if (roleNext !== editing.role) {
 					const r2 = await call({ action: 'admin.memberStatus', token, id: editing.id, role: roleNext, status }).catch(() => null);
 					if (!r2?.ok) return void ($('.edit-error').textContent = r2?.error ?? '권한·상태를 저장하지 못했어요.');
 				}
@@ -605,6 +653,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		background: var(--black);
 		color: var(--white);
 	}
+	/* 검색창 | (오른쪽) 명부 다운로드 */
+	.member-tools {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+	}
+	.member-tools .search {
+		flex: 1;
+	}
+	.member-tools .member-export {
+		min-height: 44px;
+		padding: 0 16px;
+	}
 	.search {
 		max-width: 360px;
 		min-height: 44px;
@@ -628,13 +691,66 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		background-color: var(--white);
 		font: 700 14px 'Noto Sans KR', sans-serif;
 	}
-	/* 회원 표 상태 칸 (작게) */
-	.panel select.status-pick {
-		min-width: 92px;
-		min-height: 32px;
-		padding: 0 30px 0 10px;
-		font-size: 13px;
-		background-position: right 10px center;
+	/* 회원 표 상태 배지 */
+	.panel :global(.status-badge) {
+		display: inline-block;
+		padding: 2px 10px;
+		border-radius: 999px;
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.panel :global(.s-active) {
+		background: #e6f4ea;
+		color: #1e6b34;
+	}
+	.panel :global(.s-suspended) {
+		background: #fff1d6;
+		color: #8a5a00;
+	}
+	.panel :global(.s-withdrawn) {
+		background: #eceae4;
+		color: #6b6d73;
+	}
+	/* 상태 변경 창 */
+	.status-dlg {
+		width: min(360px, 92vw);
+		border: 1.5px solid var(--black);
+		padding: 24px;
+	}
+	.status-dlg::backdrop {
+		background: rgb(0 0 0 / 0.4);
+	}
+	.status-form {
+		display: grid;
+		gap: 10px;
+	}
+	.status-form h2 {
+		font-size: 1.2rem;
+		font-weight: 900;
+		margin-bottom: 4px;
+	}
+	.status-form .st {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		padding: 12px 14px;
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.status-form .st:has(input:checked) {
+		border-color: var(--black);
+		background: var(--bone);
+	}
+	.status-form .st small {
+		margin-left: auto;
+		font-weight: 400;
+		font-size: 12px;
+		color: #4a4d55;
+	}
+	.status-form input {
+		accent-color: var(--black);
 	}
 	.owner-list {
 		display: flex;

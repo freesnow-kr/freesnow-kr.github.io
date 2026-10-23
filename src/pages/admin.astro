@@ -67,7 +67,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<section class="panel" data-panel="members" hidden>
 						<input class="search" type="search" placeholder="이름·연락처·지역으로 찾기" />
 						<p class="hint">비밀번호 초기화(운영진 이상, 관리자 계정은 관리자만): 그 회원의 로그인이 모두 끊기고 72시간 동안 공용 초기화 비밀번호로만 들어올 수 있어요.</p>
-						<div class="scroll"><table><thead><tr><th>이름</th><th>연락처</th><th>지역</th><th>거주지</th><th>권한</th><th>명칭</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
+						<div class="scroll"><table><thead><tr><th>이름</th><th>연락처</th><th>지역</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="room" hidden>
@@ -116,9 +116,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<label>지역 <input name="region" placeholder="경기북부, 서울 …" /></label>
 						<label>거주지 <input name="area" /></label>
 						<label>비공개 연락처 <input name="private_contact" /></label>
-						<label class="check"><input name="honorary" type="checkbox" /> 마스터 (명예 — 대우하는 선배·고문, 권한은 그대로)</label>
 						<fieldset class="admin-only">
-							<label>권한 <select name="role"><option value="member">회원</option><option value="staff">운영진</option><option value="admin">관리자</option></select></label>
+							<label>권한 <select name="role"><option value="member">회원</option><option value="master">마스터 (명예)</option><option value="staff">운영진</option><option value="admin">관리자</option></select></label>
 							<label>상태 <select name="status"><option value="active">활동</option><option value="suspended">정지</option><option value="withdrawn">탈퇴</option></select></label>
 						</fieldset>
 						<p class="edit-error" role="alert"></p>
@@ -146,7 +145,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			const $ = <T extends Element = HTMLElement>(s: string, root: ParentNode = document) => root.querySelector<T>(s)!;
 			const token = store.get();
 			const back = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
-			const ROLE: Record<string, string> = { member: '회원', staff: '운영진', admin: '관리자' };
+			const ROLE: Record<string, string> = { member: '회원', master: '마스터', staff: '운영진', admin: '관리자' };
 			const STATUS: Record<string, string> = { active: '활동', suspended: '정지', withdrawn: '탈퇴' };
 			const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '-');
 			const phone = (d: string) => (d?.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : d ?? '');
@@ -221,7 +220,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const q = $<HTMLInputElement>('.search').value.trim().replace(/-/g, '');
 				const list = members.filter((m) => !q || [m.name, m.phone, m.region, m.area].join(' ').includes(q));
 				const body = $('.member-rows');
-				if (!list.length) return empty(body, 10, '없어요.');
+				if (!list.length) return empty(body, 9, '없어요.');
 				body.replaceChildren(
 					...list.map((m) => {
 						const btns = document.createElement('span');
@@ -237,7 +236,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 								}),
 							);
 						const pw = m.reset_pending ? '초기화 대기' : m.password_changed ? '설정함' : '첫 로그인 전';
-						const row = tr([m.name, phone(m.phone), m.region, m.area, ROLE[m.role], m.honorary ? '마스터' : '', STATUS[m.status], when(m.last_login), pw, btns]);
+						const row = tr([m.name, phone(m.phone), m.region, m.area, ROLE[m.role], STATUS[m.status], when(m.last_login), pw, btns]);
 						if (m.status !== 'active') row.className = 'off';
 						return row;
 					}),
@@ -252,7 +251,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			function edit(m: any) {
 				editing = m;
 				for (const k of ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact', 'role', 'status']) (form.elements.namedItem(k) as HTMLInputElement).value = m[k] ?? '';
-				(form.elements.namedItem('honorary') as HTMLInputElement).checked = !!m.honorary;
 				$('.edit-error').textContent = '';
 				dialog.showModal();
 			}
@@ -260,8 +258,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if ((e.submitter as HTMLButtonElement)?.value !== 'save') return;
 				e.preventDefault();
 				const d = Object.fromEntries(new FormData(form)) as Record<string, string>;
-				const { role: newRole, status, honorary, ...info } = d;
-				const r1 = await call({ action: 'admin.memberUpdate', token, id: editing.id, ...info, honorary: honorary === 'on' }).catch(() => null);
+				const { role: newRole, status, ...info } = d;
+				const r1 = await call({ action: 'admin.memberUpdate', token, id: editing.id, ...info }).catch(() => null);
 				if (!r1?.ok) return void ($('.edit-error').textContent = r1?.error ?? '저장하지 못했어요.');
 				if (role === 'admin' && (newRole !== editing.role || status !== editing.status)) {
 					const r2 = await call({ action: 'admin.memberStatus', token, id: editing.id, role: newRole, status }).catch(() => null);

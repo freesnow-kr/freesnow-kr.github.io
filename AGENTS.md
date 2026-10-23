@@ -32,7 +32,7 @@
 | `/webcam/` | `src/pages/webcam.astro` | 같은 에디토리얼 스타일 |
 | `/login/` | `src/pages/login.astro` | 로그인 폼 + 회원가입 버튼. 로그인 후(또는 이미 로그인 상태면) **메인으로**, `?next=` 있으면 거기로 |
 | `/signup/` | `src/pages/signup.astro` | 회원가입 신청 폼 (개인정보 동의 필수) |
-| `/members/` | `src/pages/members.astro` | **마이페이지**(헤더 동그란 내 메뉴 → 내 정보). 디자인은 사용자가 시안 10여 개 중 고른 **A1**(2026-10-23): 흰 카드에 둥근 네모 사진(누르면 바꾸기) + 이름 + 칩(MEMBER/STAFF/MASTER·구분 지역·연락처), 아래 이번 시즌 숫자 띠(출격·시즌방 박(휴식)·정산(주주 0원)·SHRED LOG 출격일·사진 — Worker `me`의 `season`), 그 아래 설정 화면 같은 목록(사진 바꾸기·지우기·비밀번호·운영진 화면(운영진만)·로그아웃). 바로가기 목록은 사용자가 빼라고 함. 토큰 없거나 만료면 `/login` |
+| `/members/` | `src/pages/members.astro` | **마이페이지**(헤더 동그란 내 메뉴 → 내 정보). 디자인은 사용자가 시안 10여 개 중 고른 **A1**(2026-10-23): 흰 카드에 둥근 네모 사진(오른쪽 아래 카메라 표시, 누르면 작은 메뉴: 사진 선택 / 사진 지우기 / 취소) + 이름 + 칩(MEMBER/STAFF/MASTER·구분 지역·연락처), 아래 이번 시즌 숫자 띠(출격·시즌방 박(휴식)·정산(주주 0원)·SHRED LOG 출격일·사진 — Worker `me`의 `season`), 내 시즌방 이용(달별), 그 아래 설정 화면 같은 목록(비밀번호·운영진 화면(운영진만)·로그아웃 — 사진 바꾸기·지우기 줄은 사용자 요청으로 빼고 사진 메뉴로). 바로가기 목록은 사용자가 빼라고 함. 토큰 없거나 만료면 `/login` |
 | `/rank/` | `src/pages/rank.astro` | 회원 전용 오픈채팅 메시지 수 랭킹, 끝난 달만 달별로 고름(기본: 항상 지난달 1일~말일, 이번 달은 숨김, '전체' 없음 — 사용자 요구). 헤더 메뉴 **CHAT RANK** |
 | `/shredlog/` | `src/pages/shredlog.astro` | SHRED LOG: 개인 시즌 출격·지출 기록(24-25/25-26/26-27), 시즌권 본전 계산, 시즌 비교, 지출 CSV. 비회원도 사용(브라우저 저장) + 로그인 유도, 회원은 시트 저장. 시즌 = 7/1~6/30 |
 | `/seasonroom/` | `src/pages/seasonroom.astro` | 회원 전용 **RIDE & STAY**(예전 SEASON ROOM, 주소는 그대로): 출격·시즌방 숙박 체크 달력, 달별 시즌방 사용 이력 |
@@ -41,7 +41,7 @@
 | `/cute/` | `src/pages/cute.astro` | 픽셀아트(Kizupi 느낌), 자체 `<style is:global>` |
 | `/ride/` | `astro.config.mjs` `redirects` | 예전 공개 주소 → `/` |
 
-- **내용 칼럼 가운데**(사용자 요구 2026-10-23, 글자 정렬은 그대로 왼쪽): `ride.css`의 `--col`(기본 1120px)과 `body`의 `--gutter`(= 넓은 화면에선 `(100% - --col)/2`, 좁으면 기본 여백) — 검정 제목 띠(`.mem-intro`, 웹캠 `.cam-intro`)와 본문(`.mem-body`, 메인 THE SEASON·manifesto·FAQ, 웹캠 목록)의 좌우 여백에 씀. 폼처럼 좁은 페이지는 페이지 스타일에서 `:global(body) { --col: 420px }`(로그인·비밀번호 420, 가입 480, 마이페이지 760) → 제목과 내용 왼쪽 끝이 같은 선. 헤더·메인 히어로·사진 띠·푸터는 화면 전체. **`--gutter`는 body에서 계산해야 함**(:root에서 하면 1120으로 굳어 페이지별 `--col`이 안 먹음 — 실제로 겪음).
+- **내용 칼럼 가운데**(사용자 요구 2026-10-23, 글자 정렬은 그대로 왼쪽): `ride.css`의 `--col`(기본 1120px)과 `body`의 `--gutter`(= 넓은 화면에선 `(100% - --col)/2`, 좁으면 기본 여백) — 검정 제목 띠(`.mem-intro`, 웹캠 `.cam-intro`)와 본문(`.mem-body`, 메인 THE SEASON·manifesto·FAQ, 웹캠 목록)의 좌우 여백에 씀. **모든 페이지가 같은 칼럼**(사용자 요구: 페이지마다 제목 위치가 달라 보이면 안 됨) — 좁은 내용(로그인 폼·마이페이지 등)은 칼럼 왼쪽에서 시작. 페이지별로 `--col`을 바꾸는 방법도 있지만 쓰지 않기로 함. 헤더·메인 히어로·사진 띠·푸터는 화면 전체. **`--gutter`는 body에서 계산해야 함**(:root에서 하면 1120으로 굳어 페이지별 `--col`이 안 먹음 — 실제로 겪음).
 - `src/styles/ride.css`: `/`, `/webcam`, `/members` 공통 전역 CSS (토큰, 고정 헤더, 버튼, 푸터). **셀렉트박스 모양(직접 그린 화살표, 오른쪽 14px 안쪽)도 여기 `select` 공통** — 페이지 스타일에선 select에 `background` 단축 속성 쓰지 말고(화살표 지워짐) `background-color`, 오른쪽 여백 34px 이상. 각 페이지는 `import '../styles/ride.css'` + 페이지 전용 `<style>`.
 - `src/data/regions.json`: 가입 거주지 선택 목록(시도 → 시군구). `node scripts/make-regions.mjs data/list_20260630.csv`로 법정동 CSV에서 생성(원본 CSV는 `data/`, gitignore). 시도는 서울·경기 먼저 그다음 가나다, 시군구는 가나다, 시 아래 일반구(수원시장안구 등) 제외.
 - `src/data/club.ts`: **공통 데이터** — `club.joinUrl`(카카오 오픈채팅), `club.somoimUrl`, `club.membersApi`(Apps Script URL), `trips`(시즌 일정), `faqs`. 여러 페이지가 import하므로 문구는 여기서 수정.

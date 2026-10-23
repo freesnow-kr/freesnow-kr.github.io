@@ -2,12 +2,15 @@
 import { Reply, adminReset, login, logout, me, password } from './auth.ts';
 import { iso, later } from './lib.ts';
 import { seasonRoom } from './seasonroom.ts';
+import { shredLog } from './shredlog.ts';
+import { snowlive } from './snowlive.ts';
 
 export type Env = {
 	DB: D1Database;
 	ALLOWED_ORIGINS: string; // 쉼표로 구분
 	RESET_PASSWORD: string; // secret
 	LOGIN_KEY_SECRET: string; // secret (로그인 이력의 아이디·IP HMAC)
+	SNOWLIVE_API: string; // secret (비공식 주소라 저장소에 안 둠)
 };
 export type Ctx = { env: Env; req: Request; body: Record<string, any>; now: Date };
 
@@ -20,6 +23,8 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	password,
 	me,
 	seasonroom: seasonRoom,
+	shredlog: shredLog,
+	snowlive,
 	'admin.reset': adminReset,
 };
 

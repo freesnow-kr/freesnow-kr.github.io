@@ -515,6 +515,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		text-align: left;
 		cursor: pointer;
 	}
+	/* '시즌방'은 왼쪽, '자세히 ›'는 칸 오른쪽 끝 */
+	.strip-btn dt {
+		display: flex;
+		justify-content: space-between;
+		gap: 6px;
+	}
 	.strip-btn i {
 		font-style: normal;
 		font-weight: 400;

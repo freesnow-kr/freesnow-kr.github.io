@@ -46,54 +46,37 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			<section class="mem-body">
 				<p class="mem-msg loading">불러오는 중…</p>
 				<div class="dash" hidden>
-					<!-- 프로필: 사진(누르면 바꾸기) | 이름·구분·지역·연락처 -->
+					<!-- 내 정보: 둥근 네모 사진(누르면 바꾸기) + 이름 + 칩 (사용자가 고른 시안 A1, 2026-10-23) -->
 					<section class="me">
-						<div class="avatar-wrap">
-							<label class="avatar" title="사진 바꾸기">
-								<img alt="내 프로필 사진" referrerpolicy="no-referrer" hidden /><span class="avatar-ini" aria-hidden="true"></span>
-								<span class="avatar-cam" aria-hidden="true">📷</span>
-								<input class="avatar-file" type="file" accept="image/*" aria-label="프로필 사진 바꾸기" hidden />
-							</label>
-							<button class="avatar-del" type="button" hidden>사진 지우기</button>
-							<p class="avatar-msg" role="status"></p>
-						</div>
+						<label class="avatar" title="사진 바꾸기">
+							<img alt="내 프로필 사진" referrerpolicy="no-referrer" hidden /><span class="avatar-ini" aria-hidden="true"></span>
+							<span class="avatar-cap" aria-hidden="true">사진 바꾸기</span>
+							<input id="avatar-file" class="avatar-file" type="file" accept="image/*" aria-label="프로필 사진 바꾸기" hidden />
+						</label>
 						<div class="me-info">
-							<p class="kicker me-role"></p>
+							<p class="me-season"></p>
 							<h2 class="me-name"></h2>
-							<p class="me-meta"></p>
+							<ul class="me-chips"></ul>
 						</div>
 					</section>
+					<p class="avatar-msg" role="status"></p>
 
 					<!-- 이번 시즌 내 기록 (서버 me.season) -->
-					<section class="block">
-						<h3 class="block-title season-title"></h3>
-						<ul class="tiles">
-							<li><span class="tile-num" data-k="rides"></span><span class="tile-label">출격 체크</span></li>
-							<li><span class="tile-num" data-k="stays"></span><span class="tile-label stay-label">시즌방</span></li>
-							<li><span class="tile-num" data-k="pay"></span><span class="tile-label pay-label">시즌방 정산</span></li>
-							<li><span class="tile-num" data-k="visits"></span><span class="tile-label spent-label">SHRED LOG</span></li>
-							<li><span class="tile-num" data-k="photos"></span><span class="tile-label">올린 사진</span></li>
-						</ul>
-					</section>
+					<dl class="strip">
+						<div><dt>출격</dt><dd data-k="rides"></dd></div>
+						<div><dt class="stay-label">시즌방</dt><dd data-k="stays"></dd></div>
+						<div><dt class="pay-label">정산</dt><dd data-k="pay"></dd></div>
+						<div><dt>SHRED LOG</dt><dd data-k="visits"></dd></div>
+						<div><dt>사진</dt><dd data-k="photos"></dd></div>
+					</dl>
 
-					<section class="block">
-						<h3 class="block-title">바로가기</h3>
-						<nav class="links" aria-label="바로가기">
-							<a href={`${base}/seasonroom/`}><b>RIDE &amp; STAY</b><span>출격·시즌방 체크</span></a>
-							<a href={`${base}/shredlog/`}><b>SHRED LOG</b><span>내 출격·지출 기록</span></a>
-							<a href={`${base}/gallery/`}><b>GALLERY</b><span>사진 보기·올리기</span></a>
-							<a href={`${base}/rank/`}><b>CHAT RANK</b><span>오픈채팅 랭킹</span></a>
-						</nav>
-					</section>
-
-					<section class="block account">
-						<h3 class="block-title">계정</h3>
-						<div class="me-btns">
-							<a class="btn btn-ink staff-link" href={`${base}/admin/`} hidden>운영진 화면</a>
-							<a class="btn btn-line-dark" href={`${base}/password/`}>비밀번호 변경</a>
-							<button class="btn btn-line-dark logout" type="button">로그아웃</button>
-						</div>
-					</section>
+					<nav class="rows" aria-label="계정">
+						<label class="row" for="avatar-file">프로필 사진 바꾸기<i>›</i></label>
+						<button class="row avatar-del" type="button" hidden>프로필 사진 지우기</button>
+						<a class="row" href={`${base}/password/`}>비밀번호 변경<i>›</i></a>
+						<a class="row staff-link" href={`${base}/admin/`} hidden>운영진 화면<i>›</i></a>
+						<button class="row out logout" type="button">로그아웃</button>
+					</nav>
 				</div>
 			</section>
 		</main>
@@ -125,12 +108,19 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					// 시트 값은 textContent로만 넣음 (HTML 주입 방지)
 					store.setName(res.me.name);
 					store.setPhoto(res.me.photo ? photoSrc(res.me.photo, 96) : ''); // 헤더 내 메뉴 동그라미
-					dash.querySelector('.me-name')!.textContent = `${res.me.name}님`;
-					dash.querySelector('.me-role')!.textContent = { master: 'MASTER', staff: 'STAFF' }[res.me.role as string] ?? 'MEMBER';
+					dash.querySelector('.me-name')!.textContent = res.me.name;
+					const chips = [{ master: 'MASTER', staff: 'STAFF' }[res.me.role as string] ?? 'MEMBER', [res.me.grade, res.me.area].filter(Boolean).join(' '), res.me.phone];
+					dash.querySelector('.me-chips')!.replaceChildren(
+						...chips.filter(Boolean).map((t, i) => {
+							const li = document.createElement('li');
+							li.textContent = t;
+							if (i === 0) li.className = 'role';
+							return li;
+						}),
+					);
 					showSeason(res.season);
 					// 운영진·마스터에게만 링크 (권한은 서버가 따로 확인)
 					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'master'].includes(res.me.role);
-					dash.querySelector('.me-meta')!.textContent = [res.me.grade, res.me.area, res.me.phone].filter(Boolean).join(' · ');
 					setupAvatar(res.me.name, res.me.photo || '');
 				}
 			}
@@ -138,7 +128,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			// 이번 시즌 내 기록: 숫자는 크게, 단위는 작게
 			function showSeason(s: any) {
 				if (!s) return;
-				dash.querySelector('.season-title')!.textContent = `${s.season} 시즌`;
+				dash.querySelector('.me-season')!.textContent = `${s.season} SEASON`;
 				const put = (k: string, n: string, unit: string) => {
 					const el = dash.querySelector<HTMLElement>(`[data-k="${k}"]`)!;
 					el.textContent = n;
@@ -147,12 +137,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					el.append(u);
 				};
 				put('rides', String(s.rides), '일');
-				put('stays', String(s.stays), '박');
-				dash.querySelector('.stay-label')!.textContent = s.rests ? `시즌방 · 휴식 ${s.rests}회` : '시즌방';
+				put('stays', String(s.stays), s.rests ? `박 · 휴식 ${s.rests}` : '박'); // 휴식(4시간)은 숫자 옆에 작게
 				put('pay', s.pay.toLocaleString(), '원');
-				dash.querySelector('.pay-label')!.textContent = s.owner ? '시즌방 정산 · 주주' : '시즌방 정산';
+				dash.querySelector('.pay-label')!.textContent = s.owner ? '정산 · 주주' : '정산';
 				put('visits', String(s.visits), '일');
-				dash.querySelector('.spent-label')!.textContent = s.spent ? `SHRED LOG · 지출 ${s.spent.toLocaleString()}원` : 'SHRED LOG 출격';
 				put('photos', String(s.photos), '장');
 			}
 
@@ -163,7 +151,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const file = dash.querySelector<HTMLInputElement>('.avatar-file')!;
 				const del = dash.querySelector<HTMLButtonElement>('.avatar-del')!;
 				const msg = dash.querySelector<HTMLElement>('.avatar-msg')!;
-				const wrap = dash.querySelector<HTMLElement>('.avatar-wrap')!; // 사진 동그라미를 누르면 파일 고르기
+				const wrap = dash.querySelector<HTMLElement>('.me')!; // 사진(또는 아래 '프로필 사진 바꾸기')을 누르면 파일 고르기
 				const show = (id: string) => {
 					img.hidden = !id;
 					if (id) img.src = photoSrc(id, 256);
@@ -236,22 +224,20 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 <style>
 	.dash {
 		display: grid;
-		gap: 40px;
+		gap: 22px;
+		max-width: 760px;
 	}
-	/* 프로필: 사진 | 이름·정보 */
+	/* 내 정보 카드 */
 	.me {
 		display: flex;
 		align-items: center;
-		gap: 28px;
-		padding-bottom: 32px;
-		border-bottom: 1.5px solid var(--black);
+		gap: 26px;
+		padding: 26px;
+		background: var(--white);
+		border-radius: 20px;
+		box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
 	}
-	.avatar-wrap {
-		display: grid;
-		justify-items: center;
-		gap: 6px;
-	}
-	.avatar-wrap[aria-busy='true'] {
+	.me[aria-busy='true'] {
 		opacity: 0.5;
 		pointer-events: none;
 	}
@@ -259,13 +245,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		position: relative;
 		display: grid;
 		place-items: center;
-		width: 112px;
-		height: 112px;
-		border-radius: 50%;
+		flex: none;
+		width: 120px;
+		height: 120px;
+		border-radius: 32px;
 		overflow: hidden;
 		background: var(--black);
 		color: var(--white);
 		cursor: pointer;
+	}
+	.avatar:focus-within {
+		outline: 2px solid var(--accent);
+		outline-offset: 3px;
 	}
 	.avatar img {
 		width: 100%;
@@ -273,133 +264,140 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		object-fit: cover;
 	}
 	.avatar-ini {
-		font-size: 30px;
-		font-weight: 900;
+		font: 900 30px 'Noto Sans KR', sans-serif;
 	}
-	/* 사진 아래쪽에 카메라 띠: 누르면 바꿀 수 있다는 표시 */
-	.avatar-cam {
+	.avatar-cap {
 		position: absolute;
 		inset: auto 0 0;
-		padding: 4px 0 6px;
+		padding: 5px 0;
 		background: rgb(0 0 0 / 0.55);
-		font-size: 14px;
+		font-size: 11px;
+		font-weight: 700;
 		text-align: center;
 	}
-	.avatar:focus-within {
-		outline: 2px solid var(--accent);
-		outline-offset: 3px;
-	}
-	.avatar-del {
-		border: 0;
-		background: none;
-		color: #4a4d55;
-		font: 12px 'Noto Sans KR', sans-serif;
-		text-decoration: underline;
-		cursor: pointer;
-	}
-	.avatar-msg {
-		min-height: 1.2em;
-		font-size: 12px;
-		color: #4a4d55;
-		text-align: center;
+	.me-season {
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.22em;
+		color: var(--accent);
 	}
 	.me-name {
-		font-size: clamp(1.8rem, 4vw, 2.6rem);
-		font-weight: 900;
+		margin: 4px 0 12px;
+		font: 900 clamp(2rem, 5vw, 2.6rem) 'Noto Sans KR', sans-serif;
 		letter-spacing: -0.03em;
+		line-height: 1.1;
 	}
-	.me-meta {
-		color: #4a4d55;
-	}
-	.block {
-		display: grid;
-		gap: 14px;
-	}
-	.block-title {
-		font: 1.4rem var(--display);
-		font-weight: 400;
-		letter-spacing: 0.02em;
-	}
-	/* 이번 시즌 숫자 칸 */
-	.tiles {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-		gap: 10px;
+	.me-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
-	.tiles li {
-		display: grid;
-		gap: 6px;
-		padding: 18px;
-		background: var(--white);
-		border: 1px solid var(--line);
-	}
-	.tile-num {
-		font: clamp(2rem, 4vw, 2.6rem) var(--display);
-		line-height: 1;
-	}
-	.tile-num :global(small) {
-		margin-left: 4px;
-		font: 700 14px 'Noto Sans KR', sans-serif;
-	}
-	.tile-label {
+	.me-chips :global(li) {
+		padding: 5px 12px;
+		border-radius: 999px;
+		background: var(--bone);
 		font-size: 13px;
+		font-weight: 700;
+	}
+	.me-chips :global(li.role) {
+		background: var(--black);
+		color: var(--white);
+	}
+	.avatar-msg {
+		min-height: 1.2em;
+		margin-top: -12px;
+		font-size: 13px;
+		color: #4a4d55;
+	}
+	.avatar-msg:empty {
+		display: none;
+	}
+	/* 숫자 띠: 칸 없이 세로줄로 나눔 */
+	.strip {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		margin: 0;
+		border-block: 1.5px solid var(--black);
+	}
+	.strip div {
+		padding: 16px 14px;
+	}
+	.strip div + div {
+		border-left: 1px solid var(--line);
+	}
+	.strip dt {
+		font-size: 12px;
 		font-weight: 700;
 		color: #4a4d55;
 	}
-	/* 바로가기 */
-	.links {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: 10px;
+	.strip dd {
+		margin: 6px 0 0;
+		font: 2rem var(--display);
 	}
-	.links a {
+	.strip :global(small) {
+		margin-left: 3px;
+		font: 700 12px 'Noto Sans KR', sans-serif;
+	}
+	/* 계정 메뉴 (설정 화면처럼) */
+	.rows {
 		display: grid;
-		gap: 4px;
-		padding: 18px;
-		border: 1.5px solid var(--black);
 		background: var(--white);
-		text-decoration: none;
+		border: 1px solid var(--line);
+		border-radius: 14px;
+		overflow: hidden;
+	}
+	.row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 18px 20px;
+		border: 0;
+		background: none;
 		color: var(--black);
+		font: 700 15px 'Noto Sans KR', sans-serif;
+		text-align: left;
+		text-decoration: none;
+		cursor: pointer;
 	}
-	.links b {
-		font-size: 13px;
-		letter-spacing: 0.16em;
+	.row + .row {
+		border-top: 1px solid var(--line);
 	}
-	.links span {
-		font-size: 14px;
-		color: #4a4d55;
+	.row i {
+		font-style: normal;
+		font-size: 22px;
+		font-weight: 400;
+		color: var(--gray);
+	}
+	.row.out {
+		color: #c4320a;
 	}
 	@media (hover: hover) {
-		.links a:hover {
-			background: var(--black);
-			color: var(--white);
+		.row:hover {
+			background: #f6f5f1;
 		}
-		.links a:hover span {
-			color: #c9cad0;
-		}
-	}
-	.me-btns {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 10px;
 	}
 	@media (max-width: 640px) {
 		.me {
 			flex-direction: column;
 			text-align: center;
 		}
-		.tiles,
-		.links {
-			grid-template-columns: 1fr 1fr;
-		}
-		.me-btns {
-			flex-direction: column;
-		}
-		.me-btns .btn {
+		.me-chips {
 			justify-content: center;
+		}
+		.strip {
+			grid-template-columns: repeat(3, 1fr);
+		}
+		.strip dd {
+			font-size: 1.5rem;
+		}
+		.strip div:nth-child(4) {
+			border-left: 0;
+		}
+		.strip div:nth-child(n + 4) {
+			border-top: 1px solid var(--line);
 		}
 	}
 </style>

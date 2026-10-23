@@ -136,9 +136,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			};
 			const weekStart = (date: string) => shift(date, -new Date(`${date}T00:00`).getDay()); // 그 주 일요일
 
-			// 보기: 기본은 3주(지난주·이번 주·다음 주), '한 달 보기'를 누르면 달 전체. 고른 보기는 이 브라우저에 기억
+			// 보기: 넓은 화면은 늘 한 달(사용자 요구 2026-10-23 — 옆 명단 칸 높이가 3주 달력에 안 맞아서).
+			// 좁은 화면(860px 이하, 명단이 달력 아래)만 기본 3주(지난주·이번 주·다음 주) + '한 달 보기' 버튼. 고른 보기는 이 브라우저에 기억
 			const VIEW_KEY = 'fs-room-view';
-			let view: 'weeks' | 'month' = localStorage.getItem(VIEW_KEY) === 'month' ? 'month' : 'weeks';
+			const narrow = matchMedia('(max-width: 860px)');
+			const wanted = (): 'weeks' | 'month' => (narrow.matches && localStorage.getItem(VIEW_KEY) !== 'month' ? 'weeks' : 'month');
+			let view = wanted();
 			let month = today.slice(0, 7); // 'YYYY-MM' (한 달 보기)
 			let start = shift(weekStart(today), -7); // 3주 보기 첫날(일요일)
 			let selected = today;
@@ -322,14 +325,19 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			$('.month-prev').addEventListener('click', () => go(-1));
 			$('.month-next').addEventListener('click', () => go(1));
 			// 3주 ↔ 한 달: 고른 날이 보이게 맞춤
-			$('.view-btn').addEventListener('click', async () => {
-				view = view === 'weeks' ? 'month' : 'weeks';
-				try { localStorage.setItem(VIEW_KEY, view); } catch {}
+			async function setView(next: 'weeks' | 'month') {
+				if (next === view) return;
+				view = next;
 				if (view === 'month') month = selected.slice(0, 7);
 				else start = shift(weekStart(selected), -7);
 				await ensure();
 				render();
+			}
+			$('.view-btn').addEventListener('click', () => {
+				try { localStorage.setItem(VIEW_KEY, view === 'weeks' ? 'month' : 'weeks'); } catch {}
+				setView(view === 'weeks' ? 'month' : 'weeks');
 			});
+			narrow.addEventListener('change', () => setView(wanted())); // 창 크기를 바꾸면 그 화면 규칙으로
 
 			// 누른 버튼만 스피너, 나머지 버튼은 잠금
 			panel.addEventListener('submit', async (e) => {
@@ -411,11 +419,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		color: #4a4d55;
 		font-size: 14px;
 	}
-	/* 3주 / 한 달 보기 전환 */
+	/* 3주 / 한 달 보기 전환 — 좁은 화면만 (넓은 화면은 늘 한 달) */
 	.view-row {
-		display: flex;
+		display: none;
 		justify-content: flex-end;
 		margin-bottom: -8px;
+	}
+	@media (max-width: 860px) {
+		.view-row {
+			display: flex;
+		}
 	}
 	.view-btn {
 		min-height: 32px;

@@ -140,7 +140,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 									<label class="tm-opt"><input class="tm-s" type="checkbox" checked /> 운영진 나눠서</label>
 									<button class="btn-mini ink tm-auto" type="button">자동 편성 ↻</button>
 								</div>
-								<p class="hint">이름을 누르면 다른 조로 옮기거나 조장으로 정할 수 있어요. 조장은 자동 편성을 다시 해도 그 조에 그대로 있어요.</p>
+								<p class="hint">이름 오른쪽 ⋮⋮을 끌어 다른 조에 놓으면 옮겨져요. 이름을 누르면 조장으로 정하거나 메뉴로 옮길 수 있어요. 조장은 자동 편성을 다시 해도 그 조에 그대로 있어요.</p>
 								<div class="tm-teams"></div>
 							</div>
 						</div>
@@ -723,7 +723,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const people = [...d.people].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 				for (const sel of [$<HTMLSelectElement>('.tm-apart-a'), $<HTMLSelectElement>('.tm-apart-b')]) {
 					const keep = sel.value;
-					sel.replaceChildren(new Option('사람 고르기', ''), ...people.map((p) => new Option(`${p.name}${p.guest ? ' (게스트)' : ''}`, p.key)));
+					sel.replaceChildren(new Option('선택', ''), ...people.map((p) => new Option(`${p.name}${p.guest ? ' (게스트)' : ''}`, p.key)));
 					sel.value = people.some((p) => p.key === keep) ? keep : '';
 				}
 				const name = (k: string) => d.people.find((p) => p.key === k)!.name;
@@ -753,6 +753,46 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			});
 
 			// 조 카드: 이름 줄 = 투명한 select를 덮어 둠 → 누르면 옮기기·조장 메뉴(휴대폰은 기본 선택 창)
+			// 다른 조로 (-1 = 안 나눔). 조장은 옮긴 조에서도 조장
+			function movePerson(p: Person, ti: number) {
+				if (ti === p.team) return;
+				const lead = p.leader;
+				p.leader = false;
+				p.team = ti;
+				if (lead && ti >= 0) setLeader(p, true);
+				dirty(), drawSplit();
+			}
+			// 끌어서 옮기기 (사용자 요구 2026-10-23, 지라 보드처럼): 포인터 이벤트라 마우스·터치 모두. 줄 복사본이 따라다니고, 놓은 곳의 조 카드로 옮김
+			function startDrag(e: PointerEvent, p: Person, row: HTMLElement) {
+				e.preventDefault();
+				const grip = e.currentTarget as HTMLElement;
+				grip.setPointerCapture(e.pointerId);
+				const r = row.getBoundingClientRect();
+				const ghost = row.cloneNode(true) as HTMLElement;
+				ghost.classList.add('tm-ghost');
+				ghost.style.width = `${r.width}px`;
+				ghost.style.setProperty('--tc', getComputedStyle(row).getPropertyValue('--tc'));
+				document.body.append(ghost);
+				row.classList.add('tm-dragging');
+				const dx = e.clientX - r.left, dy = e.clientY - r.top;
+				let over: HTMLElement | null = null;
+				const move = (ev: PointerEvent) => {
+					ghost.style.transform = `translate(${ev.clientX - dx}px, ${ev.clientY - dy}px) rotate(-2deg)`;
+					const t = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest<HTMLElement>('.tm-team') ?? null;
+					if (t !== over) over?.classList.remove('tm-drop'), t?.classList.add('tm-drop'), (over = t);
+				};
+				const end = (drop: boolean) => {
+					grip.removeEventListener('pointermove', move);
+					ghost.remove();
+					row.classList.remove('tm-dragging');
+					over?.classList.remove('tm-drop');
+					if (drop && over) movePerson(p, Number(over.dataset.team));
+				};
+				grip.addEventListener('pointermove', move);
+				grip.addEventListener('pointerup', () => end(true), { once: true });
+				grip.addEventListener('pointercancel', () => end(false), { once: true });
+				move(e);
+			}
 			function setLeader(p: Person, on: boolean) {
 				if (on) for (const o of ev!.data.people) if (o.team === p.team) o.leader = false;
 				p.leader = on;
@@ -779,22 +819,20 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					mv.append(...d.teams.map((t, i) => new Option(`${t.name}로 옮기기`, String(i))).filter((_, i) => i !== ti));
 					if (ti >= 0) mv.append(new Option('안 나눔으로', '-1'));
 					mv.value = '';
-					mv.addEventListener('change', () => {
-						if (mv.value === 'leader') setLeader(p, !p.leader);
-						else {
-							const lead = p.leader;
-							p.leader = false;
-							p.team = Number(mv.value);
-							if (lead && p.team >= 0) setLeader(p, true); // 조장은 옮긴 조에서도 조장
-						}
-						dirty(), drawSplit();
-					});
-					c.append(mv);
+					mv.addEventListener('change', () => (mv.value === 'leader' ? (setLeader(p, !p.leader), dirty(), drawSplit()) : movePerson(p, Number(mv.value))));
+					// 끌어서 옮기기 손잡이 (줄의 다른 곳을 누르면 위 메뉴)
+					const grip = document.createElement('span');
+					grip.className = 'tm-grip';
+					grip.textContent = '⋮⋮';
+					grip.title = '끌어서 다른 조로 옮기기';
+					grip.addEventListener('pointerdown', (e) => startDrag(e, p, c));
+					c.append(mv, grip);
 					return c;
 				};
 				const card = (title: string, list: Person[], ti: number) => {
 					const c = document.createElement('section');
 					c.className = 'tm-team';
+					c.dataset.team = String(ti); // 끌어서 놓을 곳
 					c.style.setProperty('--tc', ti >= 0 ? tmTeamColor[ti % tmTeamColor.length] : '#8a8d95');
 					const h = document.createElement('div');
 					h.className = 'tm-team-head';
@@ -823,7 +861,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					return c;
 				};
 				drawApart();
-				box.replaceChildren(...d.teams.map((t, i) => card(t.name, d.people.filter((p) => p.team === i), i)), ...(waiting.length ? [card('아직 안 나눔', waiting, -1)] : []));
+				// '아직 안 나눔'은 맨 앞 (거기서 각 조로 끌어다 놓기 쉽게)
+				box.replaceChildren(...(waiting.length ? [card('아직 안 나눔', waiting, -1)] : []), ...d.teams.map((t, i) => card(t.name, d.people.filter((p) => p.team === i), i)));
 			}
 
 			$('.chat-file').addEventListener('change', async (e) => {
@@ -1564,6 +1603,61 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		color: #4a4d55;
 		font-size: 11px;
 		font-weight: 700;
+	}
+	/* 끌어서 옮기기 손잡이: 줄을 덮은 메뉴(select) 위에 */
+	.tm-teams :global(.tm-grip) {
+		position: relative;
+		z-index: 1;
+		margin: -8px -12px -8px 0;
+		padding: 8px 10px;
+		color: #b5b1a8;
+		letter-spacing: -3px;
+		cursor: grab;
+		touch-action: none;
+		user-select: none;
+	}
+	.tm-teams :global(.tm-dragging) {
+		opacity: 0.35;
+	}
+	.tm-teams :global(.tm-drop) {
+		outline: 2px dashed var(--tc);
+		outline-offset: 2px;
+	}
+	:global(.tm-ghost) {
+		position: fixed;
+		top: 0;
+		left: 0;
+		z-index: 100;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 12px;
+		border-radius: 8px;
+		background: var(--white);
+		box-shadow: 0 10px 24px rgb(11 13 18 / 0.2);
+		font-size: 15px;
+		list-style: none;
+		pointer-events: none;
+	}
+	:global(.tm-ghost select) {
+		display: none;
+	}
+	:global(.tm-ghost small) {
+		padding: 1px 6px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		font-size: 11px;
+	}
+	:global(.tm-ghost .tm-dot) {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+	}
+	:global(.tm-ghost .tm-dot.m) {
+		background: #2f6df6;
+	}
+	:global(.tm-ghost .tm-dot.f) {
+		background: #e0245e;
 	}
 	.tm-teams :global(.tm-person.leader) {
 		background: color-mix(in srgb, var(--tc) 10%, var(--white));

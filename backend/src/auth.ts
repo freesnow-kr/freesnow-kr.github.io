@@ -1,6 +1,6 @@
 // 로그인·세션·비밀번호·권한. 설계: docs/migration/02-design.md §3~4
 import type { Ctx } from './index.ts';
-import { PBKDF2_ITER, formatPhone, hmac, iso, later, maskIp, normPhone, pbkdf2, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
+import { PBKDF2_ITER, ROOM_PRICES, seasonOf, seasonRange, formatPhone, hmac, iso, later, maskIp, normPhone, pbkdf2, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
 
 const HOUR = 60 * 60 * 1000;
 // 세션은 30일, 쓰는 동안 하루 넘게 지났으면 다시 30일로 늘림 (사용자 요구 2026-10-23: 최대한 안 풀리게)
@@ -163,8 +163,25 @@ export async function renew(c: Ctx) {
 // 본인 정보만. 생년월일·성별·비공개연락처는 절대 안 보냄 (Apps Script me와 같은 모양 + role)
 export async function me(c: Ctx) {
 	const me = await need(c);
-	const p = await c.env.DB.prepare('SELECT photo FROM profiles WHERE member_id = ?').bind(me.id).first<{ photo: string }>();
-	return { ok: true, me: { name: me.name, grade: me.grade || '회원', area: me.area, phone: formatPhone(me.phone), photo: p?.photo ?? '', role: me.role } };
+	const season = seasonOf(c.now);
+	const [from, to] = seasonRange(season);
+	// 마이페이지 '이번 시즌': 출격 체크·시즌방·정산·SHRED LOG·올린 사진 (내 것만)
+	const s = await c.env.DB.prepare(
+		`SELECT (SELECT photo FROM profiles WHERE member_id = ?1) AS photo,
+		        (SELECT count(*) FROM ride_checks WHERE member_id = ?1 AND status = '출격' AND date BETWEEN ?2 AND ?3) AS rides,
+		        (SELECT count(*) FROM room_stays WHERE member_id = ?1 AND kind = '숙박' AND date BETWEEN ?2 AND ?3) AS stays,
+		        (SELECT count(*) FROM room_stays WHERE member_id = ?1 AND kind = '휴식' AND date BETWEEN ?2 AND ?3) AS rests,
+		        (SELECT count(*) FROM room_owners WHERE member_id = ?1 AND season = ?4) AS owner,
+		        (SELECT count(DISTINCT date) FROM ride_logs WHERE member_id = ?1 AND date BETWEEN ?2 AND ?3) AS visits,
+		        (SELECT coalesce(sum(amount), 0) FROM expense_logs WHERE member_id = ?1 AND date BETWEEN ?2 AND ?3) AS spent,
+		        (SELECT count(*) FROM photos WHERE uploaded_by = ?1 AND season = ?4) AS photos`,
+	).bind(me.id, from, to, season).first<Record<string, number> & { photo: string | null }>();
+	const pay = s!.owner ? 0 : s!.stays * ROOM_PRICES.숙박 + s!.rests * ROOM_PRICES.휴식;
+	return {
+		ok: true,
+		me: { name: me.name, grade: me.grade || '회원', area: me.area, phone: formatPhone(me.phone), photo: s!.photo ?? '', role: me.role },
+		season: { season, rides: s!.rides, stays: s!.stays, rests: s!.rests, owner: !!s!.owner, pay, visits: s!.visits, spent: s!.spent, photos: s!.photos },
+	};
 }
 
 // 마스터만: {memberId} → 비밀번호 지우고, 그 회원 세션 전부 끊고, 72시간 동안 공용 초기화 비밀번호로 로그인 가능

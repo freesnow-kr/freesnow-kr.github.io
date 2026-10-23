@@ -3,7 +3,8 @@
 // 보기: GET /photo/{id}/{thumb|large|orig} — R2에 있으면 바로(브라우저 1년 캐시), 드라이브로 옮겼으면 드라이브 주소로
 import type { Ctx, Env } from './index.ts';
 import { need, Reply } from './auth.ts';
-import { iso, randomToken } from './lib.ts';
+import { iso, randomToken, seasonOf } from './lib.ts';
+export { seasonOf };
 
 const ORIG_MAX = 30 * 1024 * 1024; // 원본 한 장 30MB
 const SMALL_MAX = 4 * 1024 * 1024; // 1800px·720px JPG
@@ -12,12 +13,6 @@ const ORIG_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'imag
 const SIZES = ['thumb', 'large', 'orig'] as const;
 const DRIVE_W = { thumb: 720, large: 1800, orig: 4000 };
 
-// 시즌 = 7/1 ~ 6/30 (한국 시간)
-export function seasonOf(d: Date) {
-	const k = new Date(d.getTime() + 9 * 3600e3);
-	const s = (k.getUTCMonth() >= 6 ? k.getUTCFullYear() : k.getUTCFullYear() - 1) % 100;
-	return `${String(s).padStart(2, '0')}-${String((s + 1) % 100).padStart(2, '0')}`;
-}
 // R2에 남기는 시즌: 이번 시즌과 지난 시즌. 이것보다 앞선 시즌은 보관 대상
 const keepFrom = (now: Date) => {
 	const [a] = seasonOf(now).split('-').map(Number);

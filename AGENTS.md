@@ -31,7 +31,7 @@
 | `/webcam/` | `src/pages/webcam.astro` | 같은 에디토리얼 스타일 |
 | `/login/` | `src/pages/login.astro` | 로그인 폼 + 회원가입 버튼. 로그인 후(또는 이미 로그인 상태면) **메인으로**, `?next=` 있으면 거기로 |
 | `/signup/` | `src/pages/signup.astro` | 회원가입 신청 폼 (개인정보 동의 필수) |
-| `/members/` | `src/pages/members.astro` | 회원 전용, **본인 정보만**. 토큰 없거나 만료면 `/login`(`?expired`)으로 |
+| `/members/` | `src/pages/members.astro` | **마이페이지**(헤더 동그란 내 메뉴 → 내 정보): 프로필(사진 동그라미 누르면 바꾸기), 이번 시즌 숫자 칸(출격 체크·시즌방 박/휴식·정산(주주 0원)·SHRED LOG 출격일·지출·올린 사진 — Worker `me`의 `season`), 바로가기, 계정(운영진 화면·비밀번호·로그아웃). 토큰 없거나 만료면 `/login` |
 | `/rank/` | `src/pages/rank.astro` | 회원 전용 오픈채팅 메시지 수 랭킹, 끝난 달만 달별로 고름(기본: 항상 지난달 1일~말일, 이번 달은 숨김, '전체' 없음 — 사용자 요구). 헤더 메뉴 **CHAT RANK** |
 | `/shredlog/` | `src/pages/shredlog.astro` | SHRED LOG: 개인 시즌 출격·지출 기록(24-25/25-26/26-27), 시즌권 본전 계산, 시즌 비교, 지출 CSV. 비회원도 사용(브라우저 저장) + 로그인 유도, 회원은 시트 저장. 시즌 = 7/1~6/30 |
 | `/seasonroom/` | `src/pages/seasonroom.astro` | 회원 전용 **RIDE & STAY**(예전 SEASON ROOM, 주소는 그대로): 출격·시즌방 숙박 체크 달력, 달별 시즌방 사용 이력 |

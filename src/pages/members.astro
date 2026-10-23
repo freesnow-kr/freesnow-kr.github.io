@@ -14,7 +14,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<meta name="robots" content="noindex" />
-		<Meta title={`${club.name} — Members`} />
+		<Meta title={`${club.name} — My Page`} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
@@ -40,38 +40,60 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<main>
 			<section class="mem-intro">
 				<p class="kicker">MEMBERS ONLY</p>
-				<h1>MEMBERS.</h1>
+				<h1>MY PAGE.</h1>
 			</section>
 
 			<section class="mem-body">
 				<p class="mem-msg loading">불러오는 중…</p>
 				<div class="dash" hidden>
-					<div class="me">
-						<div class="me-left">
-							<!-- 프로필 사진: 참석자 배지에도 나옴 -->
-							<div class="avatar-wrap">
-								<span class="avatar"><img alt="내 프로필 사진" referrerpolicy="no-referrer" hidden /><span class="avatar-ini" aria-hidden="true"></span></span>
-								<div class="avatar-btns">
-									<label class="btn-mini">
-										사진 변경
-										<input class="avatar-file" type="file" accept="image/*" hidden />
-									</label>
-									<button class="btn-mini avatar-del" type="button" hidden>삭제</button>
-								</div>
-							</div>
+					<!-- 프로필: 사진(누르면 바꾸기) | 이름·구분·지역·연락처 -->
+					<section class="me">
+						<div class="avatar-wrap">
+							<label class="avatar" title="사진 바꾸기">
+								<img alt="내 프로필 사진" referrerpolicy="no-referrer" hidden /><span class="avatar-ini" aria-hidden="true"></span>
+								<span class="avatar-cam" aria-hidden="true">📷</span>
+								<input class="avatar-file" type="file" accept="image/*" aria-label="프로필 사진 바꾸기" hidden />
+							</label>
+							<button class="avatar-del" type="button" hidden>사진 지우기</button>
 							<p class="avatar-msg" role="status"></p>
 						</div>
 						<div class="me-info">
-							<p class="kicker">MY INFO</p>
+							<p class="kicker me-role"></p>
 							<h2 class="me-name"></h2>
 							<p class="me-meta"></p>
 						</div>
+					</section>
+
+					<!-- 이번 시즌 내 기록 (서버 me.season) -->
+					<section class="block">
+						<h3 class="block-title season-title"></h3>
+						<ul class="tiles">
+							<li><span class="tile-num" data-k="rides"></span><span class="tile-label">출격 체크</span></li>
+							<li><span class="tile-num" data-k="stays"></span><span class="tile-label stay-label">시즌방</span></li>
+							<li><span class="tile-num" data-k="pay"></span><span class="tile-label pay-label">시즌방 정산</span></li>
+							<li><span class="tile-num" data-k="visits"></span><span class="tile-label spent-label">SHRED LOG</span></li>
+							<li><span class="tile-num" data-k="photos"></span><span class="tile-label">올린 사진</span></li>
+						</ul>
+					</section>
+
+					<section class="block">
+						<h3 class="block-title">바로가기</h3>
+						<nav class="links" aria-label="바로가기">
+							<a href={`${base}/seasonroom/`}><b>RIDE &amp; STAY</b><span>출격·시즌방 체크</span></a>
+							<a href={`${base}/shredlog/`}><b>SHRED LOG</b><span>내 출격·지출 기록</span></a>
+							<a href={`${base}/gallery/`}><b>GALLERY</b><span>사진 보기·올리기</span></a>
+							<a href={`${base}/rank/`}><b>CHAT RANK</b><span>오픈채팅 랭킹</span></a>
+						</nav>
+					</section>
+
+					<section class="block account">
+						<h3 class="block-title">계정</h3>
 						<div class="me-btns">
-							<a class="btn btn-line-dark staff-link" href={`${base}/admin/`} hidden>운영진 화면</a>
+							<a class="btn btn-ink staff-link" href={`${base}/admin/`} hidden>운영진 화면</a>
 							<a class="btn btn-line-dark" href={`${base}/password/`}>비밀번호 변경</a>
 							<button class="btn btn-line-dark logout" type="button">로그아웃</button>
 						</div>
-					</div>
+					</section>
 				</div>
 			</section>
 		</main>
@@ -104,11 +126,34 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					store.setName(res.me.name);
 					store.setPhoto(res.me.photo ? photoSrc(res.me.photo, 96) : ''); // 헤더 내 메뉴 동그라미
 					dash.querySelector('.me-name')!.textContent = `${res.me.name}님`;
+					dash.querySelector('.me-role')!.textContent = { master: 'MASTER', staff: 'STAFF' }[res.me.role as string] ?? 'MEMBER';
+					showSeason(res.season);
 					// 운영진·마스터에게만 링크 (권한은 서버가 따로 확인)
 					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'master'].includes(res.me.role);
 					dash.querySelector('.me-meta')!.textContent = [res.me.grade, res.me.area, res.me.phone].filter(Boolean).join(' · ');
 					setupAvatar(res.me.name, res.me.photo || '');
 				}
+			}
+
+			// 이번 시즌 내 기록: 숫자는 크게, 단위는 작게
+			function showSeason(s: any) {
+				if (!s) return;
+				dash.querySelector('.season-title')!.textContent = `${s.season} 시즌`;
+				const put = (k: string, n: string, unit: string) => {
+					const el = dash.querySelector<HTMLElement>(`[data-k="${k}"]`)!;
+					el.textContent = n;
+					const u = document.createElement('small');
+					u.textContent = unit;
+					el.append(u);
+				};
+				put('rides', String(s.rides), '일');
+				put('stays', String(s.stays), '박');
+				dash.querySelector('.stay-label')!.textContent = s.rests ? `시즌방 · 휴식 ${s.rests}회` : '시즌방';
+				put('pay', s.pay.toLocaleString(), '원');
+				dash.querySelector('.pay-label')!.textContent = s.owner ? '시즌방 정산 · 주주' : '시즌방 정산';
+				put('visits', String(s.visits), '일');
+				dash.querySelector('.spent-label')!.textContent = s.spent ? `SHRED LOG · 지출 ${s.spent.toLocaleString()}원` : 'SHRED LOG 출격';
+				put('photos', String(s.photos), '장');
 			}
 
 			// 프로필 사진: 브라우저에서 정사각형 256px JPG(드라이브용) + 96px JPG(드라이브가 안 될 때 시트용)로 줄여서 올림
@@ -118,7 +163,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const file = dash.querySelector<HTMLInputElement>('.avatar-file')!;
 				const del = dash.querySelector<HTMLButtonElement>('.avatar-del')!;
 				const msg = dash.querySelector<HTMLElement>('.avatar-msg')!;
-				const wrap = dash.querySelector<HTMLElement>('.avatar-wrap')!;
+				const wrap = dash.querySelector<HTMLElement>('.avatar-wrap')!; // 사진 동그라미를 누르면 파일 고르기
 				const show = (id: string) => {
 					img.hidden = !id;
 					if (id) img.src = photoSrc(id, 256);
@@ -189,44 +234,38 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 </html>
 
 <style>
-	/* 사진(+아래 버튼) | 이름·정보 | 로그아웃 — 세로 가운데 정렬 */
+	.dash {
+		display: grid;
+		gap: 40px;
+	}
+	/* 프로필: 사진 | 이름·정보 */
 	.me {
 		display: flex;
 		align-items: center;
-		gap: 24px 32px;
+		gap: 28px;
 		padding-bottom: 32px;
+		border-bottom: 1.5px solid var(--black);
 	}
-	.me-left {
+	.avatar-wrap {
 		display: grid;
 		justify-items: center;
-		gap: 8px;
-		width: 160px;
-	}
-	.me-info {
-		margin-right: auto;
-	}
-	/* 사진 아래에 버튼 */
-	.avatar-wrap {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 10px;
-		width: max-content;
+		gap: 6px;
 	}
 	.avatar-wrap[aria-busy='true'] {
 		opacity: 0.5;
 		pointer-events: none;
 	}
 	.avatar {
+		position: relative;
 		display: grid;
 		place-items: center;
-		width: 96px;
-		height: 96px;
+		width: 112px;
+		height: 112px;
 		border-radius: 50%;
 		overflow: hidden;
 		background: var(--black);
 		color: var(--white);
-		flex: none;
+		cursor: pointer;
 	}
 	.avatar img {
 		width: 100%;
@@ -234,65 +273,133 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		object-fit: cover;
 	}
 	.avatar-ini {
-		font-size: 26px;
+		font-size: 30px;
 		font-weight: 900;
 	}
-	.avatar-btns {
-		display: flex;
-		gap: 6px;
+	/* 사진 아래쪽에 카메라 띠: 누르면 바꿀 수 있다는 표시 */
+	.avatar-cam {
+		position: absolute;
+		inset: auto 0 0;
+		padding: 4px 0 6px;
+		background: rgb(0 0 0 / 0.55);
+		font-size: 14px;
+		text-align: center;
 	}
-	.btn-mini {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 34px;
-		padding: 0 12px;
-		border: 1.5px solid var(--black);
-		background: transparent;
-		font: 700 13px 'Noto Sans KR', sans-serif;
+	.avatar:focus-within {
+		outline: 2px solid var(--accent);
+		outline-offset: 3px;
+	}
+	.avatar-del {
+		border: 0;
+		background: none;
+		color: #4a4d55;
+		font: 12px 'Noto Sans KR', sans-serif;
+		text-decoration: underline;
 		cursor: pointer;
 	}
-	.btn-mini:hover {
-		background: var(--black);
-		color: var(--white);
-	}
-	.btn-mini:focus-within {
-		outline: 2px solid var(--accent);
-		outline-offset: 2px;
-	}
 	.avatar-msg {
-		min-height: 1.4em;
+		min-height: 1.2em;
 		font-size: 12px;
 		color: #4a4d55;
 		text-align: center;
 	}
-	/* 모바일: 사진 → 이름·정보 → 로그아웃, 모두 가운데 */
-	@media (max-width: 640px) {
-		.me {
-			flex-direction: column;
-			text-align: center;
-		}
-		.me-info {
-			margin-right: 0;
-		}
-		.me-btns {
-			width: 100%;
-			flex-direction: column;
-		}
-		.me-btns .btn {
-			justify-content: center;
-		}
-	}
-	.me-btns {
-		display: flex;
-		gap: 10px;
-	}
 	.me-name {
-		font-size: clamp(1.6rem, 3vw, 2.2rem);
+		font-size: clamp(1.8rem, 4vw, 2.6rem);
 		font-weight: 900;
 		letter-spacing: -0.03em;
 	}
 	.me-meta {
 		color: #4a4d55;
+	}
+	.block {
+		display: grid;
+		gap: 14px;
+	}
+	.block-title {
+		font: 1.4rem var(--display);
+		font-weight: 400;
+		letter-spacing: 0.02em;
+	}
+	/* 이번 시즌 숫자 칸 */
+	.tiles {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+		gap: 10px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.tiles li {
+		display: grid;
+		gap: 6px;
+		padding: 18px;
+		background: var(--white);
+		border: 1px solid var(--line);
+	}
+	.tile-num {
+		font: clamp(2rem, 4vw, 2.6rem) var(--display);
+		line-height: 1;
+	}
+	.tile-num :global(small) {
+		margin-left: 4px;
+		font: 700 14px 'Noto Sans KR', sans-serif;
+	}
+	.tile-label {
+		font-size: 13px;
+		font-weight: 700;
+		color: #4a4d55;
+	}
+	/* 바로가기 */
+	.links {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 10px;
+	}
+	.links a {
+		display: grid;
+		gap: 4px;
+		padding: 18px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+		text-decoration: none;
+		color: var(--black);
+	}
+	.links b {
+		font-size: 13px;
+		letter-spacing: 0.16em;
+	}
+	.links span {
+		font-size: 14px;
+		color: #4a4d55;
+	}
+	@media (hover: hover) {
+		.links a:hover {
+			background: var(--black);
+			color: var(--white);
+		}
+		.links a:hover span {
+			color: #c9cad0;
+		}
+	}
+	.me-btns {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+	}
+	@media (max-width: 640px) {
+		.me {
+			flex-direction: column;
+			text-align: center;
+		}
+		.tiles,
+		.links {
+			grid-template-columns: 1fr 1fr;
+		}
+		.me-btns {
+			flex-direction: column;
+		}
+		.me-btns .btn {
+			justify-content: center;
+		}
 	}
 </style>

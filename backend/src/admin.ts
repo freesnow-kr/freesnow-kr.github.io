@@ -1,5 +1,5 @@
 // 운영진 화면(/admin) API. 권한은 전부 여기서 확인 (화면에서 메뉴를 숨기는 건 편의일 뿐)
-// staff(운영진): 가입 승인·거절, 회원 목록·정보 수정, 로그인 이력, 시즌방 주주, 채팅 랭킹 올리기
+// staff(운영진): 가입 승인·거절, 회원 목록·정보 수정·상태(정지·탈퇴), 로그인 이력, 시즌방 주주, 채팅 랭킹 올리기
 // staff는 비밀번호 초기화(auth.ts adminReset)도 — 관리자 계정은 관리자만
 // admin(관리자): + 정지·탈퇴·권한 변경(마스터 지정 포함), 운영 기록. master(마스터)는 명예 — 권한은 회원과 같음
 // 바꾸는 일은 전부 admin_logs (누가·언제·무엇을·전후 값)
@@ -103,14 +103,16 @@ export async function memberUpdate(c: Ctx) {
 	return { ok: true };
 }
 
-// {id, status?: active|suspended|withdrawn, role?: member|staff|master} 마스터만. 정지·탈퇴면 세션 끊음. 기록은 그대로 둠(사용자 결정)
+// {id, status?, role?} — 상태(활동·정지·탈퇴)는 운영진 이상(관리자 계정은 관리자만, 사용자 요구 2026-10-23), 권한 변경은 관리자만
+// 정지·탈퇴면 세션 끊음. 기록은 그대로 둠(사용자 결정)
 export async function memberStatus(c: Ctx) {
 	const db = c.env.DB;
-	const me = await need(c, 'admin');
+	const me = await need(c, 'staff');
 	const id = String(c.body.id ?? '');
 	const before = await db.prepare('SELECT status, role FROM members WHERE id = ?').bind(id).first<{ status: string; role: string }>();
 	if (!before) throw bad('회원을 찾지 못했어요.');
 	const status = c.body.status ?? before.status, role = c.body.role ?? before.role;
+	if (me.role !== 'admin' && (role !== before.role || before.role === 'admin')) throw bad('권한 변경과 관리자 계정은 관리자만 바꿀 수 있어요.');
 	if (!['active', 'suspended', 'withdrawn'].includes(status) || !['member', 'master', 'staff', 'admin'].includes(role)) throw bad('값을 확인해 주세요.');
 	if (id === me.id && (status !== 'active' || role !== 'admin')) throw bad('내 계정의 권한·상태는 바꿀 수 없어요. 다른 관리자에게 부탁해 주세요.');
 	const stmts = [db.prepare('UPDATE members SET status = ?, role = ?, updated_at = ? WHERE id = ?').bind(status, role, iso(c.now), id), log(c, me.id, 'member.status', id, { before, after: { status, role } })];

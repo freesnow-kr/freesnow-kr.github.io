@@ -28,7 +28,7 @@ test('첫 전환: 생년월일로 한 번 → 새 비밀번호 전에는 다른 
 	assert.equal((await post({ action: 'password', next: 'powder-day-26' }, first.token)).ok, true);
 
 	const me = await post({ action: 'me' }, first.token);
-	assert.deepEqual(me.me, { name: '김보드', grade: '경기도', area: '구리', phone: '010-1111-2222', photo: '', role: 'member', honorary: false });
+	assert.deepEqual(me.me, { name: '김보드', grade: '경기도', area: '구리', region: '경기북부', phone: '010-1111-2222', photo: '', role: 'member', honorary: false });
 	assert.deepEqual({ ...me.season, season: 'x' }, { season: 'x', rides: 0, stays: 0, rests: 0, owner: false, pay: 0, visits: 0, spent: 0, photos: 0 });
 	assert.equal(JSON.stringify(me).includes('1996'), false); // 생년월일은 응답에 없음
 
@@ -130,4 +130,15 @@ test('CORS: 허용한 출처만, 이상한 요청은 같은 오류', async () =>
 	assert.equal((await post({ action: 'nope' })).error, '잘못된 요청이에요.');
 	const big = await worker.fetch(new Request('https://api.test/', { method: 'POST', body: 'x'.repeat(3_000_001) }), env);
 	assert.equal(big.status, 413);
+});
+
+test('지역 이름: 구분이 지역이면 그대로, 운영진·마스터면 거주지로 시도 찾기, 경기는 북부·남부', async () => {
+	const { regionOf } = await import('../src/region.ts');
+	assert.equal(regionOf('운영진', '구리'), '경기북부');
+	assert.equal(regionOf('운영진', '수원'), '경기남부');
+	assert.equal(regionOf('마스터', '노원구'), '서울');
+	assert.equal(regionOf('경기도', '의정부'), '경기북부');
+	assert.equal(regionOf('서울', '노원구'), '서울');
+	assert.equal(regionOf('충청북도', '청주'), '충북');
+	assert.equal(regionOf('운영진', '중구'), ''); // 여러 시도에 있으면 모름
 });

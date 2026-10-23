@@ -45,8 +45,8 @@ export const logout = () => {
 
 // 드라이브가 크기를 줄여 주는 이미지 주소 (폴더가 '링크가 있는 모든 사용자' 공유여야 보임)
 export const driveImg = (id: string, w: number) => `https://lh3.googleusercontent.com/d/${encodeURIComponent(id)}=w${w}`;
-// 프로필 사진: 드라이브 파일 id 또는 시트에 저장된 작은 사진('data:image/jpeg…')
-export const photoSrc = (photo: string, w: number) => (photo.startsWith('data:image/') ? photo : driveImg(photo, w));
+// 프로필 사진: R2 주소(https://…/profile/…), 예전 드라이브 파일 id, 또는 예전 시트의 작은 사진('data:image/jpeg…')
+export const photoSrc = (photo: string, w: number) => (/^(https:|data:image\/)/.test(photo) ? photo : driveImg(photo, w));
 
 // 갤러리 사진 목록: 이 브라우저에 저장해 두고 다시 열 때 바로 보여 줌
 // 저장본이 10분 지났으면 보여 주는 동시에 뒤에서 새로 받아 둠 → 새 사진은 그다음 방문에 (서버도 5분 캐시)

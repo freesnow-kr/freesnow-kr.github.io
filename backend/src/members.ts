@@ -1,7 +1,7 @@
 // 회원가입 신청·프로필 사진 (Apps Script signup·avatar를 옮김). 신청은 signup_requests에 쌓이고 운영진이 /admin에서 승인
-import type { Ctx } from './index.ts';
+import type { Ctx, Env } from './index.ts';
 import { need } from './auth.ts';
-import { iso, later, normPhone } from './lib.ts';
+import { iso, later, normPhone, randomToken } from './lib.ts';
 
 const SIGNUP_PER_HOUR = 30; // 전체 신청 시간당 상한 (스팸 방지)
 const PHOTO_MAX = 400_000; // base64 글자 수 (브라우저가 256px JPG로 줄여서 보냄 ≈ 20~60KB)
@@ -34,18 +34,38 @@ export async function signup(c: Ctx) {
 	return { ok: true };
 }
 
-// {data: 256px JPG data URL} 저장 / {remove: true} 삭제 → {ok, photo}. 사진은 D1에 data URL로 (예전 드라이브 사진 ID도 그대로 보임)
+// {data: 256px JPG data URL} 저장 / {remove: true} 삭제 → {ok, photo}
+// 사진은 R2 profile/{회원ID}/{무작위}.jpg (바꿀 때마다 새 이름 → 브라우저 캐시가 예전 사진을 안 보여 줌), DB엔 'r2:키'
+// 예전 값(드라이브 파일 ID, data URL)도 그대로 보임 — 응답엔 photoUrl()로 바꾼 주소
 export async function avatar(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c);
+	const old = await db.prepare('SELECT photo FROM profiles WHERE member_id = ? AND is_active = 1').bind(me.id).first<{ photo: string }>();
+	const dropOld = async () => {
+		if (old?.photo.startsWith('r2:')) await c.env.PHOTOS.delete(old.photo.slice(3));
+	};
 	if (c.body.remove) {
-		await db.prepare('UPDATE profiles SET is_active = 0 WHERE member_id = ?').bind(me.id).run(); // 소프트 삭제
+		await db.prepare('UPDATE profiles SET is_active = 0 WHERE member_id = ?').bind(me.id).run(); // 기록은 소프트 삭제, 파일은 지움
+		await dropOld();
 		return { ok: true, photo: '' };
 	}
 	const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(c.body.data ?? ''));
 	if (!m || m[1].length > PHOTO_MAX) return { ok: false, error: '사진을 확인해 주세요. (JPG, 너무 큰 사진은 안 돼요)' };
-	const photo = String(c.body.data);
+	const key = `profile/${me.id}/${randomToken().slice(0, 12)}.jpg`;
+	await c.env.PHOTOS.put(key, Uint8Array.from(atob(m[1]), (ch) => ch.charCodeAt(0)), { httpMetadata: { contentType: 'image/jpeg' } });
 	await db.prepare('INSERT INTO profiles (member_id, photo, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(member_id) DO UPDATE SET photo = ?2, updated_at = ?3, is_active = 1')
-		.bind(me.id, photo, iso(c.now)).run();
-	return { ok: true, photo };
+		.bind(me.id, `r2:${key}`, iso(c.now)).run();
+	await dropOld();
+	return { ok: true, photo: photoUrl(c, `r2:${key}`) };
+}
+
+// DB의 사진 값 → 화면에 줄 값: 'r2:키'는 이 서버 주소로, 드라이브 ID·data URL은 그대로
+export const photoUrl = (c: Ctx, v: string | null | undefined) => (v?.startsWith('r2:') ? `${new URL(c.req.url).origin}/${v.slice(3)}` : (v ?? ''));
+
+// GET /profile/{회원ID}/{파일} — 프로필 사진 (바꿀 때마다 새 주소라 1년 캐시)
+export async function serveProfile(env: Env, key: string): Promise<Response> {
+	if (!/^profile\/[\w-]+\/[\w-]+\.jpg$/.test(key)) return new Response('Not found', { status: 404 });
+	const obj = await env.PHOTOS.get(key);
+	if (!obj) return new Response('Not found', { status: 404 });
+	return new Response(obj.body, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable', ETag: obj.httpEtag } });
 }

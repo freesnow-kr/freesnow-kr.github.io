@@ -1,5 +1,6 @@
 // 로그인·세션·비밀번호·권한. 설계: docs/migration/02-design.md §3~4
 import type { Ctx } from './index.ts';
+import { photoUrl } from './members.ts';
 import { PBKDF2_ITER, ROOM_PRICES, seasonOf, seasonRange, formatPhone, hmac, iso, later, maskIp, normPhone, pbkdf2, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
 
 const HOUR = 60 * 60 * 1000;
@@ -180,7 +181,7 @@ export async function me(c: Ctx) {
 	const pay = s!.owner ? 0 : s!.stays * ROOM_PRICES.숙박 + s!.rests * ROOM_PRICES.휴식;
 	return {
 		ok: true,
-		me: { name: me.name, grade: me.grade || '회원', area: me.area, phone: formatPhone(me.phone), photo: s!.photo ?? '', role: me.role, honorary: !!me.honorary },
+		me: { name: me.name, grade: me.grade || '회원', area: me.area, phone: formatPhone(me.phone), photo: photoUrl(c, s!.photo), role: me.role, honorary: !!me.honorary },
 		season: { season, rides: s!.rides, stays: s!.stays, rests: s!.rests, owner: !!s!.owner, pay, visits: s!.visits, spent: s!.spent, photos: s!.photos },
 	};
 }

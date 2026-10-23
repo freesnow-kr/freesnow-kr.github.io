@@ -68,7 +68,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<section class="panel" data-panel="members" hidden>
 						<input class="search" type="search" placeholder="이름·연락처·지역으로 찾기" />
 						<p class="hint">비밀번호 초기화(운영진 이상, 관리자 계정은 관리자만): 그 회원의 로그인이 모두 끊기고 72시간 동안 공용 초기화 비밀번호로만 들어올 수 있어요.</p>
-						<div class="scroll"><table><thead><tr><th>이름</th><th>연락처</th><th>지역</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
+						<div class="scroll"><table><thead><tr><th>No</th><th>이름</th><th>연락처</th><th>지역</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="room" hidden>
@@ -221,9 +221,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const q = $<HTMLInputElement>('.search').value.trim().replace(/-/g, '');
 				const list = members.filter((m) => !q || [m.name, m.phone, m.region, m.area].join(' ').includes(q));
 				const body = $('.member-rows');
-				if (!list.length) return empty(body, 9, '없어요.');
+				if (!list.length) return empty(body, 10, '없어요.');
 				body.replaceChildren(
-					...list.map((m) => {
+					...list.map((m, i) => {
 						const btns = document.createElement('span');
 						btns.className = 'btns';
 						btns.append(button('수정', () => edit(m)));
@@ -237,7 +237,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 								}),
 							);
 						const pw = m.reset_pending ? '초기화 대기' : m.password_changed ? '설정함' : '첫 로그인 전';
-						const row = tr([m.name, phone(m.phone), m.region, m.area, ROLE[m.role], STATUS[m.status], when(m.last_login), pw, btns]);
+						const row = tr([String(i + 1), m.name, phone(m.phone), m.region, m.area, ROLE[m.role], STATUS[m.status], when(m.last_login), pw, btns]);
 						if (m.status !== 'active') row.className = 'off';
 						return row;
 					}),
@@ -512,7 +512,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	/* No는 좁게 회색, 금액은 오른쪽 정렬 */
 	[data-panel='room'] th:first-child,
-	.room-rows :global(td:first-child) {
+	.room-rows :global(td:first-child),
+	[data-panel='members'] th:first-child,
+	.member-rows :global(td:first-child) {
 		width: 44px;
 		color: #8a8d95;
 	}

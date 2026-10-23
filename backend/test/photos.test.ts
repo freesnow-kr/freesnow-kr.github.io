@@ -95,7 +95,7 @@ test('보관: 이번·지난 시즌은 안 됨, 지난 시즌 원본을 드라�
 	assert.deepEqual([r.ok, r.moved, r.remaining], [true, 1, 0]);
 	assert.equal(uploaded, 5000, '원본을 그대로 드라이브로');
 	assert.ok(calls.some((x) => x.includes('/permissions')), '폴더는 링크 공유');
-	assert.equal(await env.PHOTOS.get(`orig/${idOld}`), null, 'R2에서 지움');
+	assert.equal(await env.PHOTOS.get(`gallery/orig/${idOld}`), null, 'R2에서 지움');
 	const res = await get(`/photo/${idOld}/large`);
 	assert.equal(res.status, 302);
 	assert.equal(res.headers.get('Location'), 'https://lh3.googleusercontent.com/d/drive-file-1=w1800');

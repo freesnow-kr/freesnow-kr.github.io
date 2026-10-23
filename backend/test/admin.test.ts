@@ -1,6 +1,7 @@
 // 가입 신청 → 운영진 승인, 회원 관리 권한, 프로필 사진, 갤러리, 채팅 랭킹
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import worker from '../src/index.ts';
 import { env, post, sessionFor, useDb } from './setup.ts';
 
 let M: string, S: string, B: string;
@@ -69,13 +70,23 @@ test('시즌방 주주는 운영진이 시즌별로', async () => {
 	assert.deepEqual((await post({ action: 'admin.roomOwners', season: '26-27' }, S)).memberIds.sort(), ['m-boss', 'm-staff']);
 });
 
-test('프로필 사진: JPG data URL만, 지우기', async () => {
-	const pic = 'data:image/jpeg;base64,' + 'A'.repeat(100);
+test('프로필 사진: R2 profile/ 폴더에, 바꾸면 예전 파일 지움, 지우기', async () => {
+	const pic = 'data:image/jpeg;base64,' + btoa('fake-jpeg-bytes-1');
 	assert.equal((await post({ action: 'avatar', data: 'data:image/png;base64,AAAA' }, S)).ok, false);
-	assert.equal((await post({ action: 'avatar', data: pic }, S)).photo, pic);
-	assert.equal((await post({ action: 'me' }, S)).me.photo, pic);
+	const url1 = (await post({ action: 'avatar', data: pic }, S)).photo;
+	assert.match(url1, /^https:\/\/api\.test\/profile\/m-staff\/[\w-]+\.jpg$/);
+	assert.equal((await post({ action: 'me' }, S)).me.photo, url1);
+	const key1 = url1.replace('https://api.test/', '');
+	assert.equal(await (await env.PHOTOS.get(key1)).text(), 'fake-jpeg-bytes-1');
+	const res = await worker.fetch(new Request(url1), env);
+	assert.deepEqual([res.status, res.headers.get('Content-Type')], [200, 'image/jpeg']);
+	const url2 = (await post({ action: 'avatar', data: 'data:image/jpeg;base64,' + btoa('two') }, S)).photo;
+	assert.notEqual(url2, url1);
+	assert.equal(await env.PHOTOS.get(key1), null, '바꾸면 예전 파일 지움');
 	await post({ action: 'avatar', remove: true }, S);
 	assert.equal((await post({ action: 'me' }, S)).me.photo, '');
+	assert.equal(await env.PHOTOS.get(url2.replace('https://api.test/', '')), null);
+	assert.equal((await worker.fetch(new Request('https://api.test/profile/a%2F..%2Fsecret.jpg'), env)).status, 404);
 });
 
 test('채팅 랭킹: 운영진이 집계를 올리고 회원이 봄', async () => {

@@ -5,7 +5,7 @@ import { seasonRoom } from './seasonroom.ts';
 import { shredLog } from './shredlog.ts';
 import { snowlive } from './snowlive.ts';
 import { somoim } from './somoim.ts';
-import { avatar, signup } from './members.ts';
+import { avatar, serveProfile, signup } from './members.ts';
 import { chatRank, gallery } from './gallery.ts';
 import * as admin from './admin.ts';
 import * as photos from './photos.ts';
@@ -67,6 +67,7 @@ export default {
 		// 사진 보기 (공개, <img>가 바로 부름)
 		const m = /^\/photo\/([\w-]+)\/(\w+)$/.exec(path);
 		if (req.method === 'GET' && m) return photos.serve(env, m[1], m[2]);
+		if (req.method === 'GET' && path.startsWith('/profile/')) return serveProfile(env, path.slice(1));
 		if (req.method !== 'POST') return json({ ok: true, service: 'Free Snow API', note: '사이트에서 POST로만 사용해요.' }, cors);
 		// 사진 올리기: multipart (사진 파일이라 JSON 대신. multipart도 CORS 사전요청 없음)
 		if (path === '/photos') {

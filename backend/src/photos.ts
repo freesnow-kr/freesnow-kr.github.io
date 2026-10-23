@@ -1,3 +1,4 @@
+// R2 버킷 freesnow-photos 폴더: gallery/{orig|large|thumb}/{id} (갤러리), profile/{회원ID}/{무작위}.jpg (프로필 사진, members.ts)
 // 갤러리 사진: 회원이 올린 원본을 R2에 (사용자 요구 2026-10-23). 이번·지난 시즌만 R2, 더 오래된 시즌은 드라이브로 보관
 // 올리기: POST /photos (multipart: token, orig, large, thumb, taken) — 브라우저가 1800px·720px JPG를 만들어 같이 보냄
 // 보기: GET /photo/{id}/{thumb|large|orig} — R2에 있으면 바로(브라우저 1년 캐시), 드라이브로 옮겼으면 드라이브 주소로
@@ -37,9 +38,9 @@ export async function upload(req: Request, env: Env, now: Date) {
 	const id = randomToken().slice(0, 16);
 	// File(Blob)째로 넘김: R2는 길이를 아는 본문만 받음 (form의 stream()은 길이를 모름)
 	await Promise.all([
-		env.PHOTOS.put(`orig/${id}`, orig, { httpMetadata: { contentType: orig.type } }),
-		env.PHOTOS.put(`large/${id}`, large, { httpMetadata: { contentType: 'image/jpeg' } }),
-		env.PHOTOS.put(`thumb/${id}`, thumb, { httpMetadata: { contentType: 'image/jpeg' } }),
+		env.PHOTOS.put(`gallery/orig/${id}`, orig, { httpMetadata: { contentType: orig.type } }),
+		env.PHOTOS.put(`gallery/large/${id}`, large, { httpMetadata: { contentType: 'image/jpeg' } }),
+		env.PHOTOS.put(`gallery/thumb/${id}`, thumb, { httpMetadata: { contentType: 'image/jpeg' } }),
 	]);
 	const caption = String(form.get('caption') ?? '').replace(/\s+/g, ' ').trim().slice(0, 100);
 	await env.DB.prepare('INSERT INTO photos (id, season, taken_at, caption, uploaded_by, content_type, size, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
@@ -49,7 +50,7 @@ export async function upload(req: Request, env: Env, now: Date) {
 
 export async function serve(env: Env, id: string, size: string): Promise<Response> {
 	if (!/^[\w-]{8,32}$/.test(id) || !SIZES.includes(size as any)) return new Response('Not found', { status: 404 });
-	const obj = await env.PHOTOS.get(`${size}/${id}`);
+	const obj = await env.PHOTOS.get(`gallery/${size}/${id}`);
 	if (obj) {
 		return new Response(obj.body, {
 			headers: { 'Content-Type': obj.httpMetadata?.contentType ?? 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable', ETag: obj.httpEtag },
@@ -82,7 +83,7 @@ export async function deletePhoto(c: Ctx) {
 	const p = await c.env.DB.prepare('SELECT id, uploaded_by FROM photos WHERE id = ? AND is_active = 1').bind(String(c.body.id ?? '')).first<{ id: string; uploaded_by: string }>();
 	if (!p) return { ok: false, error: '사진을 찾지 못했어요.' };
 	if (p.uploaded_by !== me.id && me.role === 'member') return { ok: false, error: '내가 올린 사진만 지울 수 있어요.' };
-	await c.env.PHOTOS.delete(SIZES.map((s) => `${s}/${p.id}`));
+	await c.env.PHOTOS.delete(SIZES.map((s) => `gallery/${s}/${p.id}`));
 	await c.env.DB.prepare('UPDATE photos SET is_active = 0 WHERE id = ?').bind(p.id).run(); // 기록은 소프트 삭제, R2 파일은 지움
 	return { ok: true };
 }
@@ -118,7 +119,7 @@ async function archive(env: Env, season: string) {
 	const { results } = await env.DB.prepare("SELECT id, content_type, taken_at FROM photos WHERE season = ? AND storage = 'r2' AND is_active = 1 ORDER BY taken_at LIMIT ?").bind(season, BATCH).all<any>();
 	let moved = 0;
 	for (const p of results) {
-		const obj = await env.PHOTOS.get(`orig/${p.id}`);
+		const obj = await env.PHOTOS.get(`gallery/orig/${p.id}`);
 		if (!obj) continue;
 		const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' }[p.content_type as string] ?? 'jpg';
 		// 이어 올리기(resumable): 메타데이터로 주소를 받고 그 주소에 원본을 그대로 흘려보냄 (Worker 메모리·CPU 적게)
@@ -134,7 +135,7 @@ async function archive(env: Env, season: string) {
 		const { id: driveId } = (await put.json()) as { id: string };
 		// 드라이브 저장을 먼저 기록하고 R2를 지움 → 중간에 끊겨도 사진을 잃지 않음
 		await env.DB.prepare("UPDATE photos SET storage = 'drive', drive_id = ? WHERE id = ?").bind(driveId, p.id).run();
-		await env.PHOTOS.delete(SIZES.map((s) => `${s}/${p.id}`));
+		await env.PHOTOS.delete(SIZES.map((s) => `gallery/${s}/${p.id}`));
 		moved++;
 	}
 	const left = await env.DB.prepare("SELECT count(*) AS n FROM photos WHERE season = ? AND storage = 'r2' AND is_active = 1").bind(season).first<{ n: number }>();

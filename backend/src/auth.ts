@@ -3,8 +3,8 @@ import type { Ctx } from './index.ts';
 import { PBKDF2_ITER, formatPhone, hmac, iso, later, maskIp, normPhone, pbkdf2, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
 
 const HOUR = 60 * 60 * 1000;
-const SESSION_MS = 12 * HOUR;
-const KEEP_MS = 30 * 24 * HOUR; // '로그인 상태 유지'
+// 세션은 30일, 쓰는 동안 하루 넘게 지났으면 다시 30일로 늘림 (사용자 요구 2026-10-23: 최대한 안 풀리게)
+const SESSION_MS = 30 * 24 * HOUR;
 const RESET_MS = 72 * HOUR; // 초기화 후 공용 초기화 비밀번호가 통하는 시간
 const MAX_FAILS = 5; // 같은 아이디, 1시간
 const MAX_IP_FAILS = 30; // 같은 IP, 1시간
@@ -26,24 +26,27 @@ export class Reply {
 
 const RANK = { member: 0, staff: 1, master: 2 } as const;
 export type Role = keyof typeof RANK;
-export type Me = { token_hash: string; must_change: number; id: string; name: string; phone: string; grade: string; area: string; role: Role; birth: string | null };
+export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; name: string; phone: string; grade: string; area: string; role: Role; birth: string | null };
 
 // 세션 확인 + 회원 상태·권한은 매번 DB에서 (정지·권한 변경이 바로 반영). 토큰은 Authorization 헤더, 전환 기간엔 body.token도
 export async function need(c: Ctx, role: Role = 'member', allowMustChange = false): Promise<Me> {
 	const token = /^Bearer (\S+)$/.exec(c.req.headers.get('Authorization') || '')?.[1] || String(c.body.token || '');
 	if (!token) throw new Reply(EXPIRED);
 	const me = await c.env.DB.prepare(
-		`SELECT s.token_hash, s.must_change, m.id, m.name, m.phone, m.grade, m.area, m.role, m.birth
+		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.name, m.phone, m.grade, m.area, m.role, m.birth
 		 FROM sessions s JOIN members m ON m.id = s.member_id
 		 WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ? AND m.status = 'active'`,
 	).bind(await sha256(token), iso(c.now)).first<Me>();
 	if (!me) throw new Reply(EXPIRED);
+	if (Date.parse(me.expires_at) < c.now.getTime() + SESSION_MS - 24 * HOUR) {
+		await c.env.DB.prepare('UPDATE sessions SET expires_at = ? WHERE token_hash = ?').bind(iso(later(c.now, SESSION_MS)), me.token_hash).run();
+	}
 	if (me.must_change && !allowMustChange) throw new Reply(MUST_CHANGE);
 	if (RANK[me.role] < RANK[role]) throw new Reply(FORBIDDEN);
 	return me;
 }
 
-// {phone, password, keep} → {ok, token, name, exp, mustChange}. 예전 화면이 보내는 birth도 비밀번호로 받음
+// {phone, password} → {ok, token, name, exp, mustChange}. 세션 30일. 예전 화면이 보내는 birth도 비밀번호로 받음
 export async function login(c: Ctx) {
 	const db = c.env.DB;
 	const phone = normPhone(c.body.phone);
@@ -101,7 +104,7 @@ export async function login(c: Ctx) {
 
 	const token = randomToken();
 	const mustChange = how !== 'password';
-	const exp = later(c.now, c.body.keep === true ? KEEP_MS : SESSION_MS);
+	const exp = later(c.now, SESSION_MS);
 	await db.batch([
 		db.prepare('INSERT INTO sessions (token_hash, member_id, must_change, created_at, expires_at, ua) VALUES (?, ?, ?, ?, ?, ?)')
 			.bind(await sha256(token), m.id, mustChange ? 1 : 0, iso(c.now), iso(exp), ua),
@@ -149,6 +152,12 @@ function weakReason(pw: string, me: Me, resetPassword: string): string {
 	if ((birth && digits.includes(birth)) || digits.includes(me.phone.slice(3))) return '생년월일이나 전화번호가 들어간 비밀번호는 쓸 수 없어요.';
 	if (resetPassword && pw === resetPassword) return '초기화 비밀번호는 새 비밀번호로 쓸 수 없어요.';
 	return '';
+}
+
+// 화면이 하루에 한 번 부름: 세션 기한은 need()가 늘리므로 토큰은 그대로 (Apps Script renew는 새 토큰을 줌)
+export async function renew(c: Ctx) {
+	await need(c, 'member', true);
+	return { ok: true };
 }
 
 // 본인 정보만. 생년월일·성별·비공개연락처는 절대 안 보냄 (Apps Script me와 같은 모양 + role)

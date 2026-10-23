@@ -24,7 +24,7 @@ const rows = async () => (await env.DB.prepare('SELECT * FROM room_stays ORDER B
 test('회원만, 응답 모양은 Apps Script와 같음', async () => {
 	assert.equal((await post({ action: 'seasonroom', season: '26-27' })).expired, true);
 	const { status, cors, ...r } = await room(A);
-	assert.deepEqual(r, { ok: true, season: '26-27', prices: { 숙박: 10000, 휴식: 5000 }, nights: [{ date: '2026-11-01', name: '회원A', kind: '숙박', me: true, owner: false }] });
+	assert.deepEqual(r, { ok: true, season: '26-27', prices: { 숙박: 10000, 휴식: 5000 }, nights: [{ date: '2026-11-01', name: '회원A', kind: '숙박', me: true, owner: false }], rides: [] });
 });
 
 test('체크: 두 번 눌러도 한 줄, 지난 시즌 날짜도 되고 응답엔 그 시즌만, 이름만 (연락처 X)', async () => {
@@ -57,6 +57,21 @@ test('같은 날 다시 체크하면 구분만 바뀜, 취소는 줄을 남기�
 	r = await room(B, { op: 'add', date: '2026-12-13' });
 	assert.equal((await rows()).length, 4);
 	assert.deepEqual(r.nights.find((n: any) => n.me), { date: '2026-12-13', name: '회원B', kind: '숙박', me: true, owner: true });
+});
+
+test('출격: 시즌방과 따로, 취소해도 줄은 남김, 연락처 안 보냄', async () => {
+	const stays = (await rows()).length;
+	await room(A, { op: 'add', date: '2026-12-13', kind: '출격' });
+	await room(A, { op: 'add', date: '2026-12-13', kind: '출격' });
+	let r = await room(B, { op: 'add', date: '2026-12-13', kind: '출격' });
+	assert.equal((await rows()).length, stays);
+	assert.deepEqual(r.rides, [{ date: '2026-12-13', name: '회원A', me: false }, { date: '2026-12-13', name: '회원B', me: true }]);
+	assert.equal(JSON.stringify(r).includes('6000'), false);
+	r = await room(B, { op: 'remove', date: '2026-12-13', kind: '출격' });
+	assert.deepEqual(r.rides.map((x: any) => x.name), ['회원A']);
+	const checks = (await env.DB.prepare('SELECT member_id, status FROM ride_checks ORDER BY member_id').all()).results;
+	assert.deepEqual(checks.map((x: any) => [x.member_id, x.status]), [['m-a', '출격'], ['m-b', '취소']]);
+	assert.ok(r.nights.some((n: any) => n.date === '2026-12-13' && n.name === '회원B'), '출격 취소해도 시즌방 기록은 그대로');
 });
 
 test('잘못된 날짜·시즌 거부', async () => {

@@ -24,7 +24,7 @@ export async function signup(c: Ctx) {
 
 	const n = await db.prepare(
 		`SELECT (SELECT count(*) FROM signup_requests WHERE created_at > ?1) AS recent,
-		        (SELECT count(*) FROM members WHERE phone = ?2 AND is_active = 1) + (SELECT count(*) FROM signup_requests WHERE phone = ?2 AND status = 'pending' AND is_active = 1) AS dup`,
+		        (SELECT count(*) FROM members WHERE phone = ?2) + (SELECT count(*) FROM signup_requests WHERE phone = ?2 AND status = 'pending' AND is_active = 1) AS dup`,
 	).bind(iso(later(c.now, -3600e3)), phone).first<{ recent: number; dup: number }>();
 	if (n!.recent >= SIGNUP_PER_HOUR) return { ok: false, error: '신청이 많아요. 잠시 뒤 다시 시도해 주세요.' };
 	if (n!.dup) return { ok: false, error: '이미 신청했거나 가입된 연락처예요. 오픈채팅으로 문의해 주세요.' };

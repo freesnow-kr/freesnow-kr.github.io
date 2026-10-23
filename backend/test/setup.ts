@@ -25,7 +25,7 @@ export function useDb(members: string[][], seed?: () => Promise<unknown>) {
 			if (last && /\bBEGIN\b/i.test(last) && !/\bEND$/i.test(last)) stmts[stmts.length - 1] = `${last};\n${part}`;
 			else stmts.push(part);
 		}
-		await env.DB.batch(stmts.map((x) => env.DB.prepare(x)));
+		for (const x of stmts) await env.DB.prepare(x).run(); // 한 문장씩: 로컬 D1은 0010(테이블 다시 만들기)을 batch로 못 함 (빈 DB라 외래키 문제 없음)
 		const now = new Date().toISOString();
 		if (members.length) await env.DB.batch(members.map(([id, phone, name, birth, role = 'member', status = 'active']) =>
 			env.DB.prepare('INSERT INTO members (id, phone, name, birth, region, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')

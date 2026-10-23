@@ -2,9 +2,8 @@
 // 회원·날짜당 한 줄(PRIMARY KEY), 취소해도 줄은 남기고 kind = '취소'. 방 구분·정원 없음, 지난 날짜도 자유롭게. 시즌 = 7/1 ~ 6/30
 import type { Ctx } from './index.ts';
 import { need } from './auth.ts';
-import { iso } from './lib.ts';
+import { ROOM_PRICES as PRICES, iso } from './lib.ts';
 
-const PRICES = { 숙박: 10000, 휴식: 5000 }; // 1박 / 4시간 휴식, 시즌방 주주는 정산에서 빠짐
 
 // {season: '26-27', op?: 'add'|'remove', date?: '2026-12-13', kind?: '숙박'|'휴식'|'출격'} → {ok, season, prices, nights: [{date, name, kind, me, owner}], rides: [{date, name, me}]}
 // kind '출격'이면 출격 체크(ride_checks, 시즌방과 따로·정산 없음). 응답엔 취소 빼고, 회원에게 이름만 (연락처 X)

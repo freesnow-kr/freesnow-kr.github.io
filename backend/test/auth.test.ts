@@ -29,6 +29,7 @@ test('첫 전환: 생년월일로 한 번 → 새 비밀번호 전에는 다른 
 
 	const me = await post({ action: 'me' }, first.token);
 	assert.deepEqual(me.me, { name: '김보드', grade: '경기도', area: '구리', phone: '010-1111-2222', photo: '', role: 'member' });
+	assert.deepEqual({ ...me.season, season: 'x' }, { season: 'x', rides: 0, stays: 0, rests: 0, owner: false, pay: 0, visits: 0, spent: 0, photos: 0 });
 	assert.equal(JSON.stringify(me).includes('1996'), false); // 생년월일은 응답에 없음
 
 	assert.equal((await login('010-1111-2222', '19960212')).ok, false);

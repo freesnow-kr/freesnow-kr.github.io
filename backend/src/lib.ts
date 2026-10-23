@@ -13,6 +13,18 @@ export function normPhone(v: unknown): string {
 export const formatPhone = (d: string) => (d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : d);
 
 export const iso = (d: Date) => d.toISOString();
+
+// 시즌 = 7/1 ~ 6/30 (한국 시간): 2026-12-13 → '26-27'
+export function seasonOf(d: Date) {
+	const k = new Date(d.getTime() + 9 * 3600e3);
+	const s = (k.getUTCMonth() >= 6 ? k.getUTCFullYear() : k.getUTCFullYear() - 1) % 100;
+	return `${String(s).padStart(2, '0')}-${String((s + 1) % 100).padStart(2, '0')}`;
+}
+// 시즌 첫날·끝날 ('26-27' → '2026-07-01', '2027-06-30')
+export const seasonRange = (season: string) => [`20${season.slice(0, 2)}-07-01`, `20${season.slice(3)}-06-30`] as const;
+
+// 시즌방 정산: 숙박 1박 / 4시간 휴식, 시즌방 주주는 빠짐
+export const ROOM_PRICES = { 숙박: 10000, 휴식: 5000 };
 export const later = (d: Date, ms: number) => new Date(d.getTime() + ms);
 
 // 로그인 이력에 남기는 IP: 앞부분만 (203.0.113.x / 2001:db8:1::x)

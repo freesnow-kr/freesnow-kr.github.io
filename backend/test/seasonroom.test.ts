@@ -80,3 +80,17 @@ test('잘못된 날짜·시즌 거부', async () => {
 	assert.equal((await room(A, { season: '2026' })).ok, false);
 	assert.equal((await rows()).length, 4);
 });
+
+test('마이페이지 이번 시즌 요약: 내 숙박·휴식·출격, 주주면 0원', async () => {
+	const now = new Date(), y = now.getFullYear() % 100;
+	const cur = now.getMonth() >= 6 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+	const day = `20${cur.slice(0, 2)}-12-01`;
+	const before = (await post({ action: 'me' }, A)).season;
+	await room(A, { season: cur, op: 'add', date: day });
+	await room(A, { season: cur, op: 'add', date: `20${cur.slice(0, 2)}-12-02`, kind: '휴식' });
+	await room(A, { season: cur, op: 'add', date: day, kind: '출격' });
+	const s = (await post({ action: 'me' }, A)).season;
+	assert.deepEqual([s.season, s.stays - before.stays, s.rests - before.rests, s.rides - before.rides, s.owner, s.pay - before.pay], [cur, 1, 1, 1, false, 15000]);
+	await env.DB.prepare('INSERT INTO room_owners VALUES (?, ?)').bind(cur, 'm-a').run();
+	assert.equal((await post({ action: 'me' }, A)).season.pay, 0);
+});

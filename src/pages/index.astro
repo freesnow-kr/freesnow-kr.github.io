@@ -135,7 +135,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 		</footer>
 		<script>
 			// 메인 NOTICE 줄: 고정 공지 최대 3개 (공지는 누구나 볼 수 있음)
-			import { base, call } from '../scripts/session';
+			import { base, call, ymd } from '../scripts/session';
 			const box = document.querySelector<HTMLElement>('.notice')!;
 			const res = await call({ action: 'board.list', category: 'notice', pinned: true }).catch(() => null);
 			const posts = (res?.posts ?? []).slice(0, 3);
@@ -147,7 +147,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 						a.href = `${base}/board/view/?id=${encodeURIComponent(p.id)}`;
 						a.textContent = p.title; // textContent로만 (HTML 주입 방지)
 						const d = document.createElement('span');
-						d.textContent = new Date(p.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+						d.textContent = ymd(p.created_at);
 						li.append(a, d);
 						return li;
 					}),

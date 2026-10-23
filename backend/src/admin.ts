@@ -26,8 +26,10 @@ export async function summary(c: Ctx) {
 		`SELECT (SELECT count(*) FROM members WHERE status = 'active') AS active,
 		        (SELECT count(*) FROM members) AS total,
 		        (SELECT count(*) FROM signup_requests WHERE status = 'pending' AND is_active = 1) AS pending,
-		        (SELECT count(*) FROM login_logs WHERE ok = 0 AND at > ?) AS fails`,
-	).bind(iso(new Date(c.now.getTime() - 864e5))).first();
+		        (SELECT count(*) FROM login_logs WHERE ok = 0 AND at > ?1) AS fails,
+		        (SELECT count(*) FROM lesson_requests WHERE is_active = 1 AND date >= ?2) AS lessons,
+		        (SELECT count(*) FROM lesson_requests WHERE is_active = 1 AND date >= ?2 AND teacher_id IS NULL) AS lessonsTodo`,
+	).bind(iso(new Date(c.now.getTime() - 864e5)), new Date(c.now.getTime() + 9 * 3600e3).toISOString().slice(0, 10)).first(); // 강습: 오늘(한국)부터 앞으로
 	return { ok: true, role: me.role, ...r };
 }
 
@@ -138,6 +140,31 @@ export async function audit(c: Ctx) {
 	await need(c, 'admin');
 	const { results } = await c.env.DB.prepare('SELECT a.at, a.action, a.target_id, a.detail, m.name AS actor FROM admin_logs a LEFT JOIN members m ON m.id = a.actor_id ORDER BY a.at DESC LIMIT 300').all();
 	return { ok: true, logs: results };
+}
+
+// 강습 요청 (운영진이 회원 중 한 명과 연결): 2주 전부터 앞으로의 요청, 날짜순. 연락처는 운영진 회원 화면과 같은 범위
+// {memberId, date, teacherId?} 이면 연결(teacherId 비우면 연결 해제) 후 목록. riders = 그날 출격 체크한 회원 ID (연결 후보 먼저 보이게)
+export async function lessons(c: Ctx) {
+	const db = c.env.DB;
+	const me = await need(c, 'staff');
+	if (c.body.memberId) {
+		const memberId = String(c.body.memberId), date = String(c.body.date ?? ''), teacherId = c.body.teacherId ? String(c.body.teacherId) : null;
+		if (teacherId === memberId) throw bad('요청한 회원 본인과는 연결할 수 없어요.');
+		if (teacherId && !(await db.prepare("SELECT 1 FROM members WHERE id = ? AND status = 'active'").bind(teacherId).first())) throw bad('활동 중인 회원만 연결할 수 있어요.');
+		const r = await db.prepare('UPDATE lesson_requests SET teacher_id = ? WHERE member_id = ? AND date = ? AND is_active = 1').bind(teacherId, memberId, date).run();
+		if (!r.meta.changes) throw bad('요청을 찾지 못했어요. 회원이 취소했을 수 있어요.');
+		await log(c, me.id, 'lesson.match', memberId, { date, teacherId }).run();
+	}
+	const from = new Date(c.now.getTime() + 9 * 3600e3 - 14 * 86400e3).toISOString().slice(0, 10); // 한국 날짜 기준 14일 전
+	const { results } = await db.prepare(
+		`SELECT l.date, l.member_id, l.teacher_id, l.created_at, m.name, m.phone, m.region, m.area, t.name AS teacher
+		 FROM lesson_requests l JOIN members m ON m.id = l.member_id LEFT JOIN members t ON t.id = l.teacher_id
+		 WHERE l.is_active = 1 AND l.date >= ? ORDER BY l.date, l.created_at`,
+	).bind(from).all<any>();
+	const rides = (
+		await db.prepare("SELECT date, member_id FROM ride_checks WHERE date >= ? AND status = '출격' AND is_active = 1").bind(from).all<{ date: string; member_id: string }>()
+	).results;
+	return { ok: true, from, lessons: results.map((l) => ({ ...l, riders: rides.filter((r) => r.date === l.date && r.member_id !== l.member_id).map((r) => r.member_id) })) };
 }
 
 // 시즌방 주주: {season} 목록 / {season, memberIds: []} 저장(그 시즌 전체를 바꿈)

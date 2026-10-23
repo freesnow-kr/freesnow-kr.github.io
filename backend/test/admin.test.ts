@@ -125,3 +125,18 @@ test('갤러리: 공개 폴더 보기에서 사진만, 5분 캐시, 실패하면
 	assert.equal((await post({ action: 'gallery' })).photos.length, 2);
 	globalThis.fetch = real;
 });
+
+test('조 편성: 운영진만, 행사 저장·목록·불러오기·고치기·지우기', async () => {
+	const data = { teams: [{ name: '1조' }, { name: '2조' }], people: [{ key: 'm:m-1', name: '회원일', team: 0 }, { key: 'g:1', name: '게스트', guest: true, team: 1 }], games: [{ name: '줄다리기', points: 10, winners: [0] }] };
+	assert.match((await post({ action: 'admin.teams.save', title: '체육대회', date: '2026-11-07', data }, M)).error ?? '', /권한|로그인/);
+	const id = (await post({ action: 'admin.teams.save', title: '  가을   체육대회 ', date: '2026-11-07', data }, S)).id;
+	assert.ok(id);
+	assert.deepEqual((await post({ action: 'admin.teams.list' }, S)).events.map((e: any) => [e.title, e.people, e.teams]), [['가을 체육대회', 2, 2]]);
+	assert.deepEqual((await post({ action: 'admin.teams.get', id }, S)).event.data, data);
+	data.games[0].winners = [1];
+	assert.equal((await post({ action: 'admin.teams.save', id, title: '가을 체육대회', date: '2026-11-07', data }, S)).ok, true);
+	assert.deepEqual((await post({ action: 'admin.teams.get', id }, S)).event.data.games[0].winners, [1]);
+	assert.equal((await post({ action: 'admin.teams.save', title: 'x', date: '내일', data }, S)).ok, false);
+	await post({ action: 'admin.teams.delete', id }, S);
+	assert.equal((await post({ action: 'admin.teams.list' }, S)).events.length, 0);
+});

@@ -10,6 +10,7 @@ import { chatRank, gallery } from './gallery.ts';
 import * as admin from './admin.ts';
 import * as photos from './photos.ts';
 import * as board from './board.ts';
+import * as teams from './teams.ts';
 
 export type Env = {
 	DB: D1Database;
@@ -65,6 +66,10 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	'board.photoDelete': board.photoRemove,
 	'admin.photoStatus': photos.archiveStatus,
 	'admin.photoArchive': photos.archiveAction,
+	'admin.teams.list': teams.list,
+	'admin.teams.get': teams.get,
+	'admin.teams.save': teams.save,
+	'admin.teams.delete': teams.remove,
 	'admin.reset': adminReset,
 };
 

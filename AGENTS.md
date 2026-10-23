@@ -22,7 +22,8 @@
 | `/members/` | `src/pages/members.astro` | 회원 전용, **본인 정보만**. 토큰 없거나 만료면 `/login`(`?expired`)으로 |
 | `/rank/` | `src/pages/rank.astro` | 회원 전용 오픈채팅 메시지 수 랭킹, 끝난 달만 달별로 고름(기본: 항상 지난달 1일~말일, 이번 달은 숨김, '전체' 없음 — 사용자 요구). 헤더 메뉴 **CHAT RANK** |
 | `/shredlog/` | `src/pages/shredlog.astro` | SHRED LOG: 개인 시즌 출격·지출 기록(24-25/25-26/26-27), 시즌권 본전 계산, 시즌 비교, 지출 CSV. 비회원도 사용(브라우저 저장) + 로그인 유도, 회원은 시트 저장. 시즌 = 7/1~6/30 |
-| `/seasonroom/` | `src/pages/seasonroom.astro` | 회원 전용 시즌방 숙박 체크: 달력(날짜별 잔 사람), 날짜 골라 내 숙박 체크·취소(지난 날짜도 자유롭게), 달별 정산 |
+| `/seasonroom/` | `src/pages/seasonroom.astro` | 회원 전용 **RIDE & STAY**(예전 SEASON ROOM, 주소는 그대로): 출격·시즌방 숙박 체크 달력, 달별 시즌방 사용 이력 |
+| `/password/` | `src/pages/password.astro` | 비밀번호 변경 (Worker 로그인 전용, `club.workerApi` 비면 '준비 중') |
 | `/cute/` | `src/pages/cute.astro` | 픽셀아트(Kizupi 느낌), 자체 `<style is:global>` |
 | `/ride/` | `astro.config.mjs` `redirects` | 예전 공개 주소 → `/` |
 
@@ -32,7 +33,7 @@
 - **링크·ID는 코드에 넣지 않음**(사용자 요구, 2026-10-22):
   - 사이트: `club`의 링크 3개는 빌드 환경변수 `PUBLIC_JOIN_URL`, `PUBLIC_SOMOIM_URL`, `PUBLIC_MEMBERS_API` — 로컬은 `.env`(gitignore, 양식 `.env.example`), 배포는 GitHub 저장소 Actions **Secrets**(또는 Variables, 같은 이름) → `deploy.yml`이 넘겨 줌. 하나라도 비면 빌드가 멈춰서 떠 있는 사이트는 그대로. 브라우저가 쓰는 값이라 배포된 사이트에선 보임(진짜 숨길 값은 아래 스크립트 속성).
   - Apps Script: 폴더 id·외부 주소는 로컬 `Code.gs`(저장소에 없음) 맨 위 `CONFIG` — `GALLERY_FOLDER_ID`, `CHAT_FOLDER_ID`, `AVATAR_FOLDER_ID`(비우면 자동 생성 후 스크립트 속성에 저장), `SOMOIM_URL`, `SNOWLIVE_API`. 코드는 `config('이름')` = 같은 이름 스크립트 속성 → 없으면 `CONFIG`. 비어 있으면 해당 기능 '준비 중'/오류. `authorizeDrive` 실행하면 빠진 값을 알려 줌. 테스트는 `CONFIG`를 비우고 `load()`의 `props`에 가짜 값.
-- 헤더/푸터 마크업은 페이지마다 복사돼 있음. 메뉴 항목을 바꾸면 헤더가 있는 페이지 전부(`index`, `gallery`, `webcam`, `login`, `signup`, `members`, `rank`, `shredlog`, `seasonroom`) 수정. 메뉴는 SEASON·GALLERY·WEBCAM·MEMBERS·CHAT RANK·SHRED LOG·SEASON ROOM 7개(RIDE·FAQ는 사용자 요청으로 뺌, 섹션은 메인에 그대로). 1200px 이하는 ☰ 메뉴(`ride.css` 미디어쿼리 + `session.ts`의 `min-width: 1201px`, 실제 필요 폭 약 1170px — 메뉴를 늘리면 다시 재서 바꿀 것) — 메뉴를 더 늘리면 이 값도 늘릴 것.
+- 헤더/푸터 마크업은 페이지마다 복사돼 있음. 메뉴 항목을 바꾸면 헤더가 있는 페이지 전부(`index`, `gallery`, `webcam`, `login`, `signup`, `members`, `rank`, `shredlog`, `seasonroom`) 수정. 메뉴는 SEASON·GALLERY·WEBCAM·MEMBERS·CHAT RANK·SHRED LOG·RIDE & STAY 7개(`password` 페이지 헤더도)(RIDE·FAQ는 사용자 요청으로 뺌, 섹션은 메인에 그대로). 1200px 이하는 ☰ 메뉴(`ride.css` 미디어쿼리 + `session.ts`의 `min-width: 1201px`, 실제 필요 폭 약 1170px — 메뉴를 늘리면 다시 재서 바꿀 것) — 메뉴를 더 늘리면 이 값도 늘릴 것.
 - `src/scripts/session.ts`: 에디토리얼 페이지 공통 클라이언트 모듈. 헤더 스크롤 배경(`.is-solid`), 로그인 상태면 헤더 버튼 LOGIN→LOGOUT, 토큰 저장(`store`), Apps Script 호출(`call`). 각 페이지 `<script>`에서 import.
 - `ride.css`의 `[hidden] { display: none !important }` — display를 지정한 요소에 `hidden`을 써도 숨겨지게(빠뜨리면 폼/완료 화면이 같이 보이는 버그).
 - 헤더 오른쪽 버튼(`.nav-join`)은 **LOGIN** → `/login/` (로그인 상태면 LOGOUT). MEMBERS 메뉴 → `/members/`. 오픈채팅(`club.joinUrl`)은 메인 히어로 `KAKAO OPEN CHAT` 버튼, 로그인 화면의 가입 문의 버튼, 푸터 링크로 연결.
@@ -87,18 +88,22 @@
 - **출격 일수 = SHRED LOG 출격 날짜 ∪ 스노우라이브 기록 날짜**(같은 날 한 번). 출격 칸·1회 평균·시즌권 1회당 단가·비교표가 이 값을 씀(스노우라이브만 연결하고 출격을 안 적어도 단가 계산되게 — 사용자 요구).
 - **스노우라이브 연동**(사용자 결정 2026-10-22, 공식 API 아님 — 앱이 쓰는 `friend-detail-page` 주소(스크립트 속성 `SNOWLIVE_API`)를 허락 없이 사용하는 것에 동의함): 회원이 SHRED LOG에서 스노우라이브 공유 링크/ID를 연결 → 연결 정보도 아래 '스노우라이브기록' 탭 하나에(따로 탭 없음 — 사용자 요구로 합침). 연결 직후 가져오기 전이면 `시즌` 빈 줄로 연결만 표시, 첫 시즌을 가져오면 그 줄을 채움. 회원의 연결 ID도 1시간 캐시(`snowliveid:`+연락처, 연결·해제 때 지움). `action:'snowlive'` {token, season, op?: 'link'|'unlink', id?} → `parseSnowlive`가 라이딩 통계만(총 런·점수·랭킹·상위%·티어·슬로프 TOP10·날짜별 런) 골라 보냄 — **성별 등 다른 항목은 버림**, `hide_profile`이면 통계 없이 `{hidden:true}`. 스노우라이브 시즌 = 10/1~3/31. 가져온 통계(라이딩 통계만)는 **'스노우라이브기록'** 탭(`연락처|스노우라이브ID|시즌|데이터(JSON)|가져온시각`)에 시즌별 한 칸 JSON으로 저장(사용자 요구, API 재호출 줄이기). 읽는 순서: **캐시(1시간) → 시트 → 스노우라이브**. 끝난 시즌(4/1 이후)은 저장된 것만 쓰고 다시 요청 안 함, 진행 중 시즌은 1시간 지나면 새로 요청, 요청 실패 시 저장된 것 사용. 다른 ID로 바꾸면 예전 ID 기록, 연결 해제하면 전부 삭제. **'재연결' 버튼**(`op:'refresh'`) = 캐시·시트 무시하고 스노우라이브에서 새로 → 시트·캐시 갱신, 1분 안에 또 누르면 저장된 것(스노우라이브 서버 보호). 날짜별 런은 출격 표 '스노우라이브' 칸에도 표시. API가 인증 없이 아무 ID나 받아 줌(입력한 ID가 본인 것인지 확인 불가). 응답 모양이 바뀌면 '불러오지 못했어요' → `parseSnowlive`와 `Code.test.mjs` 10번 수정.
 
-## 시즌방 숙박 체크 (`/seasonroom` + `apps-script` seasonroom)
+## RIDE & STAY = 출격·시즌방 체크 (`/seasonroom` + `apps-script` seasonroom)
 
 - 사용자 요구(2026-10-22): 시즌방에서 누가 언제 썼는지 확인. **회원 전체**가 체크, 방 2개지만 구분 없음, 정원 없음, 지난 날짜도 자유롭게. 정산 **숙박 1박 10,000원 / 4시간 휴식 5,000원**(`ROOM_PRICES`), **시즌방 주주는 제외**.
 - **'시즌방'** 탭 `날짜|이름|연락처|체크시각|구분` — 회원·날짜당 한 줄, 구분 = 숙박/휴식/**취소**. **취소해도 줄을 지우지 않고 구분만 '취소'**(사용자 요구), 체크시각 = 마지막으로 바꾼 때. 다시 체크하면 같은 줄을 고침. 구분 열은 나중에 붙인 열이라 예전 탭이면 자동으로 추가, 빈 칸은 숙박.
 - **'시즌방주주'** 탭 `시즌|이름|연락처` — 운영진이 **시즌별로**(예 `26-27`) 적음, 주주는 시즌마다 다름.
-- `action:'seasonroom'` {token, season, op?: 'add'|'remove', date?, kind?: '숙박'|'휴식'} → `{season, prices, nights: [{date, name, kind, me, owner}]}`(취소 제외). 회원에게 **이름만**(연락처 X). 본인 줄만 바꿈, `LockService`. 연락처는 `normPhone`으로 비교(하이픈·띄어쓰기·앞 0 빠진 숫자 모두 같은 사람). 시즌 = 7/1~6/30.
-- 화면: 시즌 단위로 한 번 받아 달 이동은 바로. 달력 칸에 이름(휴식은 '(휴식)', 좁은 화면은 인원 수만), 아래 칸에서 고른 날 명단 + 버튼: 기록 없으면 [시즌방 숙박][4시간 휴식], 있으면 [다른 쪽으로 변경][취소](누른 버튼만 스피너). 달별 정산표(이름·숙박·휴식·금액, 주주는 '주주') + 내 시즌 합계. 같은 이름은 정산표에서 한 사람으로 묶임.
+- **출격 체크**(사용자 요구 2026-10-23, 페이지 이름도 SEASON ROOM → RIDE & STAY): 그날 스키장 가는 사람. 시즌방과 따로(숙박 없이 출격만 가능), 정산 없음. **'출격체크'** 탭 `날짜|이름|연락처|체크시각|구분(출격/취소)` — 시즌방 탭과 같은 규칙(회원·날짜당 한 줄, 취소도 남김). SHRED LOG의 '출격기록'(개인 기록)과는 다른 탭.
+- `action:'seasonroom'` {token, season, op?: 'add'|'remove', date?, kind?: '숙박'|'휴식'|'출격'} → `{season, prices, nights: [{date, name, kind, me, owner}], rides: [{date, name, me}]}`(취소 제외). kind '출격'이면 출격체크 탭. 회원에게 **이름만**(연락처 X). 본인 줄만 바꿈, `LockService`. 연락처는 `normPhone`으로 비교(하이픈·띄어쓰기·앞 0 빠진 숫자 모두 같은 사람). 시즌 = 7/1~6/30.
+- 화면(사용자 요구 2026-10-23): 달력은 **기본 3주(지난주·이번 주·다음 주)**, '한 달 보기' 버튼으로 달 전체(고른 보기는 `localStorage` `fs-room-view`에 기억). ‹ ›는 3주면 한 주씩, 한 달이면 한 달씩. 달력 칸엔 **숫자만** '출격 N명'·'숙박 N명'(휴식 포함). 넓은 화면은 달력 **오른쪽**에 고른 날 칸(달력 높이만큼, 넘치면 안에서 스크롤 — `height: 0; min-height: 100%`), 860px 이하는 아래. 고른 날 칸: 출격 명단 + [출격]/[출격 취소], 시즌방 명단 + [시즌방 숙박][4시간 휴식] 또는 [다른 쪽으로 변경][취소](누른 버튼만 스피너). **명단엔 주주 표시 안 함**. 아래 '**N월 시즌방 사용 이력**'(고른 날의 달) 표: 이름·숙박·휴식·금액, **주주는 0원**(이름 옆 '· 주주'), 내 시즌 합계. 시즌은 화면에 보이는 날짜 기준으로 불러옴(3주가 7/1에 걸치면 두 시즌).
+- 응답에 `rides`가 없으면(출격 기능 없는 예전 Apps Script) 출격 칸을 숨김 — 예전 서버는 kind '출격'을 숙박으로 저장해 버리므로. **Apps Script를 먼저 새 버전으로 배포한 뒤 사이트 배포.**
+- 모바일에서 버튼 글씨가 가끔 안 보이던 문제: 터치 화면은 누른 뒤 `:hover`가 남아 검은 바탕 + 잠긴 버튼 회색 글씨가 됨 → `ride.css`에서 `.btn-ink`·`.btn-line-dark`의 hover는 `@media (hover: hover)` 안에만, `.btn-line-dark`는 글자색 직접 지정 + `:disabled` 스타일.
 
 ## THE SEASON = 소모임 정모 (`/` + `apps-script` somoim)
 
 - 사용자 결정(2026-10-21): THE SEASON은 **소모임 모임 공개 페이지의 '정모 일정'**을 보여주고, 참석은 소모임에서 받음. 사이트의 참석/취소 UI는 쓰지 않음(아래 events·rsvp 서버 코드는 남아 있지만 현재 화면에서 호출 안 함).
 - `action:'somoim'`: `UrlFetchApp`으로 스크립트 속성 `SOMOIM_URL`(=`club.somoimUrl`) 공개 페이지를 읽어 `parseSomoim` → `[{title, date, time, start, place, fee, count, cap}]`. **1시간 `CacheService` 캐시** → 소모임에는 시간당 1회만 접근. 참석자 얼굴·이름은 가져오지 않음.
+- **이력 저장**(사용자 요구 2026-10-23, 나중에 소모임 없이 사이트에서 모임 만들기·참석/취소로 옮길 준비): 읽을 때마다(1시간에 한 번) `saveSomoim` → **'소모임정모'** 탭 `키(시작ISO|제목)|제목|시작|시간|장소|회비|인원|정원|처음본시각|마지막본시각`, 정모마다 한 줄, 다시 보면 인원·마지막본시각만 갱신, 지난 정모도 안 지움. 저장 실패해도 화면은 그대로. Worker 쪽은 `meetups`(source somoim/club) + `meetup_attendees`(자체 모임 참석, 아직 안 씀) 테이블 — `backend/migrations/0003_meetups.sql`, `src/somoim.ts`(한국 시간으로 계산, D1 `cache` 1시간).
 - 파싱: '정모 일정' 이후 `<div class="flex space-x-3">` 단위로 나눔. 날짜는 정모 이미지 파일명의 `yyyymmddHHMM`(예 `…202611071300s1.png`), 없으면 화면의 `11/7(토) 오후 1:00`에서 연도 추정. 장소·회비는 `i_location`·`i_currency` 아이콘 다음 `<p>`, 인원은 끝의 `18 / 30`.
 - 공식 API 아님 → 소모임이 페이지 구조를 바꾸면 빈 목록/오류 → 화면엔 '정모 일정을 불러오지 못했어요' + '소모임에서 전체 일정 보기 ↗' 링크. 고칠 땐 공개 페이지 HTML을 다시 보고 `parseSomoim`만 수정 + `Code.test.mjs` 7번 픽스처 갱신.
 - 권한: `appsscript.json`에 `script.external_request` 추가(재승인 필요).
@@ -143,8 +148,8 @@
   - **다른 회원 정보(명단)는 어떤 형태로도 응답하지 않음** (사용자 결정, 2026-10-20). 응답은 `{ok, me:{name, grade, area, phone}}`뿐. 화면에서 숨기는 것으론 부족하므로 서버(Code.gs)에서 막음.
   - 실패 메시지는 번호/생일 중 무엇이 틀렸는지 구분하지 않음.
   - 번호당 5회 실패 → 1시간 잠금 (`CacheService`).
-  - 토큰 = `base64(phone|exp).HMAC-SHA256`, 비밀키는 스크립트 속성 `TOKEN_SECRET`(코드·저장소에 넣지 않음). 기본 12시간, 로그인 화면 **'로그인 상태 유지'**(기본 체크) 시 30일(`keep: true`). 시트에서 지운 회원은 즉시 차단.
-  - '로그인 상태 유지'면 아이디(`fs-member-id`)를 기억해 다음 로그인 때 채움. 비밀번호는 저장 안 함. 내 이름(`fs-member-name`)은 참석자 칩의 '(나)' 표시용일 뿐 권한 판단엔 안 씀.
+  - 토큰 = `base64(phone|exp).HMAC-SHA256`, 비밀키는 스크립트 속성 `TOKEN_SECRET`(코드·저장소에 넣지 않음). **항상 30일**(사용자 요구 2026-10-23: 최대한 안 풀리게 — '로그인 상태 유지' 체크박스 없앰). 사이트를 쓰는 동안 `session.ts`가 하루에 한 번 `action:'renew'` → 새 30일 토큰(`fs-member-renewed`에 마지막 연장 시각). 한 달 안에 한 번만 들어와도 유지. Safari는 7일 넘게 안 들어온 사이트의 `localStorage`를 지울 수 있어서 그런 경우엔 다시 로그인(홈 화면에 추가하면 예외). 시트에서 지운 회원은 즉시 차단.
+  - 아이디(`fs-member-id`)는 늘 기억해 다음 로그인 때 채움. 비밀번호는 저장 안 함. 내 이름(`fs-member-name`)은 참석자 칩의 '(나)' 표시용일 뿐 권한 판단엔 안 씀.
   - 클라이언트는 시트 값을 `textContent`로만 렌더링(HTML 주입 방지). 토큰은 `localStorage`(try/catch).
   - Content-Type 헤더를 붙이지 않은 `fetch` POST(text/plain) → CORS 사전요청 없이 Apps Script 호출. 헤더 추가 금지.
 - 저장소가 public이므로 API 키·비밀값·실제 회원 데이터를 코드에 넣지 말 것. 테스트는 가짜 데이터만.
@@ -183,7 +188,9 @@
   - 테스트 `cd backend && npm test` = `node --test`(Node가 TS를 바로 실행) + wrangler `getPlatformProxy`의 진짜 로컬 D1, 가짜 회원만. 로컬 서버 `npm run db:local` 후 `npm run dev`(http://localhost:8787, 비밀값은 `.dev.vars` — 양식 `.dev.vars.example`).
   - `wrangler.jsonc`의 `database_id`는 아직 가짜(실제 D1 안 만듦). Cloudflare에 만들기·배포는 사용자 확인 후에만.
   - 인증 규칙: 비밀번호 없는 회원(첫 전환)은 생년월일로 한 번 → `mustChange` 세션은 `password`·`logout`만 됨. 초기화(마스터만) = 해시 삭제 + 그 회원 세션 전부 폐기 + 72시간 동안 공용 `RESET_PASSWORD`만 통함. 실패 문구 하나, 아이디 5회·IP 30회/1시간 잠금(`login_logs`로 셈). 세션 토큰은 SHA-256만 저장, 로그인 이력엔 비밀번호·토큰·전화·IP 원문 없음.
-  - 옮긴 action: `seasonroom`(`src/seasonroom.ts`, 응답 모양 Apps Script와 같음 — 테스트 `test/seasonroom.test.ts`가 `Code.test.mjs` 11번과 같은 경우). 다른 점: 이름은 저장 당시 값이 아니라 지금 회원 이름, 연락처 대신 회원 ID로 연결. 시트 이전 때 할 일: 구분 빈 칸 → 숙박, 연락처는 `normPhone`으로 회원 찾기(하이픈·띄어쓰기·앞 0 빠짐), 같은 회원·날짜가 여러 줄이면 마지막 체크시각 것. 화면(`seasonroom.astro`)은 아직 Apps Script를 부름(전환 스위치는 나중에).
+  - 옮긴 action(응답 모양 Apps Script와 같음, 테스트가 `Code.test.mjs`와 같은 경우): `seasonroom`(+출격 `ride_checks`, `0002`), `shredlog`(메모 앞 `'` 안 붙임 — 시트로 내보낼 때 막을 것), `snowlive`(저장된 기록이 캐시 역할), `somoim`(+`meetups` 이력, `0003`). 세션 30일, 하루 넘게 지났으면 쓸 때마다 다시 30일(`need()`), `renew`는 토큰 그대로.
+  - 화면 전환 스위치: `club.workerApi`(`PUBLIC_WORKER_API`, 비면 전부 Apps Script) + `session.ts`의 `WORKER_ACTIONS`. 로그인 응답 `mustChange`면 `/password/?first`로, 다른 action이 `mustChange`면 `call()`이 비밀번호 화면으로 보내고 응답을 돌려주지 않음(페이지 alert 방지). 로그아웃은 `logout()`(Worker 세션도 끝냄). 로컬 확인: `PUBLIC_WORKER_API=http://localhost:8787 npx astro build --outDir …` + 정적 서버 + `wrangler dev --var ALLOWED_ORIGINS:…`(astro dev는 하나만 뜸).
+  - 시즌방 Worker 다른 점: 이름은 저장 당시 값이 아니라 지금 회원 이름, 연락처 대신 회원 ID로 연결. 시트 이전 때 할 일: 구분 빈 칸 → 숙박, 연락처는 `normPhone`으로 회원 찾기(하이픈·띄어쓰기·앞 0 빠짐), 같은 회원·날짜가 여러 줄이면 마지막 체크시각 것.
   - 테스트 공통 `test/setup.ts`: `useDb(회원, seed)`, `post`, `sessionFor(회원ID)`(로그인 없이 세션).
   - PBKDF2 10만 회: 로컬 workerd ≈ 6ms(무료 CPU 10ms) → 실제 Cloudflare에서 다시 잴 것.
 - 사용자 원칙: 분석·설계를 먼저 보고하고 실제 변경은 따로 지시받아서. 기존 사이트·Apps Script·시트는 검증 전까지 건드리지 않음.

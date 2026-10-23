@@ -14,7 +14,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<meta name="robots" content="noindex" />
-		<Meta title={`${club.name} — Season Room`} />
+		<Meta title={`${club.name} — Ride & Stay`} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
@@ -32,7 +32,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				<a href={`${base}/members/`}>MEMBERS</a>
 				<a href={`${base}/rank/`}>CHAT RANK</a>
 				<a href={`${base}/shredlog/`}>SHRED LOG</a>
-				<a href={`${base}/seasonroom/`} aria-current="page">SEASON ROOM</a>
+				<a href={`${base}/seasonroom/`} aria-current="page">RIDE &amp; STAY</a>
 			</nav>
 			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
 			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
@@ -41,29 +41,45 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<main>
 			<section class="mem-intro">
 				<p class="kicker">MEMBERS ONLY</p>
-				<h1>SEASON ROOM.</h1>
+				<h1>RIDE &amp; STAY.</h1>
 			</section>
 
 			<section class="mem-body">
 				<p class="mem-msg loading">불러오는 중…</p>
 				<div class="room" hidden>
-					<div class="room-head">
-						<button class="month-btn month-prev" type="button" aria-label="이전 달">‹</button>
-						<h2 class="month-label" aria-live="polite"></h2>
-						<button class="month-btn month-next" type="button" aria-label="다음 달">›</button>
-					</div>
-					<p class="room-hint">날짜를 누르면 그날 시즌방을 쓴 사람이 보이고, 내 숙박·4시간 휴식을 체크하거나 바꾸거나 취소할 수 있어요.</p>
+					<p class="room-hint">날짜를 누르면 그날 출격·시즌방을 쓴 사람이 보이고, 내 출격·숙박·4시간 휴식을 체크하거나 바꾸거나 취소할 수 있어요.</p>
 
-					<div class="cal">
-						{['일', '월', '화', '수', '목', '금', '토'].map((d) => <span class="wd">{d}</span>)}
-						<div class="days"></div>
-					</div>
+					<!-- 넓은 화면: 달력 오른쪽에 고른 날 명단 (달력 높이만큼, 넘치면 안에서 스크롤) / 좁은 화면: 달력 아래 -->
+					<div class="room-main">
+						<div class="cal-col">
+							<div class="room-head">
+								<button class="month-btn month-prev" type="button" aria-label="이전 달">‹</button>
+								<h2 class="month-label" aria-live="polite"></h2>
+								<button class="month-btn month-next" type="button" aria-label="다음 달">›</button>
+							</div>
+							<div class="view-row">
+								<button class="view-btn" type="button"></button>
+							</div>
+							<div class="cal">
+								{['일', '월', '화', '수', '목', '금', '토'].map((d) => <span class="wd">{d}</span>)}
+								<div class="days"></div>
+							</div>
+						</div>
 
-					<form class="day-panel">
-						<h3 class="day-title"></h3>
-						<ul class="day-names"></ul>
-						<div class="day-actions"></div>
-					</form>
+						<form class="day-panel">
+							<h3 class="day-title"></h3>
+							<div class="day-group ride-group">
+								<p class="group-title ride-title"></p>
+								<ul class="day-names ride-names"></ul>
+								<div class="day-actions ride-actions"></div>
+							</div>
+							<div class="day-group">
+								<p class="group-title stay-title"></p>
+								<ul class="day-names stay-names"></ul>
+								<div class="day-actions stay-actions"></div>
+							</div>
+						</form>
+					</div>
 
 					<section class="settle">
 						<h3 class="settle-title"></h3>
@@ -93,6 +109,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 			type Kind = '숙박' | '휴식';
 			type Night = { date: string; name: string; kind: Kind; me: boolean; owner: boolean };
+			type Ride = { date: string; name: string; me: boolean };
 			const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s)!;
 			const token = store.get();
 			const msg = $('.loading');
@@ -113,10 +130,42 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				return `${m}월 ${d}일 ${WD[new Date(y, m - 1, d).getDay()]}`;
 			};
 
-			let month = today.slice(0, 7); // 'YYYY-MM'
+			const shift = (date: string, days: number) => {
+				const [y, m, d] = date.split('-').map(Number);
+				return new Date(y, m - 1, d + days).toLocaleDateString('sv-SE');
+			};
+			const weekStart = (date: string) => shift(date, -new Date(`${date}T00:00`).getDay()); // 그 주 일요일
+
+			// 보기: 기본은 3주(지난주·이번 주·다음 주), '한 달 보기'를 누르면 달 전체. 고른 보기는 이 브라우저에 기억
+			const VIEW_KEY = 'fs-room-view';
+			let view: 'weeks' | 'month' = localStorage.getItem(VIEW_KEY) === 'month' ? 'month' : 'weeks';
+			let month = today.slice(0, 7); // 'YYYY-MM' (한 달 보기)
+			let start = shift(weekStart(today), -7); // 3주 보기 첫날(일요일)
 			let selected = today;
 			let prices: Record<Kind, number> = { 숙박: 10000, 휴식: 5000 }; // 1박 / 4시간 휴식 (서버 값으로 바뀜)
-			const seasons: Record<string, Night[]> = {}; // 시즌별로 한 번 불러와서 달 이동은 바로
+			const seasons: Record<string, { nights: Night[]; rides: Ride[] | null }> = {}; // 시즌별로 한 번 불러와서 달 이동은 바로
+			// 불러온 시즌 전부 (3주가 시즌 경계 7/1에 걸칠 수 있어서). rides가 없는 시즌이 있으면(예전 서버) 출격 숨김
+			const loaded = () => {
+				const list = Object.values(seasons);
+				return { nights: list.flatMap((x) => x.nights), rides: list.length && list.every((x) => x.rides) ? list.flatMap((x) => x.rides!) : null };
+			};
+			// 화면에 보일 날짜 (한 달 보기는 첫 주 앞 빈 칸 수도)
+			const visible = (): { dates: string[]; blanks: number } => {
+				if (view === 'weeks') return { dates: Array.from({ length: 21 }, (_, i) => shift(start, i)), blanks: 0 };
+				const [y, m] = month.split('-').map(Number);
+				const last = new Date(y, m, 0).getDate();
+				return { dates: Array.from({ length: last }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`), blanks: new Date(y, m - 1, 1).getDay() };
+			};
+			// 보일 날짜의 시즌 중 아직 안 불러온 것만 불러옴. 하나라도 실패하면 false
+			async function ensure() {
+				const { dates } = visible();
+				const need = [...new Set([seasonOf(dates[0]), seasonOf(dates.at(-1)!)])].filter((x) => !seasons[x]);
+				if (!need.length) return true;
+				box.setAttribute('aria-busy', 'true');
+				const ok = (await Promise.all(need.map((x) => room(x)))).every(Boolean);
+				box.setAttribute('aria-busy', 'false');
+				return ok;
+			}
 
 			const back = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
 			// 시즌방 API (op 있으면 체크·취소). 실패하면 null
@@ -132,42 +181,65 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					return null;
 				}
 				prices = res.prices ?? prices;
-				return (seasons[season] = res.nights as Night[]);
+				// rides가 없으면 출격 기능이 없는 예전 서버 → 출격 버튼을 숨김 (예전 서버는 '출격'을 숙박으로 저장해 버림)
+				return (seasons[season] = { nights: res.nights, rides: Array.isArray(res.rides) ? res.rides : null });
 			}
 
-			function render() {
-				const nights = seasons[seasonOf(`${month}-01`)] ?? [];
-				const [y, m] = month.split('-').map(Number);
-				$('.month-label').textContent = `${y}년 ${m}월`;
+			// 버튼 묶음: [글자, op, kind, 진한 버튼?]
+			const buttons = (list: [string, string, string, boolean][]) =>
+				list.map(([text, op, kind, main]) => {
+					const b = document.createElement('button');
+					b.type = 'submit';
+					b.className = `btn ${main ? 'btn-ink' : 'btn-line-dark'}`;
+					b.textContent = text;
+					b.dataset.op = op;
+					b.dataset.kind = kind;
+					return b;
+				});
+			const names = (list: { name: string; me: boolean; kind?: Kind }[]) =>
+				(list.length ? list : [null]).map((n) => {
+					const li = document.createElement('li');
+					// 주주는 여기선 따로 안 적음 (정산표에만)
+					li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.kind === '휴식' ? ' · 4시간 휴식' : ''}` : '아직 아무도 없어요.';
+					li.className = n?.me ? 'me' : n ? '' : 'empty';
+					return li;
+				});
 
-				// 달력: 첫 주 앞은 빈 칸. 칸마다 이름(좁은 화면은 인원 수만)
+			function render() {
+				const { nights, rides } = loaded();
+				const { dates, blanks } = visible();
+				const md = (date: string) => date.slice(5).split('-').map(Number).join('.'); // '10.11'
+				$('.month-label').textContent = view === 'weeks' ? `${md(dates[0])} – ${md(dates.at(-1)!)}` : `${month.slice(0, 4)}년 ${Number(month.slice(5))}월`;
+				$('.view-btn').textContent = view === 'weeks' ? '한 달 보기' : '3주 보기';
+				$('.month-prev').ariaLabel = view === 'weeks' ? '이전 주' : '이전 달';
+				$('.month-next').ariaLabel = view === 'weeks' ? '다음 주' : '다음 달';
+
+				// 달력 칸마다 숫자만 — 출격 N명 / 숙박 N명(휴식 포함)
 				const days = $('.days');
 				const cells: HTMLElement[] = [];
-				for (let i = 0; i < new Date(y, m - 1, 1).getDay(); i++) cells.push(document.createElement('span'));
-				const last = new Date(y, m, 0).getDate();
-				for (let d = 1; d <= last; d++) {
-					const date = `${month}-${String(d).padStart(2, '0')}`;
-					const who = nights.filter((n) => n.date === date);
-					const mine = who.some((n) => n.me);
+				for (let i = 0; i < blanks; i++) cells.push(document.createElement('span'));
+				for (const date of dates) {
+					const d = Number(date.slice(8));
+					const stay = nights.filter((n) => n.date === date);
+					const ride = (rides ?? []).filter((n) => n.date === date);
+					const mine = stay.some((n) => n.me) || ride.some((n) => n.me);
 					const b = document.createElement('button');
 					b.type = 'button';
 					b.className = 'day';
 					b.classList.toggle('is-mine', mine);
 					b.classList.toggle('is-today', date === today);
 					b.setAttribute('aria-pressed', String(date === selected));
-					b.ariaLabel = `${label(date)}, ${who.length}명${mine ? ', 나도 숙박' : ''}`;
+					b.ariaLabel = `${label(date)}, 출격 ${ride.length}명, 숙박 ${stay.length}명${mine ? ', 나도 있음' : ''}`;
 					const num = document.createElement('span');
 					num.className = 'num';
-					num.textContent = String(d);
+					num.textContent = view === 'weeks' && (d === 1 || date === dates[0]) ? md(date) : String(d); // 3주 보기는 달이 바뀌는 날에 '11.1'
 					b.append(num);
-					if (who.length) {
-						const count = document.createElement('span');
-						count.className = 'count';
-						count.textContent = `${who.length}명`;
-						const names = document.createElement('span');
-						names.className = 'names';
-						names.textContent = who.slice(0, 3).map((n) => n.name + (n.kind === '휴식' ? '(휴식)' : '')).join(' · ') + (who.length > 3 ? ` +${who.length - 3}` : '');
-						b.append(count, names);
+					for (const [text, n] of [['출격', ride.length], ['숙박', stay.length]] as const) {
+						if (!n) continue;
+						const line = document.createElement('span');
+						line.className = 'count';
+						line.textContent = `${text} ${n}명`;
+						b.append(line);
 					}
 					b.addEventListener('click', () => {
 						selected = date;
@@ -177,40 +249,35 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				}
 				days.replaceChildren(...cells);
 
-				// 고른 날: 명단 + 내 숙박·휴식 체크 / 바꾸기 / 취소 (지난 날짜도 자유롭게)
+				// 고른 날: 출격 명단 + 시즌방 명단, 내 체크 / 바꾸기 / 취소 (지난 날짜도 자유롭게)
+				$('.day-title').textContent = label(selected);
+				const dayRides = (rides ?? []).filter((n) => n.date === selected);
+				$('.ride-group').hidden = !rides;
+				$('.ride-title').textContent = `출격 ${dayRides.length}명`;
+				$('.ride-names').replaceChildren(...names(dayRides));
+				$('.ride-actions').replaceChildren(...buttons(dayRides.some((n) => n.me) ? [['출격 취소', 'remove', '출격', false]] : [['출격', 'add', '출격', true]]));
+
 				const who = nights.filter((n) => n.date === selected);
 				const mine = who.find((n) => n.me);
-				$('.day-title').textContent = `${label(selected)} · ${who.length}명`;
-				$('.day-names').replaceChildren(
-					...(who.length ? who : [null]).map((n) => {
-						const li = document.createElement('li');
-						li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.kind === '휴식' ? ' · 4시간 휴식' : ''}${n.owner ? ' · 주주' : ''}` : '아직 아무도 없어요.';
-						if (n?.me) li.className = 'me';
-						return li;
-					}),
-				);
-				const actions: [string, string, Kind | '', boolean][] = !mine
-					? [['시즌방 숙박', 'add', '숙박', true], ['4시간 휴식', 'add', '휴식', false]]
-					: mine.kind === '숙박'
-						? [['4시간 휴식으로 변경', 'add', '휴식', false], ['취소', 'remove', '', false]]
-						: [['시즌방 숙박으로 변경', 'add', '숙박', false], ['취소', 'remove', '', false]];
-				$('.day-actions').replaceChildren(
-					...actions.map(([text, op, kind, main]) => {
-						const b = document.createElement('button');
-						b.type = 'submit';
-						b.className = `btn ${main ? 'btn-ink' : 'btn-line-dark'}`;
-						b.textContent = text;
-						b.dataset.op = op;
-						b.dataset.kind = kind;
-						return b;
-					}),
+				$('.stay-title').textContent = `시즌방 ${who.length}명`;
+				$('.stay-names').replaceChildren(...names(who));
+				$('.stay-actions').replaceChildren(
+					...buttons(
+						!mine
+							? [['시즌방 숙박', 'add', '숙박', true], ['4시간 휴식', 'add', '휴식', false]]
+							: mine.kind === '숙박'
+								? [['4시간 휴식으로 변경', 'add', '휴식', false], ['취소', 'remove', '', false]]
+								: [['시즌방 숙박으로 변경', 'add', '숙박', false], ['취소', 'remove', '', false]],
+					),
 				);
 
-				// 이번 달 정산: 숙박 1박·4시간 휴식 각 금액, 주주 0원
+				// 고른 날이 있는 달의 시즌방 사용 이력: 숙박 1박·4시간 휴식 각 금액, 주주 0원
+				const month0 = selected.slice(0, 7);
+				const m = Number(month0.slice(5));
 				type Person = { name: string; owner: boolean; me: boolean; stay: number; rest: number };
 				const people: Record<string, Person> = {};
 				nights
-					.filter((n) => n.date.startsWith(month))
+					.filter((n) => n.date.startsWith(month0))
 					.forEach((n) => {
 						const p = (people[n.name] ||= { name: n.name, owner: n.owner, me: n.me, stay: 0, rest: 0 });
 						if (n.kind === '휴식') p.rest++;
@@ -218,12 +285,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					});
 				const pay = (p: { owner: boolean; stay: number; rest: number }) => (p.owner ? 0 : p.stay * prices.숙박 + p.rest * prices.휴식);
 				const list = Object.values(people).sort((a, c) => pay(c) - pay(a) || c.stay - a.stay || a.name.localeCompare(c.name, 'ko'));
-				$('.settle-title').textContent = `${m}월 정산 · 숙박 1박 ${won(prices.숙박)} · 4시간 휴식 ${won(prices.휴식)} (주주 제외)`;
+				$('.settle-title').textContent = `${m}월 시즌방 사용 이력`;
 				$('.settle tbody').replaceChildren(
 					...(list.length ? list : [null]).map((p) => {
 						const tr = document.createElement('tr');
 						if (p?.me) tr.className = 'me';
-						const cells = p ? [`${p.name}${p.owner ? ' · 주주' : ''}`, `${p.stay}박`, `${p.rest}회`, p.owner ? '주주' : won(pay(p))] : ['이번 달 기록이 없어요.', '', '', ''];
+						const cells = p ? [`${p.name}${p.owner ? ' · 주주' : ''}`, `${p.stay}박`, `${p.rest}회`, won(pay(p))] : ['이번 달 기록이 없어요.', '', '', '']; // 주주는 0원
 						cells.forEach((c) => {
 							const td = document.createElement('td');
 							td.textContent = c;
@@ -235,26 +302,34 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				$('.sum-stay').textContent = `${list.reduce((t, p) => t + p.stay, 0)}박`;
 				$('.sum-rest').textContent = `${list.reduce((t, p) => t + p.rest, 0)}회`;
 				$('.sum-won').textContent = won(list.reduce((t, p) => t + pay(p), 0));
-				const myAll = nights.filter((n) => n.me);
+				const myAll = nights.filter((n) => n.me && seasonOf(n.date) === seasonOf(selected)); // 시즌방만 (출격은 정산 없음)
 				const my = { owner: !!myAll[0]?.owner, stay: myAll.filter((n) => n.kind !== '휴식').length, rest: myAll.filter((n) => n.kind === '휴식').length };
-				$('.mine').textContent = `내 ${seasonOf(`${month}-01`)} 시즌: 숙박 ${my.stay}박 · 휴식 ${my.rest}회${my.owner ? ' · 주주라 정산 없음' : ` · ${won(pay(my))}`}`;
+				$('.mine').textContent = `내 ${seasonOf(selected)} 시즌: 숙박 ${my.stay}박 · 휴식 ${my.rest}회${my.owner ? ' · 주주라 정산 없음' : ` · ${won(pay(my))}`}`;
 			}
 
+			// ‹ ›: 3주 보기는 한 주씩, 한 달 보기는 한 달씩. 오늘이 보이면 오늘, 아니면 첫날을 고름
 			async function go(delta: number) {
-				const [y, m] = month.split('-').map(Number);
-				const d = new Date(y, m - 1 + delta, 1);
-				month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-				selected = today.startsWith(month) ? today : `${month}-01`;
-				const s = seasonOf(`${month}-01`);
-				if (!seasons[s]) {
-					box.setAttribute('aria-busy', 'true');
-					await room(s);
-					box.setAttribute('aria-busy', 'false');
+				if (view === 'weeks') start = shift(start, 7 * delta);
+				else {
+					const [y, m] = month.split('-').map(Number);
+					month = new Date(y, m - 1 + delta, 1).toLocaleDateString('sv-SE').slice(0, 7);
 				}
+				const { dates } = visible();
+				selected = dates.includes(today) ? today : dates[0];
+				await ensure();
 				render();
 			}
 			$('.month-prev').addEventListener('click', () => go(-1));
 			$('.month-next').addEventListener('click', () => go(1));
+			// 3주 ↔ 한 달: 고른 날이 보이게 맞춤
+			$('.view-btn').addEventListener('click', async () => {
+				view = view === 'weeks' ? 'month' : 'weeks';
+				try { localStorage.setItem(VIEW_KEY, view); } catch {}
+				if (view === 'month') month = selected.slice(0, 7);
+				else start = shift(weekStart(selected), -7);
+				await ensure();
+				render();
+			});
 
 			// 누른 버튼만 스피너, 나머지 버튼은 잠금
 			panel.addEventListener('submit', async (e) => {
@@ -271,7 +346,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 			// 로그인 안 했으면 로그인 화면으로 (로그인 후 이 페이지로 돌아옴)
 			if (!token) location.replace(back);
-			else if (await room(seasonOf(today))) {
+			else if (await ensure()) {
 				msg.remove();
 				box.hidden = false;
 				render();
@@ -284,7 +359,23 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.room {
 		display: grid;
 		gap: 20px;
-		max-width: 980px;
+		max-width: 1100px;
+	}
+	/* 달력 | 고른 날 명단. 명단 칸은 높이를 0으로 두고 칸 높이(=달력)까지 늘려서, 넘치면 안에서 스크롤 */
+	.room-main {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 320px;
+		gap: 20px;
+	}
+	.cal-col {
+		display: grid;
+		gap: 16px;
+		align-content: start;
+	}
+	@media (max-width: 860px) {
+		.room-main {
+			grid-template-columns: 1fr;
+		}
 	}
 	.room[aria-busy='true'] {
 		opacity: 0.6;
@@ -320,6 +411,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		color: #4a4d55;
 		font-size: 14px;
 	}
+	/* 3주 / 한 달 보기 전환 */
+	.view-row {
+		display: flex;
+		justify-content: flex-end;
+		margin-bottom: -8px;
+	}
+	.view-btn {
+		min-height: 32px;
+		padding: 0 12px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+		color: var(--black);
+		font: 700 12px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
 	/* 달력: 요일 줄 + 날짜 칸 (JS가 만든 칸이라 :global) */
 	.cal {
 		display: grid;
@@ -343,8 +449,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 4px;
-		min-height: 92px;
+		gap: 2px;
+		min-height: 80px;
 		padding: 8px;
 		border: 1px solid var(--line);
 		background: var(--white);
@@ -378,31 +484,50 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		background: var(--black);
 		color: var(--white);
 	}
+	/* 칸에는 숫자만: 출격 N명 / 숙박 N명 (명단은 옆 칸에서) */
 	.cal :global(.count) {
 		font-weight: 700;
+		line-height: 1.35;
+		white-space: nowrap;
 	}
-	.cal :global(.names) {
-		color: #4a4d55;
-		line-height: 1.4;
-		overflow-wrap: anywhere;
-	}
-	/* 좁은 화면: 이름은 빼고 인원 수만 (명단은 아래 칸에서) */
 	@media (max-width: 640px) {
 		.cal :global(.day) {
-			min-height: 56px;
-			padding: 6px 4px;
+			min-height: 58px;
+			padding: 5px 3px;
 		}
-		.cal :global(.names) {
-			display: none;
+		.cal :global(.count) {
+			font-size: 10px;
+			letter-spacing: -0.03em;
 		}
 	}
 	.day-panel {
 		display: grid;
-		gap: 12px;
-		justify-items: start;
+		gap: 16px;
+		align-content: start;
+		height: 0;
+		min-height: 100%;
+		overflow-y: auto;
 		padding: 20px;
 		border: 1.5px solid var(--black);
 		background: var(--white);
+	}
+	@media (max-width: 860px) {
+		.day-panel {
+			height: auto;
+			min-height: 0;
+		}
+	}
+	.day-group {
+		display: grid;
+		gap: 10px;
+		padding-top: 14px;
+		border-top: 1px solid var(--line);
+	}
+	.group-title {
+		font-weight: 900;
+	}
+	.day-names :global(li.empty) {
+		color: #4a4d55;
 	}
 	.day-title {
 		font-size: 1.2rem;
@@ -421,13 +546,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		color: #c2410c;
 	}
 	.day-actions {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
 		gap: 8px;
 	}
 	.day-actions :global(.btn) {
+		justify-content: center;
 		min-height: 44px;
-		padding: 0 20px;
+		padding: 0 16px;
 	}
 	.settle {
 		display: grid;

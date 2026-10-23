@@ -163,7 +163,7 @@ test('강습 알림 메일: 회원 정보에 메일이 있는 활동 운영진�
 		const mime = new TextDecoder().decode(Uint8Array.from(atob(sent[0].raw.replace(/-/g, '+').replace(/_/g, '/')), (ch) => ch.charCodeAt(0)));
 		assert.match(mime, /^Bcc: staff@x\.com\r\n/); // 운영진만 (일반 회원 메일 X)
 		const subject = /Subject: =\?UTF-8\?B\?([^?]+)\?=/.exec(mime)![1];
-		assert.equal(new TextDecoder().decode(Uint8Array.from(atob(subject), (ch) => ch.charCodeAt(0))), '[프리스노우] 강습 요청 · 12/27(일) 회원B');
+		assert.equal(new TextDecoder().decode(Uint8Array.from(atob(subject), (ch) => ch.charCodeAt(0))), '[프리스노우][강습 요청] 2026-12-27(일) 회원B');
 		assert.equal(mime.includes('01060000002'), false); // 연락처는 메일에 안 넣음
 		await room(B, { op: 'remove', date: day, kind: '강습' });
 		await room(B, { op: 'add', date: day, kind: '강습' }); // 취소 후 다시 요청 = 새 요청

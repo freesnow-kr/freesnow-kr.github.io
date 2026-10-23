@@ -1,5 +1,5 @@
 // Free Snow API — https://api.freesnow.workers.dev (계정 하위 도메인 freesnow + 이름 api)
-// 비밀값(RESET_PASSWORD, LOGIN_KEY_SECRET, SNOWLIVE_API, SOMOIM_URL)은 여기 말고 `wrangler secret put` / 로컬은 .dev.vars
+// 비밀값(RESET_PASSWORD, LOGIN_KEY_SECRET, SNOWLIVE_API, SOMOIM_URL, GALLERY_FOLDER_ID, GOOGLE_API_KEY)은 여기 말고 `wrangler secret put` / 로컬은 .dev.vars
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "api",
@@ -10,8 +10,7 @@
 		{
 			"binding": "DB",
 			"database_name": "freesnow",
-			// 실제 DB는 아직 안 만듦 (로컬 개발만). `wrangler d1 create freesnow` 후 받은 id로 바꿀 것
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "d9ab98ac-ffd8-465e-b358-9dd75a2f0d26",
 			"migrations_dir": "migrations"
 		}
 	],

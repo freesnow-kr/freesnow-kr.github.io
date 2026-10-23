@@ -16,7 +16,7 @@ export function useDb(members: string[][], seed?: () => Promise<unknown>) {
 	let proxy: Awaited<ReturnType<typeof getPlatformProxy>>;
 	before(async () => {
 		proxy = await getPlatformProxy({ configPath: new URL('../wrangler.jsonc', import.meta.url).pathname, persist: { path: dir } });
-		Object.assign(env, proxy.env, { RESET_PASSWORD: RESET, LOGIN_KEY_SECRET: 'test-key', SNOWLIVE_API: 'https://snowlive.example/api/', SOMOIM_URL: 'https://somoim.example/group' });
+		Object.assign(env, proxy.env, { RESET_PASSWORD: RESET, LOGIN_KEY_SECRET: 'test-key', SNOWLIVE_API: 'https://snowlive.example/api/', SOMOIM_URL: 'https://somoim.example/group', GALLERY_FOLDER_ID: 'folder1' });
 		const sql = readdirSync(new URL('../migrations/', import.meta.url)).sort().map((f) => readFileSync(new URL(`../migrations/${f}`, import.meta.url), 'utf8')).join(';\n').replace(/--.*$/gm, '');
 		await env.DB.batch(sql.split(';').map((s) => s.trim()).filter(Boolean).map((s) => env.DB.prepare(s)));
 		const now = new Date().toISOString();

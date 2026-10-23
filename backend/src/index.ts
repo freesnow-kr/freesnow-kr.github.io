@@ -5,6 +5,9 @@ import { seasonRoom } from './seasonroom.ts';
 import { shredLog } from './shredlog.ts';
 import { snowlive } from './snowlive.ts';
 import { somoim } from './somoim.ts';
+import { avatar, signup } from './members.ts';
+import { chatRank, gallery } from './gallery.ts';
+import * as admin from './admin.ts';
 
 export type Env = {
 	DB: D1Database;
@@ -13,10 +16,12 @@ export type Env = {
 	LOGIN_KEY_SECRET: string; // secret (로그인 이력의 아이디·IP HMAC)
 	SNOWLIVE_API: string; // secret (비공식 주소라 저장소에 안 둠)
 	SOMOIM_URL: string; // secret (소모임 공개 모임 페이지)
+	GALLERY_FOLDER_ID: string; // secret (갤러리 드라이브 폴더)
+	GOOGLE_API_KEY?: string; // secret, 선택 (있으면 Drive API로 최신순)
 };
 export type Ctx = { env: Env; req: Request; body: Record<string, any>; now: Date };
 
-const MAX_BODY = 600_000; // 프로필 사진(256px JPG base64) 기준
+const MAX_BODY = 3_000_000; // 채팅 랭킹 집계 결과(달별 순위)·프로필 사진 기준
 const BAD = { ok: false, error: '잘못된 요청이에요.' };
 
 const actions: Record<string, (c: Ctx) => Promise<object>> = {
@@ -29,6 +34,20 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	shredlog: shredLog,
 	snowlive,
 	somoim,
+	signup,
+	avatar,
+	gallery,
+	chatrank: chatRank,
+	'admin.summary': admin.summary,
+	'admin.signups': admin.signups,
+	'admin.signupDecide': admin.signupDecide,
+	'admin.members': admin.members,
+	'admin.memberUpdate': admin.memberUpdate,
+	'admin.memberStatus': admin.memberStatus,
+	'admin.logins': admin.logins,
+	'admin.audit': admin.audit,
+	'admin.roomOwners': admin.roomOwners,
+	'admin.chatUpload': admin.chatUpload,
 	'admin.reset': adminReset,
 };
 

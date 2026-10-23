@@ -4,8 +4,6 @@ import Meta from '../components/Meta.astro';
 import '../styles/ride.css';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
-// Worker 로그인이면 비밀번호에 글자도 들어가서 숫자 키패드를 안 띄움 (Apps Script는 생년월일 8자리)
-const numericPw = club.workerApi ? undefined : 'numeric';
 ---
 
 <html lang="ko">
@@ -47,9 +45,9 @@ const numericPw = club.workerApi ? undefined : 'numeric';
 			</section>
 
 			<section class="mem-body">
-				{!club.membersApi && <p class="mem-msg">회원 로그인 준비 중이에요.</p>}
+				{!club.api && <p class="mem-msg">회원 로그인 준비 중이에요.</p>}
 
-				<form class="login" hidden={!club.membersApi}>
+				<form class="login" hidden={!club.api}>
 					<h2>회원 로그인</h2>
 					<label>
 						아이디
@@ -57,7 +55,7 @@ const numericPw = club.workerApi ? undefined : 'numeric';
 					</label>
 					<label>
 						비밀번호
-						<input name="birth" type="password" inputmode={numericPw} autocomplete="current-password" required />
+						<input name="birth" type="password" autocomplete="current-password" required />
 					</label>
 					<button class="btn btn-ink" type="submit">로그인</button>
 					<p class="mem-error" role="alert"></p>

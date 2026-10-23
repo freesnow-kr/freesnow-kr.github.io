@@ -30,8 +30,12 @@ public/2526_main.mp4
 # 법정동 원본 (scripts/make-regions.mjs 입력, 배포 안 함)
 data/*.csv
 
-# Apps Script 서버 코드 (저장소에 안 올림 — 이 컴퓨터와 Apps Script 편집기에만)
-apps-script/Code.gs
+# 예전 Apps Script 서버 (2026-10-23 Cloudflare Worker로 옮김, 되돌릴 때만 씀 — 이 컴퓨터에만 보관)
+apps-script/
+
+# 시트 내보내기·이전 SQL (개인정보)
+*.xlsx
+migration-*.sql
 
 # Cloudflare Worker (backend/) 로컬 파일
 backend/.wrangler/

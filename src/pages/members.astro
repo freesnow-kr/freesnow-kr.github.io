@@ -222,6 +222,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 </html>
 
 <style>
+	/* 칼럼을 내용 폭으로 → 제목과 내용이 같은 선에서 가운데 (ride.css --col) */
+	:global(body) {
+		--col: 760px;
+	}
 	/* 마이페이지는 내용이 짧아서 위아래 여백을 줄임 (공통 .mem-body는 ride.css) */
 	.mem-body {
 		padding-block: clamp(24px, 4vw, 40px) clamp(40px, 6vw, 64px);

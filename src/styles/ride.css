@@ -6,6 +6,13 @@
 	--line: #d9d6cf;
 	--accent: #ff5a1f;
 	--display: 'Anton', 'Noto Sans KR', Impact, sans-serif;
+	/* 내용 칼럼: 넓은 화면에선 가운데 --col 폭, 좁은 화면에선 기본 좌우 여백 (사용자 요구 2026-10-23: 내용 덩어리 가운데)
+	   좁은 폼 페이지는 :global(body) { --col: 420px } 처럼 칼럼을 줄여 제목·내용 왼쪽 끝을 맞춤 */
+	--col: 1120px;
+}
+/* --gutter는 body에서 계산 (페이지가 body의 --col을 바꾸면 그 값으로 — :root에서 계산하면 1120으로 굳음) */
+body {
+	--gutter: max(clamp(20px, 4vw, 56px), calc((100% - var(--col)) / 2));
 }
 * {
 	box-sizing: border-box;
@@ -360,7 +367,7 @@ a {
 
 /* season */
 .season {
-	padding: clamp(64px, 10vw, 140px) clamp(20px, 4vw, 56px);
+	padding: clamp(64px, 10vw, 140px) var(--gutter);
 }
 .head {
 	display: grid;
@@ -729,7 +736,7 @@ a {
 
 /* manifesto */
 .manifesto {
-	padding: clamp(80px, 14vw, 200px) clamp(20px, 4vw, 56px);
+	padding: clamp(80px, 14vw, 200px) var(--gutter);
 	background: var(--white);
 }
 .manifesto p {
@@ -748,7 +755,7 @@ a {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
 	gap: 48px;
-	padding: clamp(64px, 10vw, 140px) clamp(20px, 4vw, 56px);
+	padding: clamp(64px, 10vw, 140px) var(--gutter);
 }
 .faq details {
 	border-bottom: 1px solid var(--line);
@@ -829,7 +836,7 @@ a {
 .mem-intro {
 	background: var(--black);
 	color: var(--white);
-	padding: 112px clamp(20px, 4vw, 56px) clamp(28px, 3.5vw, 44px); /* 위: 고정 헤더 높이만큼 */
+	padding: 112px var(--gutter) clamp(28px, 3.5vw, 44px); /* 위: 고정 헤더 높이만큼 */
 }
 .mem-intro h1 {
 	font-family: var(--display);
@@ -839,7 +846,7 @@ a {
 	margin-top: 10px;
 }
 .mem-body {
-	padding: clamp(48px, 8vw, 96px) clamp(20px, 4vw, 56px) clamp(64px, 10vw, 120px);
+	padding: clamp(48px, 8vw, 96px) var(--gutter) clamp(64px, 10vw, 120px);
 	min-height: 50vh;
 }
 .mem-msg {

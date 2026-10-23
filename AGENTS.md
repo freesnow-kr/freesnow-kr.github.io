@@ -40,6 +40,7 @@
 | `/cute/` | `src/pages/cute.astro` | 픽셀아트(Kizupi 느낌), 자체 `<style is:global>` |
 | `/ride/` | `astro.config.mjs` `redirects` | 예전 공개 주소 → `/` |
 
+- **내용 칼럼 가운데**(사용자 요구 2026-10-23, 글자 정렬은 그대로 왼쪽): `ride.css`의 `--col`(기본 1120px)과 `body`의 `--gutter`(= 넓은 화면에선 `(100% - --col)/2`, 좁으면 기본 여백) — 검정 제목 띠(`.mem-intro`, 웹캠 `.cam-intro`)와 본문(`.mem-body`, 메인 THE SEASON·manifesto·FAQ, 웹캠 목록)의 좌우 여백에 씀. 폼처럼 좁은 페이지는 페이지 스타일에서 `:global(body) { --col: 420px }`(로그인·비밀번호 420, 가입 480, 마이페이지 760) → 제목과 내용 왼쪽 끝이 같은 선. 헤더·메인 히어로·사진 띠·푸터는 화면 전체. **`--gutter`는 body에서 계산해야 함**(:root에서 하면 1120으로 굳어 페이지별 `--col`이 안 먹음 — 실제로 겪음).
 - `src/styles/ride.css`: `/`, `/webcam`, `/members` 공통 전역 CSS (토큰, 고정 헤더, 버튼, 푸터). **셀렉트박스 모양(직접 그린 화살표, 오른쪽 14px 안쪽)도 여기 `select` 공통** — 페이지 스타일에선 select에 `background` 단축 속성 쓰지 말고(화살표 지워짐) `background-color`, 오른쪽 여백 34px 이상. 각 페이지는 `import '../styles/ride.css'` + 페이지 전용 `<style>`.
 - `src/data/regions.json`: 가입 거주지 선택 목록(시도 → 시군구). `node scripts/make-regions.mjs data/list_20260630.csv`로 법정동 CSV에서 생성(원본 CSV는 `data/`, gitignore). 시도는 서울·경기 먼저 그다음 가나다, 시군구는 가나다, 시 아래 일반구(수원시장안구 등) 제외.
 - `src/data/club.ts`: **공통 데이터** — `club.joinUrl`(카카오 오픈채팅), `club.somoimUrl`, `club.membersApi`(Apps Script URL), `trips`(시즌 일정), `faqs`. 여러 페이지가 import하므로 문구는 여기서 수정.

@@ -8,7 +8,7 @@ useDb(
 	[
 		['m-1', '01011110000', '회원일', '1990-01-01'],
 		['m-staff', '01022220000', '운영진', '1991-01-01', 'staff'],
-		['m-boss', '01033330000', '마스터', '1992-01-01', 'master'],
+		['m-boss', '01033330000', '관리자', '1992-01-01', 'admin'],
 	],
 	async () => {
 		M = await sessionFor('m-1');
@@ -42,7 +42,7 @@ test('승인: 운영진만, 회원이 되면 생년월일로 첫 로그인, 기�
 	assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM admin_logs WHERE action = 'signup.approve'").first()).n, 1);
 });
 
-test('회원 관리: 운영진은 정보 수정, 정지·권한은 마스터만, 정지하면 바로 로그아웃, 내 권한은 못 바꿈', async () => {
+test('회원 관리: 운영진은 정보 수정, 정지·권한은 관리자만, 정지하면 바로 로그아웃, 내 권한은 못 바꿈', async () => {
 	assert.equal((await post({ action: 'admin.members' }, M)).ok, false);
 	const all = (await post({ action: 'admin.members' }, S)).members;
 	assert.equal(all.length, 4);
@@ -56,6 +56,12 @@ test('회원 관리: 운영진은 정보 수정, 정지·권한은 마스터만,
 	const logs = (await post({ action: 'admin.audit' }, B)).logs;
 	assert.ok(logs.some((l: any) => l.action === 'member.update' && l.actor === '운영진'));
 	assert.equal((await post({ action: 'admin.audit' }, S)).ok, false);
+});
+
+test('마스터(명예)는 운영진이 지정, 권한은 그대로 회원', async () => {
+	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-1', honorary: true }, S)).ok, true);
+	const m = (await post({ action: 'admin.members' }, S)).members.find((x: any) => x.id === 'm-1');
+	assert.deepEqual([m.honorary, m.role], [1, 'member']);
 });
 
 test('시즌방 주주는 운영진이 시즌별로', async () => {

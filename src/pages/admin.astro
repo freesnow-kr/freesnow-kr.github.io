@@ -95,19 +95,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 					<!-- 조 편성: 정모·체육대회 때 임시로 조 짜 보기 (점수판은 사용자 요청으로 뺌), 저장은 선택 -->
 					<section class="panel" data-panel="teams" hidden>
+						<!-- 흐름(사용자 요구 2026-10-23): 행사 고르기 / + 새 행사 → 그때 이름·날짜·저장 줄과 편성 화면이 나옴 -->
 						<div class="tm-top">
 							<select class="tm-pick" aria-label="행사"></select>
 							<button class="btn-mini tm-new" type="button">+ 새 행사</button>
-							<span class="tm-dirty" hidden>저장 안 됨</span>
-							<button class="btn-mini ink tm-save" type="button">저장</button>
-							<button class="btn-mini tm-del" type="button">지우기</button>
 						</div>
-						<div class="tm-meta">
+						<p class="hint tm-empty">행사를 고르거나 '+ 새 행사'를 눌러 주세요.</p>
+						<div class="tm-meta" hidden>
 							<label>행사 이름 <input class="tm-title" maxlength="60" placeholder="예: 가을 체육대회" /></label>
 							<label>날짜 <input class="tm-date" type="date" /></label>
+							<button class="btn-mini ink tm-save" type="button">저장</button>
+							<span class="tm-dirty" hidden>저장 안 됨</span>
+							<button class="btn-mini tm-del" type="button">지우기</button>
 						</div>
 						<!-- 시안 A: 왼쪽 명단 체크, 오른쪽에 바로 조 (단계 탭 없음) -->
-						<div class="tm-split">
+						<div class="tm-split" hidden>
 							<div class="tm-roster">
 								<input class="tm-find" type="search" placeholder="이름·지역 찾기" />
 								<div class="tm-row">
@@ -546,23 +548,27 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				tmEvents = r.events;
 				const pick = $<HTMLSelectElement>('.tm-pick');
 				pick.replaceChildren(new Option('행사 고르기', ''), ...tmEvents.map((e) => new Option(`${e.date} ${e.title} (${e.people}명)`, e.id)));
-				if (ev?.id) pick.value = ev.id;
-				if (!ev) (ev = blank()), drawEvent();
+				pick.value = ev?.id ?? '';
+				drawEvent();
 			}
+			// 저장 안 한 내용이 있으면 다른 행사로 가기 전에 한 번 물음
+			const leaveOk = () => $('.tm-dirty').hidden || confirm('저장 안 된 내용이 있어요. 버리고 넘어갈까요?');
 			$('.tm-pick').addEventListener('change', async (e) => {
-				const id = (e.target as HTMLSelectElement).value;
-				if (!id) return;
+				const pick = e.target as HTMLSelectElement;
+				if (!leaveOk()) return void (pick.value = ev?.id ?? '');
+				const id = pick.value;
+				if (!id) return void ((ev = null), drawEvent());
 				const r = await api('admin.teams.get', { id });
 				if (!r) return;
 				ev = r.event;
 				drawEvent();
-				dirty(false);
 			});
 			$('.tm-new').addEventListener('click', () => {
+				if (!leaveOk()) return;
 				ev = blank();
 				$<HTMLSelectElement>('.tm-pick').value = '';
 				drawEvent();
-				dirty(false);
+				$<HTMLInputElement>('.tm-title').focus();
 			});
 			$('.tm-save').addEventListener('click', async () => {
 				ev!.title = $<HTMLInputElement>('.tm-title').value;
@@ -574,7 +580,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				loadTeams();
 			});
 			$('.tm-del').addEventListener('click', async () => {
-				if (!ev?.id) return void ((ev = blank()), drawEvent());
+				if (!ev?.id) return void (leaveOk() && ((ev = null), drawEvent())); // 저장 전 새 행사 = 취소
 				if (!confirm(`'${ev.title}' 행사를 지울까요?`)) return;
 				if (await api('admin.teams.delete', { id: ev.id })) (ev = null), loadTeams();
 			});
@@ -591,9 +597,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				return s;
 			};
 
+			// 행사를 고르거나 새로 만들 때만 이름·날짜·저장 줄과 편성 화면
 			function drawEvent() {
-				$<HTMLInputElement>('.tm-title').value = ev!.title;
-				$<HTMLInputElement>('.tm-date').value = ev!.date;
+				for (const sel of ['.tm-meta', '.tm-split']) $(sel).hidden = !ev;
+				$('.tm-empty').hidden = !!ev;
+				dirty(false);
+				if (!ev) return;
+				$<HTMLInputElement>('.tm-title').value = ev.title;
+				$<HTMLInputElement>('.tm-date').value = ev.date;
+				$('.tm-del').textContent = ev.id ? '지우기' : '취소';
 				drawPeople();
 				drawSplit();
 			}
@@ -1352,15 +1364,22 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		min-width: 260px;
 	}
 	.tm-dirty {
-		margin-left: auto;
 		color: var(--accent);
 		font-size: 13px;
 		font-weight: 700;
 	}
+	/* 행사 이름 · 날짜 · [저장] 저장 안 됨 ……… [지우기] */
 	.tm-meta {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 12px;
+		align-items: center;
+		gap: 10px 12px;
+		padding: 12px;
+		border-radius: 12px;
+		background: var(--bone);
+	}
+	.tm-meta .tm-del {
+		margin-left: auto;
 	}
 	.tm-meta label,
 	.tm-row label {

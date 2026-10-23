@@ -132,8 +132,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					store.setPhoto(res.me.photo ? photoSrc(res.me.photo, 96) : ''); // 헤더 내 메뉴 동그라미
 					dash.querySelector('.me-name')!.textContent = res.me.name;
 					// 칩: 권한(ADMIN/STAFF/MEMBER) · 마스터(명예) · 지역 · 연락처
-					// 시트 '구분'이 운영진·마스터면 칩과 겹치니 지역만 (사용자 요구: STAFF 옆에 '운영진 구리' 중복 X)
-					const region = ['운영진', '마스터'].includes(res.me.grade) ? res.me.area : [res.me.grade, res.me.area].filter(Boolean).join(' ');
+					// 지역: 서버가 준 region('경기북부', '서울' — 운영진·마스터도 거주지로 찾음) + 거주지. 못 찾으면 거주지만
+					const region = [res.me.region ?? (['운영진', '마스터'].includes(res.me.grade) ? '' : res.me.grade), res.me.area].filter(Boolean).join(' ');
 					const chips: [string, string][] = [
 						[{ admin: 'ADMIN', staff: 'STAFF' }[res.me.role as string] ?? 'MEMBER', 'role'],
 						...(res.me.honorary ? [['MASTER', 'honor'] as [string, string]] : []),

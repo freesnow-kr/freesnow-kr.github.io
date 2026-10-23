@@ -122,6 +122,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 									<button class="btn-mini ink tm-gadd" type="button">추가</button>
 								</div>
 								<div class="tm-guests"></div>
+								<!-- 같은 조 안 됨 (사용자 요구 2026-10-23, 커플 등 — 이유는 안 적음). 행사 안에만 저장(data.apart) -->
+								<div class="tm-apart">
+									<p class="tm-apart-title">같은 조 안 됨</p>
+									<div class="tm-row">
+										<select class="tm-apart-a" aria-label="같은 조 안 됨 첫 번째 사람"></select>
+										<select class="tm-apart-b" aria-label="같은 조 안 됨 두 번째 사람"></select>
+										<button class="btn-mini ink tm-apart-add" type="button">묶기</button>
+									</div>
+									<div class="tm-apart-list"></div>
+								</div>
 							</div>
 							<div class="tm-board">
 								<div class="tm-row tm-setbar">
@@ -522,7 +532,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 			// ── 조 편성 ──
 			type Person = { key: string; name: string; gender: string; memberId?: string; staff?: boolean; guest?: boolean; leader?: boolean; team: number };
-			type Ev = { id?: string; title: string; date: string; data: { teams: { name: string }[]; people: Person[] } };
+			type Ev = { id?: string; title: string; date: string; data: { teams: { name: string }[]; people: Person[]; apart?: [string, string][] } }; // apart = 같은 조 안 됨 [사람 key, 사람 key]
 			let ev: Ev | null = null;
 			let tmEvents: any[] = [];
 			const blank = (): Ev => ({ title: '', date: new Date().toLocaleDateString('sv-SE'), data: { teams: [], people: [] } });
@@ -665,7 +675,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const gkey = (p: Person) => (byGender ? p.gender || '?' : '');
 				for (const p of d.people) if (p.leader && p.team >= n) p.leader = false; // 없어진 조의 조장은 풀림
 				const fixed = d.people.filter((p) => p.leader);
-				// 성별 묶음마다(큰 묶음부터) 운영진 먼저 → 그 성별이 가장 적은 조 → 운영진이 가장 적은 조 → 인원이 가장 적은 조 (같으면 무작위)
+				for (const p of d.people) if (!p.leader) p.team = -1; // 아래 '같은 조 안 됨' 확인이 새로 넣은 자리만 보게
+				const partners = apartMap();
+				const clash = (p: Person, t: number) => (partners.get(p.key) ?? []).some((q) => q.team === t);
+				// 성별 묶음마다(큰 묶음부터) 운영진 먼저 → '같은 조 안 됨' 짝이 없는 조 → 그 성별이 가장 적은 조 → 운영진이 가장 적은 조 → 인원이 가장 적은 조 (같으면 무작위)
+				// 짝이 모든 조에 걸리면(조가 너무 적으면) 어쩔 수 없이 겹치고, 조 카드에 경고가 뜸
 				const size = new Array(n).fill(0), staffN = new Array(n).fill(0);
 				for (const p of fixed) size[p.team]++, p.staff && staffN[p.team]++;
 				const groups: Record<string, Person[]> = {};
@@ -673,9 +687,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				for (const g of Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length)) {
 					const sameN = new Array(n).fill(0);
 					for (const p of fixed) if (gkey(p) === g) sameN[p.team]++;
-					const list = shuffle(groups[g]).sort((a, b) => (byStaff ? Number(!!b.staff) - Number(!!a.staff) : 0));
+					// 운영진 먼저, 그다음 '같은 조 안 됨' 짝이 있는 사람(갈 수 있는 조가 적어서) → 나머지가 인원을 맞춤
+					const list = shuffle(groups[g]).sort((a, b) => (byStaff ? Number(!!b.staff) - Number(!!a.staff) : 0) || Number(partners.has(b.key)) - Number(partners.has(a.key)));
 					for (const p of list) {
-						const t = shuffle([...Array(n).keys()]).sort((a, b) => sameN[a] - sameN[b] || (byStaff && p.staff ? staffN[a] - staffN[b] : 0) || size[a] - size[b])[0];
+						const t = shuffle([...Array(n).keys()]).sort((a, b) => Number(clash(p, a)) - Number(clash(p, b)) || sameN[a] - sameN[b] || (byStaff && p.staff ? staffN[a] - staffN[b] : 0) || size[a] - size[b])[0];
 						p.team = t;
 						sameN[t]++;
 						size[t]++;
@@ -691,6 +706,50 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const leaders = d.people.some((p) => p.leader);
 				if (d.people.some((p) => p.team >= 0 && !p.leader) && !confirm(leaders ? '조장은 그대로 두고 나머지를 새로 짤까요?' : '지금 편성을 지우고 새로 짤까요?')) return;
 				autoSplit();
+			});
+
+			// 같은 조 안 됨: 사람 key → 짝들 (빠진 참가자의 짝은 지움)
+			function apartMap() {
+				const d = ev!.data;
+				const byKey = new Map(d.people.map((p) => [p.key, p]));
+				d.apart = (d.apart ?? []).filter(([a, b]) => byKey.has(a) && byKey.has(b));
+				const m = new Map<string, Person[]>();
+				for (const [a, b] of d.apart) (m.get(a) ?? m.set(a, []).get(a)!).push(byKey.get(b)!), (m.get(b) ?? m.set(b, []).get(b)!).push(byKey.get(a)!);
+				return m;
+			}
+			function drawApart() {
+				const d = ev!.data;
+				apartMap(); // 빠진 사람 정리
+				const people = [...d.people].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+				for (const sel of [$<HTMLSelectElement>('.tm-apart-a'), $<HTMLSelectElement>('.tm-apart-b')]) {
+					const keep = sel.value;
+					sel.replaceChildren(new Option('사람 고르기', ''), ...people.map((p) => new Option(`${p.name}${p.guest ? ' (게스트)' : ''}`, p.key)));
+					sel.value = people.some((p) => p.key === keep) ? keep : '';
+				}
+				const name = (k: string) => d.people.find((p) => p.key === k)!.name;
+				$('.tm-apart-list').replaceChildren(
+					...d.apart!.map((pair) => {
+						const t = document.createElement('span');
+						t.className = 'tm-chip';
+						t.textContent = `${name(pair[0])} ↔ ${name(pair[1])} `;
+						const x = document.createElement('button');
+						x.type = 'button';
+						x.textContent = '✕';
+						x.ariaLabel = `${name(pair[0])}·${name(pair[1])} 풀기`;
+						x.addEventListener('click', () => ((d.apart = d.apart!.filter((v) => v !== pair)), dirty(), drawSplit()));
+						t.append(x);
+						return t;
+					}),
+				);
+			}
+			$('.tm-apart-add').addEventListener('click', () => {
+				const d = ev!.data;
+				const a = $<HTMLSelectElement>('.tm-apart-a').value, b = $<HTMLSelectElement>('.tm-apart-b').value;
+				if (!a || !b || a === b) return alert('서로 다른 두 사람을 골라 주세요.');
+				d.apart = d.apart ?? [];
+				if (!d.apart.some(([x, y]) => (x === a && y === b) || (x === b && y === a))) d.apart.push([a, b]);
+				$<HTMLSelectElement>('.tm-apart-a').value = $<HTMLSelectElement>('.tm-apart-b').value = '';
+				dirty(), drawSplit();
 			});
 
 			// 조 카드: 이름 줄 = 투명한 select를 덮어 둠 → 누르면 옮기기·조장 메뉴(휴대폰은 기본 선택 창)
@@ -753,8 +812,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					const ol = document.createElement('ol');
 					ol.append(...[...list].sort((a, b) => Number(!!b.leader) - Number(!!a.leader) || Number(!!b.staff) - Number(!!a.staff) || a.name.localeCompare(b.name, 'ko')).map((p) => row(p, ti)));
 					c.append(h, ol);
+					// 같은 조 안 됨 짝이 이 조에 같이 있으면 경고 (손으로 옮겼거나 조가 너무 적을 때)
+					const bad = ti >= 0 ? (d.apart ?? []).filter(([a, b]) => list.some((p) => p.key === a) && list.some((p) => p.key === b)) : [];
+					if (bad.length) {
+						const w = document.createElement('p');
+						w.className = 'tm-clash';
+						w.textContent = `같은 조 안 됨: ${bad.map((pair) => pair.map((k) => d.people.find((p) => p.key === k)!.name).join('·')).join(', ')}`;
+						c.append(w);
+					}
 					return c;
 				};
+				drawApart();
 				box.replaceChildren(...d.teams.map((t, i) => card(t.name, d.people.filter((p) => p.team === i), i)), ...(waiting.length ? [card('아직 안 나눔', waiting, -1)] : []));
 			}
 
@@ -999,7 +1067,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.tabs button[hidden] {
 		display: none;
 	}
+	/* 작은 버튼과 입력·선택 칸은 같은 높이 (사용자 요구 2026-10-23: 높이가 달라 보기 안 좋음) */
 	.panel {
+		--ctl: 34px;
 		display: grid;
 		gap: 12px;
 		align-content: start;
@@ -1054,7 +1124,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		gap: 6px;
 	}
 	.panel :global(.btn-mini) {
-		min-height: 30px;
+		min-height: var(--ctl);
 		padding: 0 10px;
 		border: 1.5px solid var(--black);
 		background: var(--white);
@@ -1098,7 +1168,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.panel select {
 		flex: none;
 		min-width: 150px; /* '26-27 시즌', '2026년 10월'이 … 으로 잘리지 않게 */
-		min-height: 40px;
+		min-height: var(--ctl);
 		padding: 0 38px 0 12px;
 		border: 1.5px solid var(--black);
 		background-color: var(--white);
@@ -1167,7 +1237,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	.lesson-rows :global(input) {
 		width: 220px;
-		min-height: 34px;
+		min-height: var(--ctl);
 		padding: 0 10px;
 		border: 1.5px solid var(--black);
 		background-color: var(--white);
@@ -1186,6 +1256,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		flex: 1;
 		font-size: 13px;
 		font-weight: 700;
+	}
+	/* 칸 안 안내 글씨는 작게 (사용자 요구) */
+	.panel :global(::placeholder) {
+		font-size: 13px;
 	}
 	.notify-msg {
 		color: #4a4d55;
@@ -1227,7 +1301,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	.tm-meta input,
 	.tm-row input:not([type='checkbox']) {
-		min-height: 40px;
+		min-height: var(--ctl);
 		padding: 0 12px;
 		border: 1.5px solid var(--black);
 		font: inherit;
@@ -1259,7 +1333,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	.tm-roster .tm-find {
 		width: 100%;
-		min-height: 40px;
+		min-height: var(--ctl);
 		padding: 0 12px;
 		border: 1.5px solid var(--black);
 		font: inherit;
@@ -1331,6 +1405,38 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		border-color: var(--accent);
 		background: var(--accent);
 		color: var(--black);
+	}
+	.tm-apart {
+		display: grid;
+		gap: 8px;
+		padding-top: 10px;
+		border-top: 1px solid var(--line);
+	}
+	.tm-apart-title {
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.tm-apart select {
+		flex: 1;
+		min-width: 0;
+	}
+	.tm-apart-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.panel :global(.tm-apart-list .tm-chip button) {
+		border: 0;
+		background: none;
+		cursor: pointer;
+	}
+	.tm-teams :global(.tm-clash) {
+		margin: 0;
+		padding: 8px 12px;
+		background: #fdecea;
+		color: #c0261b;
+		font-size: 12px;
+		font-weight: 700;
 	}
 	.tm-guests {
 		display: flex;
@@ -1512,7 +1618,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.owner-cards :global(.owner-add input) {
 		box-sizing: border-box;
 		width: 100%;
-		min-height: 38px;
+		min-height: var(--ctl);
 		padding: 0 12px;
 		border: 1.5px dashed var(--black);
 		border-radius: 8px;

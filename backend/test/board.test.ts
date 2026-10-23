@@ -88,7 +88,7 @@ test('사진: 글쓴이만 올림, JPG만, R2 board/ 폴더, 빼면 파일도 �
 	assert.deepEqual([res.status, await res.text()], [200, 'one']);
 	// 서명 없거나 틀리거나 기한 지나면 못 봄 (회원 글 사진은 글을 볼 수 있는 사람만)
 	assert.equal((await worker.fetch(new Request(`https://api.test/${key}`), env)).status, 403);
-	assert.equal((await worker.fetch(new Request(g.photos[0].url.replace(/s=\w/, 's=0')), env)).status, 403);
+	assert.equal((await worker.fetch(new Request(g.photos[0].url.replace(/s=\w+/, 's=wrongsignature')), env)).status, 403);
 	assert.equal((await worker.fetch(new Request(g.photos[0].url.replace(/e=\d+/, 'e=1000')), env)).status, 403);
 	assert.equal((await post({ action: 'board.get', id: free })).needLogin, true, '비회원은 서명된 주소도 못 받음');
 	assert.equal((await post({ action: 'board.photoDelete', id: g.photos[0].id }, A)).ok, true);

@@ -1,47 +1,17 @@
-// npm test (node --test) — 실제 로컬 D1(workerd)에 스키마를 올리고 Worker fetch를 직접 호출. 데이터는 전부 가짜
-import { after, before, test } from 'node:test';
+// 로그인·세션·비밀번호·초기화·잠금·CORS
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { getPlatformProxy } from 'wrangler';
 import worker from '../src/index.ts';
+import { ORIGIN, RESET, env, post, useDb } from './setup.ts';
 
-const dir = mkdtempSync(join(tmpdir(), 'fs-api-'));
-let proxy: Awaited<ReturnType<typeof getPlatformProxy>>;
-let env: any;
-const RESET = 'reset-test-1234';
-const ORIGIN = 'https://freesnow-kr.github.io';
+useDb([
+	['m-kim', '01011112222', '김보드', '1996-02-12'],
+	['m-lee', '01033334444', '이스키', '1990-12-01'],
+	['m-boss', '01055556666', '박마스터', '1985-05-05', 'master'],
+	['m-staff', '01077778888', '최운영', '1992-07-07', 'staff'],
+	['m-gone', '01099990000', '정탈퇴', '1999-09-09', 'member', 'withdrawn'],
+]);
 
-before(async () => {
-	proxy = await getPlatformProxy({ configPath: new URL('../wrangler.jsonc', import.meta.url).pathname, persist: { path: dir } });
-	env = { ...proxy.env, RESET_PASSWORD: RESET, LOGIN_KEY_SECRET: 'test-key' };
-	const sql = readFileSync(new URL('../migrations/0001_init.sql', import.meta.url), 'utf8').replace(/--.*$/gm, '');
-	await env.DB.batch(sql.split(';').map((s: string) => s.trim()).filter(Boolean).map((s: string) => env.DB.prepare(s)));
-	const now = new Date().toISOString();
-	const add = (id: string, phone: string, name: string, birth: string, role = 'member', status = 'active') =>
-		env.DB.prepare('INSERT INTO members (id, phone, name, birth, grade, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-			.bind(id, phone, name, birth, role === 'master' ? '마스터' : '경기도', '구리', role, status, now, now);
-	await env.DB.batch([
-		add('m-kim', '01011112222', '김보드', '1996-02-12'),
-		add('m-lee', '01033334444', '이스키', '1990-12-01'),
-		add('m-boss', '01055556666', '박마스터', '1985-05-05', 'master'),
-		add('m-staff', '01077778888', '최운영', '1992-07-07', 'staff'),
-		add('m-gone', '01099990000', '정탈퇴', '1999-09-09', 'member', 'withdrawn'),
-	]);
-});
-after(async () => {
-	await proxy?.dispose();
-	rmSync(dir, { recursive: true, force: true });
-});
-
-let ip = 0; // 테스트마다 다른 IP (IP 잠금이 다른 테스트에 번지지 않게)
-const post = async (body: object, token?: string, origin = ORIGIN) => {
-	const headers: Record<string, string> = { Origin: origin, 'CF-Connecting-IP': `203.0.113.${++ip % 250}` };
-	if (token) headers.Authorization = `Bearer ${token}`;
-	const res = await worker.fetch(new Request('https://api.test/', { method: 'POST', headers, body: JSON.stringify(body) }), env);
-	return { status: res.status, cors: res.headers.get('Access-Control-Allow-Origin'), ...(await res.json()) } as any;
-};
 const login = (phone: string, password: string, keep = false) => post({ action: 'login', phone, password, keep });
 
 test('첫 전환: 생년월일로 한 번 → 새 비밀번호 전에는 다른 기능 안 됨 → 정한 뒤엔 생년월일 안 통함', async () => {

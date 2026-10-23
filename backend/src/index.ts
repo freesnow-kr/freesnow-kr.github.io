@@ -1,6 +1,7 @@
 // Free Snow API (Cloudflare Worker). Apps Script와 같은 계약: POST / body {action, ...} → {ok, ...}
 import { Reply, adminReset, login, logout, me, password } from './auth.ts';
 import { iso, later } from './lib.ts';
+import { seasonRoom } from './seasonroom.ts';
 
 export type Env = {
 	DB: D1Database;
@@ -18,6 +19,7 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	logout,
 	password,
 	me,
+	seasonroom: seasonRoom,
 	'admin.reset': adminReset,
 };
 

@@ -183,6 +183,8 @@
   - 테스트 `cd backend && npm test` = `node --test`(Node가 TS를 바로 실행) + wrangler `getPlatformProxy`의 진짜 로컬 D1, 가짜 회원만. 로컬 서버 `npm run db:local` 후 `npm run dev`(http://localhost:8787, 비밀값은 `.dev.vars` — 양식 `.dev.vars.example`).
   - `wrangler.jsonc`의 `database_id`는 아직 가짜(실제 D1 안 만듦). Cloudflare에 만들기·배포는 사용자 확인 후에만.
   - 인증 규칙: 비밀번호 없는 회원(첫 전환)은 생년월일로 한 번 → `mustChange` 세션은 `password`·`logout`만 됨. 초기화(마스터만) = 해시 삭제 + 그 회원 세션 전부 폐기 + 72시간 동안 공용 `RESET_PASSWORD`만 통함. 실패 문구 하나, 아이디 5회·IP 30회/1시간 잠금(`login_logs`로 셈). 세션 토큰은 SHA-256만 저장, 로그인 이력엔 비밀번호·토큰·전화·IP 원문 없음.
+  - 옮긴 action: `seasonroom`(`src/seasonroom.ts`, 응답 모양 Apps Script와 같음 — 테스트 `test/seasonroom.test.ts`가 `Code.test.mjs` 11번과 같은 경우). 다른 점: 이름은 저장 당시 값이 아니라 지금 회원 이름, 연락처 대신 회원 ID로 연결. 시트 이전 때 할 일: 구분 빈 칸 → 숙박, 연락처는 `normPhone`으로 회원 찾기(하이픈·띄어쓰기·앞 0 빠짐), 같은 회원·날짜가 여러 줄이면 마지막 체크시각 것. 화면(`seasonroom.astro`)은 아직 Apps Script를 부름(전환 스위치는 나중에).
+  - 테스트 공통 `test/setup.ts`: `useDb(회원, seed)`, `post`, `sessionFor(회원ID)`(로그인 없이 세션).
   - PBKDF2 10만 회: 로컬 workerd ≈ 6ms(무료 CPU 10ms) → 실제 Cloudflare에서 다시 잴 것.
 - 사용자 원칙: 분석·설계를 먼저 보고하고 실제 변경은 따로 지시받아서. 기존 사이트·Apps Script·시트는 검증 전까지 건드리지 않음.
 

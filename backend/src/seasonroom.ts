@@ -1,0 +1,46 @@
+// 시즌방 숙박 체크 — Apps Script seasonRoom과 같은 규칙·응답 (AGENTS.md '시즌방 숙박 체크')
+// 회원·날짜당 한 줄(PRIMARY KEY), 취소해도 줄은 남기고 kind = '취소'. 방 구분·정원 없음, 지난 날짜도 자유롭게. 시즌 = 7/1 ~ 6/30
+import type { Ctx } from './index.ts';
+import { need } from './auth.ts';
+import { iso } from './lib.ts';
+
+const PRICES = { 숙박: 10000, 휴식: 5000 }; // 1박 / 4시간 휴식, 시즌방 주주는 정산에서 빠짐
+
+// {season: '26-27', op?: 'add'|'remove', date?: '2026-12-13', kind?: '숙박'|'휴식'} → {ok, season, prices, nights: [{date, name, kind, me, owner}]}
+// 응답엔 취소 빼고, 회원에게 이름만 (연락처 X)
+export async function seasonRoom(c: Ctx) {
+	const db = c.env.DB;
+	const me = await need(c);
+	const season = String(c.body.season ?? '');
+	const m = /^(\d{2})-(\d{2})$/.exec(season);
+	if (!m) return { ok: false, error: '시즌을 확인해 주세요.' };
+
+	if (c.body.op === 'add' || c.body.op === 'remove') {
+		const date = String(c.body.date ?? '');
+		if (!isDate(date)) return { ok: false, error: '날짜를 확인해 주세요.' };
+		if (c.body.op === 'add') {
+			const kind = c.body.kind === '휴식' ? '휴식' : '숙박';
+			await db.prepare(
+				`INSERT INTO room_stays (member_id, date, kind, updated_at) VALUES (?1, ?2, ?3, ?4)
+				 ON CONFLICT(member_id, date) DO UPDATE SET kind = ?3, updated_at = ?4`,
+			).bind(me.id, date, kind, iso(c.now)).run();
+		} else {
+			// 기록 없는 날 취소는 아무 일 없음
+			await db.prepare("UPDATE room_stays SET kind = '취소', updated_at = ? WHERE member_id = ? AND date = ?").bind(iso(c.now), me.id, date).run();
+		}
+	}
+
+	const { results } = await db.prepare(
+		`SELECT r.date, m.name, r.kind, r.member_id = ?1 AS me, o.member_id IS NOT NULL AS owner
+		 FROM room_stays r JOIN members m ON m.id = r.member_id
+		 LEFT JOIN room_owners o ON o.season = ?2 AND o.member_id = r.member_id
+		 WHERE r.date BETWEEN ?3 AND ?4 AND r.kind != '취소'`,
+	).bind(me.id, season, `20${m[1]}-07-01`, `20${m[2]}-06-30`).all<{ date: string; name: string; kind: string; me: number; owner: number }>();
+	const nights = results
+		.map((r) => ({ date: r.date, name: r.name, kind: r.kind, me: !!r.me, owner: !!r.owner }))
+		.sort((a, b) => (a.date === b.date ? a.name.localeCompare(b.name, 'ko') : a.date < b.date ? -1 : 1));
+	return { ok: true, season, prices: PRICES, nights };
+}
+
+// 'YYYY-MM-DD' + 실제 있는 날 (2026-02-30 거부)
+const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;

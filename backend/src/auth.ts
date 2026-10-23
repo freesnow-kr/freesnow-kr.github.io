@@ -38,7 +38,7 @@ export async function need(c: Ctx, role: Role = 'member', allowMustChange = fals
 	const me = await c.env.DB.prepare(
 		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.name, m.phone, m.region, m.area, m.role, m.honorary, m.birth
 		 FROM sessions s JOIN members m ON m.id = s.member_id
-		 WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.is_active = 1 AND s.expires_at > ? AND m.status = 'active' AND m.is_active = 1`,
+		 WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.is_active = 1 AND s.expires_at > ? AND m.status = 'active'`,
 	).bind(await sha256(token), iso(c.now)).first<Me>();
 	if (!me) throw new Reply(EXPIRED);
 	if (Date.parse(me.expires_at) < c.now.getTime() + SESSION_MS - 24 * HOUR) {
@@ -79,7 +79,7 @@ export async function login(c: Ctx) {
 
 	const m = await db.prepare(
 		`SELECT m.id, m.name, m.birth, m.status, c.member_id AS cred, c.hash, c.salt, c.iter, c.reset_until
-		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1 WHERE m.phone = ? AND m.is_active = 1`,
+		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1 WHERE m.phone = ?`,
 	).bind(phone).first<{ id: string; name: string; birth: string | null; status: string; cred: string | null; hash: string | null; salt: string | null; iter: number | null; reset_until: string | null }>();
 
 	// 어느 경우든 PBKDF2를 한 번 돌림 → 응답 시간으로 회원 여부를 알 수 없게
@@ -192,7 +192,7 @@ export async function adminReset(c: Ctx) {
 	const db = c.env.DB;
 	const actor = await need(c, 'staff'); // 사용자 요구 2026-10-23: 운영진도 초기화 가능
 	const id = String(c.body.memberId ?? '');
-	const target = await db.prepare('SELECT id, role FROM members WHERE id = ? AND is_active = 1').bind(id).first<{ id: string; role: Role }>();
+	const target = await db.prepare('SELECT id, role FROM members WHERE id = ?').bind(id).first<{ id: string; role: Role }>();
 	if (!target) return { ok: false, error: '회원을 찾지 못했어요.' };
 	if (RANK[target.role] > RANK[actor.role]) return { ok: false, error: '관리자 비밀번호는 관리자만 초기화할 수 있어요.' };
 	if (!c.env.RESET_PASSWORD) return { ok: false, error: '초기화 비밀번호가 설정되지 않았어요.' };

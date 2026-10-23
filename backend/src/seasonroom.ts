@@ -40,13 +40,13 @@ export async function seasonRoom(c: Ctx) {
 		`SELECT r.date, m.name, r.kind, r.member_id = ?1 AS me, o.member_id IS NOT NULL AS owner
 		 FROM room_stays r JOIN members m ON m.id = r.member_id
 		 LEFT JOIN room_owners o ON o.season = ?2 AND o.member_id = r.member_id AND o.is_active = 1
-		 WHERE r.date BETWEEN ?3 AND ?4 AND r.kind != '취소' AND r.is_active = 1 AND m.is_active = 1`,
+		 WHERE r.date BETWEEN ?3 AND ?4 AND r.kind != '취소' AND r.is_active = 1`,
 	).bind(me.id, season, from, to).all<{ date: string; name: string; kind: string; me: number; owner: number }>();
 	const nights = results.map((r) => ({ date: r.date, name: r.name, kind: r.kind, me: !!r.me, owner: !!r.owner })).sort(byDateName);
 	const rides = (
 		await db.prepare(
 			`SELECT r.date, m.name, r.member_id = ?1 AS me FROM ride_checks r JOIN members m ON m.id = r.member_id
-			 WHERE r.date BETWEEN ?2 AND ?3 AND r.status = '출격' AND r.is_active = 1 AND m.is_active = 1`,
+			 WHERE r.date BETWEEN ?2 AND ?3 AND r.status = '출격' AND r.is_active = 1`,
 		).bind(me.id, from, to).all<{ date: string; name: string; me: number }>()
 	).results.map((r) => ({ date: r.date, name: r.name, me: !!r.me })).sort(byDateName);
 	return { ok: true, season, prices: PRICES, nights, rides };

@@ -7,7 +7,7 @@
 - **스택**: Astro 7 정적 사이트 (프레임워크·CSS 라이브러리 없음, 의존성 `astro` 하나). Node ≥ 22.22 (로컬 24).
 - **호스팅**: GitHub Pages, 저장소 `freesnow-kr/freesnow-kr.github.io` (조직 `freesnow-kr`, public), `main` push → `.github/workflows/deploy.yml` (withastro/action, `node-version: 24`).
 - **주소**: `https://freesnow-kr.github.io/` — 하위 경로 없음(`astro.config.mjs`에 `base` 없음).
-- **서버 = Cloudflare Worker `backend/` + D1**(2026-10-23 이전, 사용자 요구: Apps Script 쓰는 코드 제거). 주소 `https://api.freesnow.workers.dev`, 계정 `yunj213@gmail.com`, D1 `freesnow`. 사이트는 `club.api`(`PUBLIC_API_URL`)만 부름. 자세한 건 아래 '서버 (Cloudflare Worker)'.
+- **서버 = Cloudflare Worker `backend/` + D1**(2026-10-23 이전, 사용자 요구: Apps Script 쓰는 코드 제거). 주소 `https://api.freesnow.workers.dev`, D1 `freesnow`. 사이트는 `club.api`(`PUBLIC_API_URL`)만 부름. 자세한 건 아래 '서버 (Cloudflare Worker)'.
 - 예전 **Apps Script**(`apps-script/`)는 저장소에서 뺌(`.gitignore`) — 이 컴퓨터에만 되돌리기용으로 보관, 사이트는 안 씀. 아래 기능별 절에 나오는 '탭'·스크립트 속성·`Code.gs` 설명은 **옮기기 전 기준**: 규칙·응답 모양은 Worker가 그대로 따르고, 저장 위치는 D1 테이블(`backend/migrations/`, `docs/migration/02-design.md` §8).
 - **사용자**: 한국어 사용. 화면 문구는 한국어 존댓말(해요체), 디자인 문구는 영문 대문자.
 
@@ -217,7 +217,7 @@
 
 - 문서는 `docs/migration/`. 1차 분석 `01-analysis.md`(2026-10-23) — 기능·API·시트 구조, 보안 위험, D1 초안, 단계 계획, 사용자 확인이 필요한 항목.
 - **권한(role) 4가지**(사용자 요구 2026-10-23, `0006`·`0011`): member(회원) / **master(마스터 — 동호회 명예 명칭, 대우하는 선배·고문. 할 수 있는 일은 회원과 같음, RANK 0)** / staff(운영진) / **admin(관리자: 권한·정지 변경(마스터 지정 포함), 운영 기록. 지금 안광희)**. 처음 설계에선 master=최고관리자였는데 사용자 설명으로 admin으로 바꾸고, master는 명예 값이 됨(잠깐 `honorary` 열을 뒀다가 사용자 요구로 role 값으로 합침). 마이페이지 칩: ADMIN·STAFF(검정), MASTER(주황), MEMBER. 운영진 화면 권한 선택에 '마스터 (명예)'.
-- 설계 `02-design.md`(2026-10-23) — 사용자 결정: workers.dev(`https://api.freesnow.workers.dev`, 계정 `yunj213@gmail.com`, 하위 도메인 `freesnow`, Worker 이름 `api`), 최고관리자 = 마스터, 탈퇴 회원 기록은 그대로, 비밀번호 초기화는 공용 초기화 비밀번호(Worker Secret, 초기화 대기 72시간 동안 그 회원에게만 통함).
+- 설계 `02-design.md`(2026-10-23) — 사용자 결정: workers.dev(`https://api.freesnow.workers.dev`, 하위 도메인 `freesnow`, Worker 이름 `api`), 최고관리자 = 마스터, 탈퇴 회원 기록은 그대로, 비밀번호 초기화는 공용 초기화 비밀번호(Worker Secret, 초기화 대기 72시간 동안 그 회원에게만 통함).
 - 코드는 **같은 저장소 `backend/`**(사용자 결정). 의존성은 `wrangler` 하나(사이트 쪽 `package.json`과 별개), 프레임워크 없음. `src/index.ts`(라우팅·CORS·body 600KB 제한·오류), `src/auth.ts`(로그인·세션·비밀번호·권한·초기화), `src/lib.ts`(normPhone — Apps Script와 같은 규칙, PBKDF2·HMAC), `migrations/0001_init.sql`.
   - 테스트 `cd backend && npm test` = `node --test`(Node가 TS를 바로 실행) + wrangler `getPlatformProxy`의 진짜 로컬 D1, 가짜 회원만. 로컬 서버 `npm run db:local` 후 `npm run dev`(http://localhost:8787, 비밀값은 `.dev.vars` — 양식 `.dev.vars.example`).
   - 인증 규칙: 비밀번호 없는 회원(첫 전환)은 생년월일로 한 번 → `mustChange` 세션은 `password`·`logout`만 됨. 초기화(운영진 이상, 관리자 계정은 관리자만 — 2026-10-23 사용자 요구) = 해시 삭제 + 그 회원 세션 전부 폐기 + 72시간 동안 공용 `RESET_PASSWORD`만 통함. 실패 문구 하나, 아이디 5회·IP 30회/1시간 잠금(`login_logs`로 셈). 세션 토큰은 SHA-256만 저장, 로그인 이력엔 비밀번호·토큰·전화·IP 원문 없음.

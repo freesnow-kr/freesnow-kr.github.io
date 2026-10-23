@@ -85,9 +85,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					</section>
 
 					<section class="panel" data-panel="owners" hidden>
-						<label class="row">시즌 <select class="owner-season"></select></label>
-						<div class="owner-list"></div>
-						<button class="btn btn-ink owner-save" type="button">주주 저장</button>
+						<p class="hint">시즌마다 주주를 정해요(주주는 그 시즌 시즌방 정산이 0원). 바꾸면 바로 저장돼요.</p>
+						<div class="owner-cards"></div>
 						<p class="owner-msg" role="status"></p>
 					</section>
 
@@ -344,42 +343,88 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				loadMembers();
 			});
 
-			// 시즌방 주주: 시즌 고르고 회원 체크 → 그 시즌 전체를 저장
-			const seasonSel = $<HTMLSelectElement>('.owner-season');
-			{
+			// 시즌방 주주 (사용자가 고른 시안 D): 이번·지난·지지난 시즌을 카드로 나란히, ✕로 빼고 '+ 주주 더하기'로 더함, 바로 저장
+			// 이번 시즌 카드엔 '지난 시즌 주주 그대로 가져오기'
+			const ownerSeasons = (() => {
 				const now = new Date();
 				const cur = (now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1) % 100;
-				for (const s of [cur + 1, cur, cur - 1]) seasonSel.append(new Option(`${s}-${s + 1}`, `${s}-${s + 1}`));
-				seasonSel.value = `${cur}-${cur + 1}`;
-			}
-			let owners = new Set<string>();
+				return [cur, cur - 1, cur - 2].map((a) => `${a}-${a + 1}`);
+			})();
+			const owners: Record<string, Set<string>> = {};
 			async function loadOwners() {
-				const res = await api('admin.roomOwners', { season: seasonSel.value });
-				if (!res) return;
-				owners = new Set(res.memberIds);
+				const all = await Promise.all(ownerSeasons.map((season) => api('admin.roomOwners', { season })));
+				all.forEach((r, i) => r && (owners[ownerSeasons[i]] = new Set(r.memberIds)));
+				drawOwners();
+			}
+			async function saveOwners(season: string, ids: string[], done: string) {
+				const r = await api('admin.roomOwners', { season, memberIds: ids });
+				if (!r) return;
+				owners[season] = new Set(r.memberIds);
+				$('.owner-msg').textContent = done;
 				drawOwners();
 			}
 			function drawOwners() {
-				$('.owner-list').replaceChildren(
-					...members
-						.filter((m) => m.status === 'active' || owners.has(m.id))
-						.map((m) => {
-							const label = document.createElement('label');
-							const box = document.createElement('input');
-							box.type = 'checkbox';
-							box.value = m.id;
-							box.checked = owners.has(m.id);
-							label.append(box, ` ${m.name}`);
-							return label;
-						}),
+				const name = (id: string) => members.find((m) => m.id === id)?.name ?? '(지운 회원)';
+				$('.owner-cards').replaceChildren(
+					...ownerSeasons.map((season, si) => {
+						const own = owners[season];
+						const card = document.createElement('section');
+						card.className = 'owner-card' + (si === 0 ? ' now' : '');
+						const h = document.createElement('h3');
+						const big = document.createElement('span');
+						big.textContent = season;
+						const tag = document.createElement('small');
+						tag.textContent = si === 0 ? '이번 시즌' : '지난 시즌';
+						h.append(big, tag);
+						const cnt = document.createElement('p');
+						cnt.className = 'owner-count';
+						cnt.textContent = own ? `주주 ${own.size}명` : '불러오는 중…';
+						card.append(h, cnt);
+						if (!own) return card;
+						const ul = document.createElement('ul');
+						ul.append(
+							...[...own].map((id) => {
+								const li = document.createElement('li');
+								const nm = document.createElement('span');
+								nm.textContent = name(id);
+								const x = document.createElement('button');
+								x.type = 'button';
+								x.className = 'owner-x';
+								x.textContent = '✕';
+								x.ariaLabel = `${name(id)} 빼기`;
+								x.addEventListener('click', () => saveOwners(season, [...own].filter((v) => v !== id), `${season} 주주에서 ${name(id)} 님을 뺐어요.`));
+								li.append(nm, x);
+								return li;
+							}),
+						);
+						if (!own.size) {
+							const li = document.createElement('li');
+							li.className = 'empty';
+							li.textContent = '주주가 없어요.';
+							ul.append(li);
+						}
+						const add = document.createElement('select');
+						add.className = 'owner-add';
+						add.ariaLabel = `${season} 주주 더하기`;
+						add.append(new Option('+ 주주 더하기', ''), ...members.filter((m) => m.status === 'active' && !own.has(m.id)).map((m) => new Option(`${m.name} (${m.region || m.area || '-'})`, m.id)));
+						add.addEventListener('change', () => add.value && saveOwners(season, [...own, add.value], `${season} 주주에 ${name(add.value)} 님을 더했어요.`));
+						card.append(ul, add);
+						const prev = ownerSeasons[si + 1];
+						if (si === 0 && prev && owners[prev]) {
+							const copy = document.createElement('button');
+							copy.type = 'button';
+							copy.className = 'owner-copy';
+							copy.textContent = `${prev} 주주 그대로 가져오기`;
+							copy.addEventListener('click', () => {
+								if (!confirm(`${season} 주주를 ${prev} 주주 ${owners[prev].size}명으로 바꿀까요?`)) return;
+								saveOwners(season, [...owners[prev]], `${prev} 주주 ${owners[prev].size}명을 ${season}에 가져왔어요.`);
+							});
+							card.append(copy);
+						}
+						return card;
+					}),
 				);
 			}
-			seasonSel.addEventListener('change', loadOwners);
-			$('.owner-save').addEventListener('click', async () => {
-				const ids = [...document.querySelectorAll<HTMLInputElement>('.owner-list input:checked')].map((b) => b.value);
-				const res = await api('admin.roomOwners', { season: seasonSel.value, memberIds: ids });
-				if (res) (owners = new Set(res.memberIds)), ($('.owner-msg').textContent = `${seasonSel.value} 주주 ${res.memberIds.length}명 저장했어요.`);
-			});
 
 			$('.chat-file').addEventListener('change', async (e) => {
 				const f = (e.target as HTMLInputElement).files?.[0];
@@ -753,13 +798,92 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.status-form input {
 		accent-color: var(--black);
 	}
-	.owner-list {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px 18px;
+	/* 시즌방 주주: 시즌 카드 3장 */
+	.owner-cards {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 14px;
 	}
-	.owner-save {
-		justify-self: start;
+	.owner-cards :global(.owner-card) {
+		display: grid;
+		gap: 10px;
+		align-content: start;
+		padding: 18px;
+		border: 1px solid var(--line);
+		border-radius: 16px;
+		background: var(--white);
+	}
+	.owner-cards :global(.owner-card.now) {
+		border: 2px solid var(--black);
+	}
+	.owner-cards :global(h3) {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		font: 2rem var(--display);
+		font-weight: 400;
+	}
+	.owner-cards :global(h3 small) {
+		font: 700 12px 'Noto Sans KR', sans-serif;
+		color: #4a4d55;
+	}
+	.owner-cards :global(.owner-count) {
+		font-weight: 700;
+		color: var(--accent);
+	}
+	.owner-cards :global(ul) {
+		display: grid;
+		gap: 4px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.owner-cards :global(li) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: var(--bone);
+		font-weight: 700;
+		font-size: 14px;
+	}
+	.owner-cards :global(li.empty) {
+		background: none;
+		color: #8a8d95;
+		font-weight: 400;
+	}
+	.owner-cards :global(.owner-x) {
+		border: 0;
+		background: none;
+		color: #8a8d95;
+		cursor: pointer;
+	}
+	.owner-cards :global(select.owner-add) {
+		width: 100%;
+		min-height: 38px;
+		padding: 0 36px 0 12px;
+		border: 1.5px dashed var(--black);
+		border-radius: 8px;
+		background-color: var(--white);
+		font: 700 13px 'Noto Sans KR', sans-serif;
+	}
+	.owner-cards :global(.owner-copy) {
+		padding: 9px;
+		border: 1px dashed var(--black);
+		border-radius: 8px;
+		background: none;
+		font: 700 13px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.owner-msg {
+		font-size: 14px;
+		color: #4a4d55;
+	}
+	@media (max-width: 860px) {
+		.owner-cards {
+			grid-template-columns: 1fr;
+		}
 	}
 	.edit {
 		width: min(440px, 92vw);

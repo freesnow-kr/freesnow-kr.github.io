@@ -22,7 +22,7 @@ export const store = {
 
 // Worker(club.workerApi)가 맡는 action. 나머지는 Apps Script. 로그인 토큰이 서버마다 달라서 회원 기능은 한꺼번에 옮김
 // (docs/migration/02-design.md §5) — Worker로 옮긴 action을 여기 추가. workerApi가 비어 있으면 전부 Apps Script
-const WORKER_ACTIONS = new Set(['login', 'logout', 'password', 'me', 'seasonroom', 'shredlog', 'snowlive']);
+const WORKER_ACTIONS = new Set(['login', 'logout', 'password', 'renew', 'me', 'seasonroom', 'shredlog', 'snowlive']);
 const apiFor = (action: string) => (club.workerApi && WORKER_ACTIONS.has(action) ? club.workerApi : club.membersApi);
 export const passwordUrl = `${base}/password/`;
 
@@ -78,6 +78,24 @@ export const busy = (form: HTMLFormElement, on: boolean, label: string) => {
 	form.inert = on;
 	form.setAttribute('aria-busy', String(on));
 };
+
+// 로그인 연장: 로그인은 30일, 사이트를 쓰는 동안은 하루에 한 번 다시 30일로 → 한 달 안에 한 번만 들어와도 안 풀림
+// (사용자 요구 2026-10-23). Apps Script는 새 토큰을, Worker는 세션 기한만 늘리고 토큰은 그대로
+const RENEWED = 'fs-member-renewed';
+{
+	const token = store.get();
+	let last = 0;
+	try { last = Number(localStorage.getItem(RENEWED)) || 0; } catch {}
+	if (token && Date.now() - last > 24 * 60 * 60 * 1000) {
+		call({ action: 'renew', token })
+			.then((res) => {
+				if (!res?.ok) return; // 만료면 각 페이지가 로그인으로 보냄
+				if (res.token && store.get() === token) store.set(res.token);
+				try { localStorage.setItem(RENEWED, String(Date.now())); } catch {}
+			})
+			.catch(() => {});
+	}
+}
 
 const nav = document.querySelector('.nav');
 if (nav) {

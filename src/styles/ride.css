@@ -797,8 +797,10 @@ a {
 	color: var(--white);
 	cursor: pointer;
 }
-.btn-ink:hover {
-	background: var(--accent);
+@media (hover: hover) {
+	.btn-ink:hover {
+		background: var(--accent);
+	}
 }
 .btn-ink:disabled {
 	opacity: 0.5;
@@ -833,9 +835,22 @@ a {
 .btn-line-dark {
 	border: 1.5px solid var(--black);
 	background: transparent;
+	color: var(--black); /* 버튼 기본 글자색(브라우저마다 다름)에 맡기지 않음 */
 	cursor: pointer;
 }
-.btn-line-dark:hover {
-	background: var(--black);
-	color: var(--white);
+/* 터치 화면은 누른 뒤에도 :hover가 남아서 검은 바탕 + (잠긴 버튼의 회색) 글씨로 안 보이던 문제 → hover는 마우스에서만 */
+@media (hover: hover) {
+	.btn-line-dark:hover {
+		background: var(--black);
+		color: var(--white);
+	}
+}
+.btn-line-dark:disabled {
+	background: transparent;
+	color: var(--black);
+	opacity: 0.45;
+	cursor: default;
+}
+.btn-line-dark.is-loading:disabled {
+	opacity: 0.85;
 }

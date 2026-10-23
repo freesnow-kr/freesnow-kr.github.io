@@ -128,8 +128,13 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	assert.equal(ctx.normPhone('+82 10-1234-5678'), '01012345678');
 	// 로그인 상태 유지: 30일 / 기본 12시간
 	const ttl = (r) => r.exp - Date.now();
-	assert.ok(ttl(call({ action: 'login', phone: '12345678', birth: '19960211', keep: true })) > 29 * 24 * 3600e3);
-	assert.ok(ttl(call({ action: 'login', phone: '12345678', birth: '19960211' })) < 13 * 3600e3);
+	const long = call({ action: 'login', phone: '12345678', birth: '19960211' });
+	assert.ok(ttl(long) > 29 * 24 * 3600e3, '로그인은 항상 30일');
+	const renewed = call({ action: 'renew', token: long.token });
+	assert.equal(renewed.ok, true);
+	assert.ok(ttl(renewed) > 29 * 24 * 3600e3 && renewed.token, '연장하면 새 30일 토큰');
+	assert.equal(call({ action: 'me', token: renewed.token }).ok, true);
+	assert.equal(call({ action: 'renew', token: 'x.y' }).expired, true, '가짜 토큰은 연장 안 됨');
 	// 아이디 = 010 뺀 8자리
 	assert.equal(call({ action: 'login', phone: '12345678', birth: '19960211' }).ok, true);
 	assert.equal(call({ action: 'login', phone: '1234-5678', birth: '19960211' }).ok, true);
@@ -543,6 +548,21 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	assert.deepEqual(l2.map((m) => [m.title, new Date(m.start).getFullYear(), m.time]), [['●왁싱벙● & 시즌준비', y - 1, '오후 1:00'], ['지난 정모', y, '오전 10:00'], ['시즌방', y, '오후 11:00']]);
 	// 구조가 바뀌어 '정모 일정'이 없으면 빈 목록
 	assert.deepEqual(plain(ctx.parseSomoim('<html>바뀐 페이지</html>', new Date())), []);
+
+	// 이력 저장: 정모마다 한 줄, 다시 읽으면 인원·마지막본시각만 바뀜, 지난 정모는 안 지움
+	const tabs7 = [tab('회원현황', [HEAD])];
+	const e7 = load(tabs7);
+	e7.ctx.saveSomoim(list, new Date(2026, 9, 1));
+	const hist = () => tabs7.find((t) => t.getName() === '소모임정모').rows;
+	assert.equal(hist().length, 3);
+	e7.ctx.saveSomoim([{ ...list[0], count: 14 }], new Date(2026, 9, 2));
+	assert.equal(hist().length, 3, '같은 정모는 같은 줄');
+	const row = hist().find((r) => r[1] === '시즌방');
+	assert.equal(row[6], 14);
+	assert.equal(row[8].getDate(), 1, '처음본시각 그대로');
+	assert.equal(row[9].getDate(), 2);
+	e7.ctx.saveSomoim([], new Date());
+	assert.equal(hist().length, 3, '목록이 비어도(지난 정모) 이력은 그대로');
 }
 
 // ══ 8. 오픈채팅 랭킹: 회원만, 최신 CSV, 따옴표 속 줄바꿈, 입장·방장봇 제외, 닉네임 바꿔도 이름/나이로 묶음, 내용 안 보냄 ══
@@ -761,7 +781,7 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	const A = call({ action: 'login', phone: '60000001', birth: '19900101' }).token;
 	const B = call({ action: 'login', phone: '60000002', birth: '19910202' }).token;
 	let r = plain(call({ action: 'seasonroom', token: A, season: '26-27' }));
-	assert.deepEqual(r, { ok: true, season: '26-27', prices: { 숙박: 10000, 휴식: 5000 }, nights: [{ date: '2026-11-01', name: '회원A', kind: '숙박', me: true, owner: false }] }, '구분 없는 예전 줄은 숙박');
+	assert.deepEqual(r, { ok: true, season: '26-27', prices: { 숙박: 10000, 휴식: 5000 }, nights: [{ date: '2026-11-01', name: '회원A', kind: '숙박', me: true, owner: false }], rides: [] }, '구분 없는 예전 줄은 숙박');
 	assert.equal(room[0][4], '구분', '예전 탭에 구분 열 추가');
 
 	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-13' }); // kind 없으면 숙박
@@ -802,6 +822,22 @@ const HEAD = ['No', '구분', '거주지', '이름', '성별', '나이', '(생�
 	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-20', kind: '휴식' }); // 하이픈 없는 줄도 내 줄로 찾아서 고침
 	assert.equal(room.length, 7, '새 줄 안 생김');
 	assert.equal(room.find((x) => x[0] === '2026-12-20')[4], '휴식');
+
+	// 출격: 시즌방과 따로 ('출격체크' 탭, 숙박 기록은 그대로), 취소해도 줄은 남김, 정산엔 안 들어감
+	const roomRows = room.length;
+	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-13', kind: '출격' });
+	call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-12-13', kind: '출격' });
+	r = plain(call({ action: 'seasonroom', token: B, season: '26-27', op: 'add', date: '2026-12-13', kind: '출격' }));
+	assert.equal(room.length, roomRows, '시즌방 탭은 안 건드림');
+	const rideTab = tabs.find((t) => t.getName() === '출격체크').rows;
+	assert.equal(rideTab.length, 3);
+	assert.deepEqual(r.rides, [{ date: '2026-12-13', name: '회원A', me: false }, { date: '2026-12-13', name: '회원B', me: true }]);
+	assert.ok(!JSON.stringify(r.rides).includes('6000'), '출격도 연락처 안 보냄');
+	r = plain(call({ action: 'seasonroom', token: B, season: '26-27', op: 'remove', date: '2026-12-13', kind: '출격' }));
+	assert.deepEqual(r.rides.map((x) => x.name), ['회원A']);
+	assert.equal(rideTab.length, 3, '출격 취소도 줄은 남김');
+	assert.equal(rideTab.find((x) => x[1] === '회원B')[4], '취소');
+	assert.ok(r.nights.some((n) => n.date === '2026-12-13' && n.me === false && n.name === '회원A'), 'B가 출격 취소해도 시즌방 기록은 그대로');
 
 	// 잘못된 날짜·시즌
 	assert.equal(call({ action: 'seasonroom', token: A, season: '26-27', op: 'add', date: '2026-02-30' }).ok, false);

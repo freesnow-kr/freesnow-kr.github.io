@@ -34,7 +34,7 @@ const numericPw = club.workerApi ? undefined : 'numeric';
 				<a href={`${base}/members/`}>MEMBERS</a>
 				<a href={`${base}/rank/`}>CHAT RANK</a>
 				<a href={`${base}/shredlog/`}>SHRED LOG</a>
-				<a href={`${base}/seasonroom/`}>SEASON ROOM</a>
+				<a href={`${base}/seasonroom/`}>RIDE &amp; STAY</a>
 			</nav>
 			<a class="nav-join" href={`${base}/login/`} aria-current="page">LOGIN</a>
 			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
@@ -58,10 +58,6 @@ const numericPw = club.workerApi ? undefined : 'numeric';
 					<label>
 						비밀번호
 						<input name="birth" type="password" inputmode={numericPw} autocomplete="current-password" required />
-					</label>
-					<label class="keep">
-						<input name="keep" type="checkbox" checked />
-						로그인 상태 유지
 					</label>
 					<button class="btn btn-ink" type="submit">로그인</button>
 					<p class="mem-error" role="alert"></p>
@@ -105,15 +101,16 @@ const numericPw = club.workerApi ? undefined : 'numeric';
 				error.textContent = '';
 				busy(form, true, '로그인 중…');
 				const data = new FormData(form);
-				const keep = data.get('keep') === 'on';
-				const res = await call({ action: 'login', phone: data.get('phone'), birth: data.get('birth'), keep }).catch(() => null);
+				// 로그인은 항상 30일 + 쓰는 동안 자동 연장 (session.ts). 아이디도 늘 기억
+				const res = await call({ action: 'login', phone: data.get('phone'), birth: data.get('birth') }).catch(() => null);
 				if (!res?.ok) {
 					busy(form, false, '');
 					error.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
 					return;
 				}
 				store.set(res.token);
-				store.setId(keep ? String(data.get('phone')) : null);
+				store.setId(String(data.get('phone')));
+				try { localStorage.setItem('fs-member-renewed', String(Date.now())); } catch {}
 				store.setName(res.name);
 				// 첫 전환(생년월일로 로그인)·초기화 비밀번호로 들어왔으면 새 비밀번호부터
 				location.href = res.mustChange ? `${passwordUrl}?first&next=${encodeURIComponent(next)}` : next;
@@ -147,21 +144,6 @@ const numericPw = club.workerApi ? undefined : 'numeric';
 		font: inherit;
 		font-size: 17px;
 		font-weight: 400;
-	}
-	.login .keep {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		font-size: 15px;
-		font-weight: 700;
-		cursor: pointer;
-	}
-	.login .keep input {
-		width: 18px;
-		height: 18px;
-		min-height: 0;
-		padding: 0;
-		accent-color: var(--black);
 	}
 	.mem-error {
 		color: #c4320a;

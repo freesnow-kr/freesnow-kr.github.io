@@ -127,7 +127,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<footer class="footer">
 			<div class="footer-row">
 				<a href={`${base}/members/`}>MEMBERS로</a>
-				<span>© {new Date().getFullYear()} {club.name}</span>
+				<span>{club.copyright}</span>
 			</div>
 			<p class="giant" aria-hidden="true">FREE SNOW</p>
 		</footer>

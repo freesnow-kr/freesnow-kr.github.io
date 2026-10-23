@@ -55,7 +55,9 @@ test('회원 관리: 운영진은 정보 수정·상태 변경, 권한·관리�
 	assert.equal((await post({ action: 'admin.memberStatus', id: 'm-1', status: 'suspended' }, S)).ok, true); // 상태는 운영진도
 	assert.equal((await post({ action: 'me' }, M)).expired, true);
 	assert.match((await post({ action: 'admin.memberStatus', id: 'm-boss', role: 'staff' }, B)).error, /내 계정/);
+	assert.equal((await post({ action: 'admin.members', export: true }, S)).members.length, 4);
 	const logs = (await post({ action: 'admin.audit' }, B)).logs;
+	assert.ok(logs.some((l: any) => l.action === 'members.export' && l.actor === '운영진'), '명부 내려받기는 운영 기록');
 	assert.ok(logs.some((l: any) => l.action === 'member.update' && l.actor === '운영진'));
 	assert.equal((await post({ action: 'admin.audit' }, S)).ok, false);
 });

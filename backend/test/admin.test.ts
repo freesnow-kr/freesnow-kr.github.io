@@ -43,15 +43,16 @@ test('승인: 운영진만, 회원이 되면 생년월일로 첫 로그인, 기�
 	assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM admin_logs WHERE action = 'signup.approve'").first()).n, 1);
 });
 
-test('회원 관리: 운영진은 정보 수정, 정지·권한은 관리자만, 정지하면 바로 로그아웃, 내 권한은 못 바꿈', async () => {
+test('회원 관리: 운영진은 정보 수정·상태 변경, 권한·관리자 계정은 관리자만, 정지하면 바로 로그아웃, 내 권한은 못 바꿈', async () => {
 	assert.equal((await post({ action: 'admin.members' }, M)).ok, false);
 	const all = (await post({ action: 'admin.members' }, S)).members;
 	assert.equal(all.length, 4);
 	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-1', area: '노원구', phone: '010 1111 0001' }, S)).ok, true);
 	assert.match((await post({ action: 'admin.memberUpdate', id: 'm-1', phone: '01022220000' }, S)).error, /다른 회원/);
 	assert.deepEqual(Object.values(await env.DB.prepare("SELECT area, phone FROM members WHERE id = 'm-1'").first()), ['노원구', '01011110001']);
-	assert.match((await post({ action: 'admin.memberStatus', id: 'm-1', status: 'suspended' }, S)).error, /권한/);
-	assert.equal((await post({ action: 'admin.memberStatus', id: 'm-1', status: 'suspended' }, B)).ok, true);
+	assert.match((await post({ action: 'admin.memberStatus', id: 'm-1', role: 'staff' }, S)).error, /관리자만/); // 운영진은 권한 변경 못 함
+	assert.match((await post({ action: 'admin.memberStatus', id: 'm-boss', status: 'suspended' }, S)).error, /관리자만/); // 관리자 계정 상태도 못 바꿈
+	assert.equal((await post({ action: 'admin.memberStatus', id: 'm-1', status: 'suspended' }, S)).ok, true); // 상태는 운영진도
 	assert.equal((await post({ action: 'me' }, M)).expired, true);
 	assert.match((await post({ action: 'admin.memberStatus', id: 'm-boss', role: 'staff' }, B)).error, /내 계정/);
 	const logs = (await post({ action: 'admin.audit' }, B)).logs;
@@ -60,7 +61,7 @@ test('회원 관리: 운영진은 정보 수정, 정지·권한은 관리자만,
 });
 
 test('마스터(명예)는 관리자가 role로 지정, 할 수 있는 일은 회원과 같음', async () => {
-	assert.match((await post({ action: 'admin.memberStatus', id: 'm-1', role: 'master' }, S)).error, /권한/); // 운영진은 못 함
+	assert.match((await post({ action: 'admin.memberStatus', id: 'm-1', role: 'master' }, S)).error, /관리자만/); // 운영진은 못 함
 	assert.equal((await post({ action: 'admin.memberStatus', id: 'm-1', role: 'master' }, B)).ok, true);
 	const m = (await post({ action: 'admin.members' }, S)).members.find((x: any) => x.id === 'm-1');
 	assert.equal(m.role, 'master');

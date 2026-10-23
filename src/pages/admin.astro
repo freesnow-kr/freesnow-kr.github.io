@@ -152,7 +152,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 					<!-- 강습 요청: 회원이 출격한 날 요청 → 운영진이 회원 중 한 명과 연결. 요청·연결은 운영진만 봄(요청한 회원은 자기 요청만) -->
 					<section class="panel" data-panel="lessons" hidden>
-						<p class="hint">2주 전부터 앞으로의 요청이에요. '연결할 회원'에 이름을 쳐서 고르면 바로 저장되고, 지우면 연결이 풀려요. 연결은 운영진만 보니까, 정해지면 두 회원에게 따로 연락해 주세요. 그날 출격하는 회원이 목록 위에 나와요.</p>
+						<p class="hint">새 요청이 들어오면 아래 메일로 알려 드려요. 2주 전부터 앞으로의 요청이에요. '연결할 회원'에 이름을 쳐서 고르면 바로 저장되고, 지우면 연결이 풀려요. 연결은 운영진만 보니까, 정해지면 두 회원에게 따로 연락해 주세요. 그날 출격하는 회원이 목록 위에 나와요.</p>
+						<div class="lesson-notify">
+							<label>알림 받을 메일 <input class="notify-emails" type="text" placeholder="운영진 메일, 쉼표로 구분" autocomplete="off" /></label>
+							<button class="btn-mini ink notify-save" type="button">저장</button>
+							<button class="btn-mini notify-test" type="button">시험 메일</button>
+							<span class="notify-msg" role="status"></span>
+						</div>
 						<div class="scroll"><table><thead><tr><th>날짜</th><th>요청한 회원</th><th>연락처</th><th>지역</th><th>연결할 회원</th></tr></thead><tbody class="lesson-rows"></tbody></table></div>
 					</section>
 
@@ -814,6 +820,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const res = await api('admin.lessons', match);
 				if (!res) return void (match && loadLessons()); // 실패하면 고른 값을 되돌리게 다시 불러옴
 				if (match) loadSummary(); // 위 '강습 연결 대기' 숫자
+				const box = $<HTMLInputElement>('.notify-emails');
+				if (document.activeElement !== box) box.value = res.notify.join(', '); // 입력 중이면 안 덮음
 				const body = $('.lesson-rows');
 				if (!res.lessons.length) return empty(body, 5, '강습 요청이 없어요.');
 				const active = members.filter((m) => m.status === 'active');
@@ -852,6 +860,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					return row;
 				}));
 			}
+
+			// 알림 받을 메일: 새 강습 요청이 들어오면 동호회 Gmail로 보냄(받는 사람끼리 주소 안 보임)
+			$('.notify-save').addEventListener('click', async () => {
+				if (await api('admin.lessons', { notify: $<HTMLInputElement>('.notify-emails').value })) {
+					$('.notify-msg').textContent = '저장했어요.';
+					loadLessons();
+				}
+			});
+			$('.notify-test').addEventListener('click', async () => {
+				$('.notify-msg').textContent = '보내는 중…';
+				$('.notify-msg').textContent = (await api('admin.lessons', { test: true })) ? '시험 메일을 보냈어요. 메일함을 확인해 주세요.' : '';
+			});
 
 			async function loadLogins() {
 				const res = await api('admin.logins');
@@ -1143,6 +1163,36 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		border: 1.5px solid var(--black);
 		background-color: var(--white);
 		font: 700 13px 'Noto Sans KR', sans-serif;
+	}
+	.lesson-notify {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		padding: 12px;
+		border-radius: 12px;
+		background: var(--white);
+	}
+	.lesson-notify label {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		gap: 8px;
+		min-width: 260px;
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.notify-emails {
+		flex: 1;
+		min-height: 36px;
+		padding: 0 10px;
+		border: 1.5px solid var(--black);
+		font: inherit;
+		font-weight: 400;
+	}
+	.notify-msg {
+		color: #4a4d55;
+		font-size: 13px;
 	}
 	/* 강습 요청: 아직 연결 안 한 줄은 주황 */
 	.panel :global(tr.todo td:first-child) {

@@ -137,3 +137,43 @@ test('강습 요청: 출격한 날만, 본인 요청만 보임, 출격 취소하
 	await room(A, { op: 'add', date: day, kind: '출격' }); // 다시 출격해도 강습은 꺼진 채
 	assert.deepEqual((await room(A)).lessons, []);
 });
+
+test('강습 알림 메일: 운영진이 받을 메일 저장(검사), 새 요청일 때만 Gmail로 한 번, 구글 실패해도 요청은 저장', async () => {
+	assert.equal((await post({ action: 'admin.lessons', notify: 'a@x.com' }, A)).ok, false); // 회원은 못 바꿈
+	assert.match((await post({ action: 'admin.lessons', notify: 'a@x.com, 이상한주소' }, S)).error, /이상한주소/);
+	assert.deepEqual((await post({ action: 'admin.lessons', notify: 'A@x.com\nb@y.kr, a@x.com' }, S)).notify, ['a@x.com', 'b@y.kr']);
+	// 구글 호출은 가짜로 (실제 메일 X)
+	const sent: any[] = [];
+	const realFetch = globalThis.fetch;
+	globalThis.fetch = (async (url: string, init: any) => {
+		if (String(url).includes('oauth2')) return new Response(JSON.stringify({ access_token: 't' }));
+		sent.push(JSON.parse(init.body));
+		return new Response('{}');
+	}) as any;
+	Object.assign(env, { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 's', GOOGLE_REFRESH_TOKEN: 'r' });
+	try {
+		const day = '2026-12-27';
+		await room(B, { op: 'add', date: day, kind: '출격' });
+		await room(B, { op: 'add', date: day, kind: '강습' });
+		await room(B, { op: 'add', date: day, kind: '강습' }); // 두 번 눌러도 메일 한 번
+		assert.equal(sent.length, 1);
+		const mime = new TextDecoder().decode(Uint8Array.from(atob(sent[0].raw.replace(/-/g, '+').replace(/_/g, '/')), (ch) => ch.charCodeAt(0)));
+		assert.match(mime, /^Bcc: a@x\.com, b@y\.kr/);
+		const subject = /Subject: =\?UTF-8\?B\?([^?]+)\?=/.exec(mime)![1];
+		assert.equal(new TextDecoder().decode(Uint8Array.from(atob(subject), (ch) => ch.charCodeAt(0))), '[프리스노우] 강습 요청 · 12/27(일) 회원B');
+		assert.equal(mime.includes('01060000002'), false); // 연락처는 메일에 안 넣음
+		await room(B, { op: 'remove', date: day, kind: '강습' });
+		await room(B, { op: 'add', date: day, kind: '강습' }); // 취소 후 다시 요청 = 새 요청
+		assert.equal(sent.length, 2);
+		assert.equal((await post({ action: 'admin.lessons', test: true }, S)).ok, true);
+		assert.equal(sent.length, 3);
+		// 구글이 실패해도 요청은 그대로 저장
+		globalThis.fetch = (async () => new Response('no', { status: 500 })) as any;
+		await room(B, { op: 'remove', date: day, kind: '강습' });
+		assert.deepEqual((await room(B, { op: 'add', date: day, kind: '강습' })).lessons.includes(day), true);
+		assert.equal((await post({ action: 'admin.lessons', test: true }, S)).ok, false); // 시험 메일은 실패를 알려 줌
+	} finally {
+		globalThis.fetch = realFetch;
+		for (const k of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REFRESH_TOKEN']) delete env[k];
+	}
+});

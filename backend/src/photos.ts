@@ -142,13 +142,13 @@ async function archive(env: Env, season: string) {
 	return { season, moved, remaining: left!.n };
 }
 
-async function accessToken(env: Env) {
+export async function accessToken(env: Env) {
 	const res = await fetch('https://oauth2.googleapis.com/token', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 		body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID!, client_secret: env.GOOGLE_CLIENT_SECRET!, refresh_token: env.GOOGLE_REFRESH_TOKEN!, grant_type: 'refresh_token' }),
 	});
-	if (!res.ok) throw new Reply({ ok: false, error: '구글 드라이브 연결이 끊겼어요. 다시 연결해 주세요. (backend/scripts/google-auth.mjs)' });
+	if (!res.ok) throw new Reply({ ok: false, error: '구글 연결이 끊겼어요. 다시 연결해 주세요. (backend/scripts/google-auth.mjs)' });
 	return ((await res.json()) as { access_token: string }).access_token;
 }
 

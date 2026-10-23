@@ -79,14 +79,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		</footer>
 
 		<script>
-			import { base, busy, call, loginUrl, store } from '../../scripts/session';
+			import { base, busy, call, hm, loginUrl, postDate as when, store, ymd } from '../../scripts/session';
 			// 말머리 (서버 board.ts CATS와 같음)
 			const CAT: Record<string, string> = { notice: '공지', review: '모임후기', greeting: '가입인사', free: '자유' };
-			const when = (iso: string) => {
-				const d = new Date(iso);
-				const today = new Date().toDateString() === d.toDateString();
-				return today ? d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString('ko-KR', { year: '2-digit', month: 'numeric', day: 'numeric' });
-			};
 			const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
 				const e = document.createElement(tag);
 				if (cls) e.className = cls;
@@ -104,7 +99,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				$('.v-cat').textContent = CAT[p.category] + (p.pinned ? ' · 📌 고정' : '');
 				$('.v-title').textContent = p.title;
 				document.title = `${p.title} — Free Snow`;
-				$('.v-meta').textContent = `${p.author} · ${new Date(p.created_at).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}${p.updated_at > p.created_at ? ' (수정됨)' : ''}`;
+				$('.v-meta').textContent = `${p.author} · ${`${ymd(p.created_at)} ${hm(p.created_at)}`}${p.updated_at > p.created_at ? ' (수정됨)' : ''}`;
 				$('.v-body').textContent = p.body;
 				$('.v-photos').replaceChildren(
 					...p.photos.map((x: any) => {

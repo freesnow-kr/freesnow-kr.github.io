@@ -3,6 +3,11 @@ import { club } from '../data/club';
 
 // 끝 슬래시 없이: 루트 주소면 '', 하위 경로면 '/free-snow' 같은 값 → 링크는 항상 `${base}/...`
 export const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// 날짜는 어디서나 한 모양: 2025.02.21 / 15:05 (앞에 0 붙임 — 사용자 요구 2026-10-23). 목록은 오늘 글이면 시각만
+export const ymd = (iso: string) => new Date(iso).toLocaleDateString('sv-SE').replace(/-/g, '.');
+export const hm = (iso: string) => new Date(iso).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+export const postDate = (iso: string) => (new Date().toDateString() === new Date(iso).toDateString() ? hm(iso) : ymd(iso));
 export const loginUrl = `${base}/login/`;
 export const membersUrl = `${base}/members/`;
 

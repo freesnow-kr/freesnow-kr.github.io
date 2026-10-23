@@ -29,18 +29,23 @@ export const driveImg = (id: string, w: number) => `https://lh3.googleuserconten
 // 프로필 사진: 드라이브 파일 id 또는 시트에 저장된 작은 사진('data:image/jpeg…')
 export const photoSrc = (photo: string, w: number) => (photo.startsWith('data:image/') ? photo : driveImg(photo, w));
 
-// 갤러리 사진 목록: 이 브라우저에 10분 저장 → 다시 열 때 바로 보임 (서버도 5분 캐시)
+// 갤러리 사진 목록: 이 브라우저에 저장해 두고 다시 열 때 바로 보여 줌 (Apps Script 응답이 1~2초라)
+// 저장본이 10분 지났으면 보여 주는 동시에 뒤에서 새로 받아 둠 → 새 사진은 그다음 방문에 (서버도 5분 캐시)
 type Photo = { id: string; caption: string };
 const GKEY = 'fs-gallery';
 const GTTL = 10 * 60 * 1000;
+const fetchPhotos = async (): Promise<Photo[] | null> => {
+	const res = await call({ action: 'gallery' }).catch(() => null);
+	if (!res?.ok) return null;
+	try { localStorage.setItem(GKEY, JSON.stringify({ t: Date.now(), photos: res.photos })); } catch {}
+	return res.photos;
+};
 export const galleryPhotos = async (): Promise<Photo[] | null> => {
 	let saved: { t: number; photos: Photo[] } | null = null;
 	try { saved = JSON.parse(localStorage.getItem(GKEY) || 'null'); } catch {}
-	if (saved && Date.now() - saved.t < GTTL) return saved.photos;
-	const res = await call({ action: 'gallery' }).catch(() => null);
-	if (!res?.ok) return saved?.photos ?? null; // 서버 오류면 예전 목록이라도
-	try { localStorage.setItem(GKEY, JSON.stringify({ t: Date.now(), photos: res.photos })); } catch {}
-	return res.photos;
+	if (!saved) return fetchPhotos();
+	if (Date.now() - saved.t >= GTTL) fetchPhotos();
+	return saved.photos;
 };
 
 // 제출 중 표시: 버튼 글자·스피너, 폼 잠금(inert라 입력칸의 disabled 상태는 그대로 둠)

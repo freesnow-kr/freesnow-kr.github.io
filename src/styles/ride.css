@@ -85,7 +85,7 @@ a {
 /* 로고 이미지 (사용자 요구 2026-10-23: freesnow_logo3.jpeg를 배경 지우고 흰색으로 — public/logo-white.png, 만든 방법은 AGENTS.md '에셋') */
 .wordmark img {
 	display: block;
-	width: auto;
+	width: 93px; /* 원래 비율(83px)보다 좌우로 살짝 넓게 (사용자 요구) */
 	height: 40px;
 }
 .nav nav {

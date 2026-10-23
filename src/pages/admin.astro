@@ -266,6 +266,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			}
 			$('.search').addEventListener('input', drawMembers);
 
+			// TODO(2026-10-23, 사용자): 엑셀 양식(열 구성·순서·서식, CSV → .xlsx 여부)은 나중에 다시 정하기로 함 — 지금은 임시 양식
 			// 회원 명부 내려받기: 엑셀에서 바로 열리는 CSV (UTF-8 BOM으로 한글 안 깨짐, 연락처는 하이픈 넣어 앞 0 유지)
 			// 서버에 export: true로 다시 받아서 운영 기록을 남김 (개인정보)
 			$('.member-export').addEventListener('click', async () => {

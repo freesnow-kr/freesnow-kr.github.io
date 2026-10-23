@@ -16,27 +16,27 @@ export async function snowlive(c: Ctx) {
 	if (b.op === 'link' || b.op === 'unlink') {
 		const id = b.op === 'link' ? snowliveId(b.id) : '';
 		if (b.op === 'link' && !id) return { ok: false, error: '스노우라이브 프로필 링크나 ID를 확인해 주세요.' };
-		const old = await db.prepare('SELECT snowlive_id FROM snowlive_links WHERE member_id = ?').bind(me.id).first<{ snowlive_id: string }>();
+		const old = await db.prepare('SELECT snowlive_id FROM snowlive_links WHERE member_id = ? AND is_active = 1').bind(me.id).first<{ snowlive_id: string }>();
 		const stmts = [];
-		if (!id || old?.snowlive_id !== id) stmts.push(db.prepare('DELETE FROM snowlive_records WHERE member_id = ?').bind(me.id)); // 다른 ID 기록 삭제 (해제면 전부)
+		if (!id || old?.snowlive_id !== id) stmts.push(db.prepare('UPDATE snowlive_records SET is_active = 0 WHERE member_id = ? AND is_active = 1').bind(me.id)); // 다른 ID 기록 소프트 삭제 (해제면 전부)
 		stmts.push(
 			id
-				? db.prepare('INSERT INTO snowlive_links (member_id, snowlive_id, linked_at) VALUES (?1, ?2, ?3) ON CONFLICT(member_id) DO UPDATE SET snowlive_id = ?2, linked_at = ?3').bind(me.id, id, iso(c.now))
-				: db.prepare('DELETE FROM snowlive_links WHERE member_id = ?').bind(me.id),
+				? db.prepare('INSERT INTO snowlive_links (member_id, snowlive_id, linked_at) VALUES (?1, ?2, ?3) ON CONFLICT(member_id) DO UPDATE SET snowlive_id = ?2, linked_at = ?3, is_active = 1').bind(me.id, id, iso(c.now))
+				: db.prepare('UPDATE snowlive_links SET is_active = 0 WHERE member_id = ?').bind(me.id),
 		);
 		await db.batch(stmts);
 		if (!id) return { ok: true, id: '', stats: null };
 		return snowlive({ ...c, body: { season: b.season } });
 	}
 
-	const link = await db.prepare('SELECT snowlive_id FROM snowlive_links WHERE member_id = ?').bind(me.id).first<{ snowlive_id: string }>();
+	const link = await db.prepare('SELECT snowlive_id FROM snowlive_links WHERE member_id = ? AND is_active = 1').bind(me.id).first<{ snowlive_id: string }>();
 	const id = link?.snowlive_id ?? '';
 	if (!id) return { ok: true, id: '', stats: null };
 	const season = String(b.season ?? '');
 	const m = /^(\d{2})-(\d{2})$/.exec(season);
 	if (!m) return { ok: false, error: '시즌을 확인해 주세요.' };
 
-	const saved = await db.prepare('SELECT data, fetched_at FROM snowlive_records WHERE member_id = ? AND season = ?').bind(me.id, season).first<{ data: string; fetched_at: string }>();
+	const saved = await db.prepare('SELECT data, fetched_at FROM snowlive_records WHERE member_id = ? AND season = ? AND is_active = 1').bind(me.id, season).first<{ data: string; fetched_at: string }>();
 	let old = null;
 	try {
 		old = saved ? JSON.parse(saved.data) : null;
@@ -55,7 +55,7 @@ export async function snowlive(c: Ctx) {
 	if (!stats) return old ? { ok: true, id, stats: old } : { ok: false, id, error: '스노우라이브 기록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' };
 	await db.prepare(
 		`INSERT INTO snowlive_records (member_id, season, data, fetched_at) VALUES (?1, ?2, ?3, ?4)
-		 ON CONFLICT(member_id, season) DO UPDATE SET data = ?3, fetched_at = ?4`,
+		 ON CONFLICT(member_id, season) DO UPDATE SET data = ?3, fetched_at = ?4, is_active = 1`,
 	).bind(me.id, season, JSON.stringify(stats), iso(c.now)).run();
 	return { ok: true, id, stats };
 }

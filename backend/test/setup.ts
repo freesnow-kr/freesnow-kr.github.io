@@ -18,7 +18,14 @@ export function useDb(members: string[][], seed?: () => Promise<unknown>) {
 		proxy = await getPlatformProxy({ configPath: new URL('../wrangler.jsonc', import.meta.url).pathname, persist: { path: dir } });
 		Object.assign(env, proxy.env, { RESET_PASSWORD: RESET, LOGIN_KEY_SECRET: 'test-key', SNOWLIVE_API: 'https://snowlive.example/api/', SOMOIM_URL: 'https://somoim.example/group', GALLERY_FOLDER_ID: 'folder1' });
 		const sql = readdirSync(new URL('../migrations/', import.meta.url)).sort().map((f) => readFileSync(new URL(`../migrations/${f}`, import.meta.url), 'utf8')).join(';\n').replace(/--.*$/gm, '');
-		await env.DB.batch(sql.split(';').map((s) => s.trim()).filter(Boolean).map((s) => env.DB.prepare(s)));
+		// ';'로 나누되 트리거(BEGIN … END;) 본문은 한 문장으로 다시 붙임
+		const stmts: string[] = [];
+		for (const part of sql.split(';').map((x) => x.trim()).filter(Boolean)) {
+			const last = stmts.at(-1);
+			if (last && /\bBEGIN\b/i.test(last) && !/\bEND$/i.test(last)) stmts[stmts.length - 1] = `${last};\n${part}`;
+			else stmts.push(part);
+		}
+		await env.DB.batch(stmts.map((x) => env.DB.prepare(x)));
 		const now = new Date().toISOString();
 		if (members.length) await env.DB.batch(members.map(([id, phone, name, birth, role = 'member', status = 'active']) =>
 			env.DB.prepare('INSERT INTO members (id, phone, name, birth, grade, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')

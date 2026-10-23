@@ -35,7 +35,7 @@ export async function need(c: Ctx, role: Role = 'member', allowMustChange = fals
 	const me = await c.env.DB.prepare(
 		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.name, m.phone, m.grade, m.area, m.role, m.birth
 		 FROM sessions s JOIN members m ON m.id = s.member_id
-		 WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ? AND m.status = 'active'`,
+		 WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.is_active = 1 AND s.expires_at > ? AND m.status = 'active' AND m.is_active = 1`,
 	).bind(await sha256(token), iso(c.now)).first<Me>();
 	if (!me) throw new Reply(EXPIRED);
 	if (Date.parse(me.expires_at) < c.now.getTime() + SESSION_MS - 24 * HOUR) {
@@ -76,7 +76,7 @@ export async function login(c: Ctx) {
 
 	const m = await db.prepare(
 		`SELECT m.id, m.name, m.birth, m.status, c.member_id AS cred, c.hash, c.salt, c.iter, c.reset_until
-		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id WHERE m.phone = ?`,
+		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1 WHERE m.phone = ? AND m.is_active = 1`,
 	).bind(phone).first<{ id: string; name: string; birth: string | null; status: string; cred: string | null; hash: string | null; salt: string | null; iter: number | null; reset_until: string | null }>();
 
 	// 어느 경우든 PBKDF2를 한 번 돌림 → 응답 시간으로 회원 여부를 알 수 없게
@@ -125,7 +125,7 @@ export async function password(c: Ctx) {
 	const me = await need(c, 'member', true);
 	const next = String(c.body.next ?? '');
 	if (!me.must_change) {
-		const cred = await db.prepare('SELECT hash, salt, iter FROM member_credentials WHERE member_id = ?').bind(me.id).first<{ hash: string | null; salt: string; iter: number }>();
+		const cred = await db.prepare('SELECT hash, salt, iter FROM member_credentials WHERE member_id = ? AND is_active = 1').bind(me.id).first<{ hash: string | null; salt: string; iter: number }>();
 		if (!cred?.hash || !safeEqual(await pbkdf2(String(c.body.current ?? ''), cred.salt, cred.iter), cred.hash)) return { ok: false, error: '지금 비밀번호가 맞지 않아요.' };
 	}
 	const bad = weakReason(next, me, c.env.RESET_PASSWORD);
@@ -136,7 +136,7 @@ export async function password(c: Ctx) {
 	await db.batch([
 		db.prepare(
 			`INSERT INTO member_credentials (member_id, hash, salt, iter, reset_until, changed_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5)
-			 ON CONFLICT(member_id) DO UPDATE SET hash = ?2, salt = ?3, iter = ?4, reset_until = NULL, changed_at = ?5`,
+			 ON CONFLICT(member_id) DO UPDATE SET hash = ?2, salt = ?3, iter = ?4, reset_until = NULL, changed_at = ?5, is_active = 1`,
 		).bind(me.id, hash, salt, PBKDF2_ITER, iso(c.now)),
 		db.prepare('UPDATE sessions SET revoked_at = ? WHERE member_id = ? AND token_hash != ? AND revoked_at IS NULL').bind(iso(c.now), me.id, me.token_hash),
 		db.prepare('UPDATE sessions SET must_change = 0 WHERE token_hash = ?').bind(me.token_hash),
@@ -167,14 +167,14 @@ export async function me(c: Ctx) {
 	const [from, to] = seasonRange(season);
 	// 마이페이지 '이번 시즌': 출격 체크·시즌방·정산·SHRED LOG·올린 사진 (내 것만)
 	const s = await c.env.DB.prepare(
-		`SELECT (SELECT photo FROM profiles WHERE member_id = ?1) AS photo,
-		        (SELECT count(*) FROM ride_checks WHERE member_id = ?1 AND status = '출격' AND date BETWEEN ?2 AND ?3) AS rides,
-		        (SELECT count(*) FROM room_stays WHERE member_id = ?1 AND kind = '숙박' AND date BETWEEN ?2 AND ?3) AS stays,
-		        (SELECT count(*) FROM room_stays WHERE member_id = ?1 AND kind = '휴식' AND date BETWEEN ?2 AND ?3) AS rests,
-		        (SELECT count(*) FROM room_owners WHERE member_id = ?1 AND season = ?4) AS owner,
-		        (SELECT count(DISTINCT date) FROM ride_logs WHERE member_id = ?1 AND date BETWEEN ?2 AND ?3) AS visits,
-		        (SELECT coalesce(sum(amount), 0) FROM expense_logs WHERE member_id = ?1 AND date BETWEEN ?2 AND ?3) AS spent,
-		        (SELECT count(*) FROM photos WHERE uploaded_by = ?1 AND season = ?4) AS photos`,
+		`SELECT (SELECT photo FROM profiles WHERE member_id = ?1 AND is_active = 1) AS photo,
+		        (SELECT count(*) FROM ride_checks WHERE member_id = ?1 AND is_active = 1 AND status = '출격' AND date BETWEEN ?2 AND ?3) AS rides,
+		        (SELECT count(*) FROM room_stays WHERE member_id = ?1 AND is_active = 1 AND kind = '숙박' AND date BETWEEN ?2 AND ?3) AS stays,
+		        (SELECT count(*) FROM room_stays WHERE member_id = ?1 AND is_active = 1 AND kind = '휴식' AND date BETWEEN ?2 AND ?3) AS rests,
+		        (SELECT count(*) FROM room_owners WHERE member_id = ?1 AND is_active = 1 AND season = ?4) AS owner,
+		        (SELECT count(DISTINCT date) FROM ride_logs WHERE member_id = ?1 AND is_active = 1 AND date BETWEEN ?2 AND ?3) AS visits,
+		        (SELECT coalesce(sum(amount), 0) FROM expense_logs WHERE member_id = ?1 AND is_active = 1 AND date BETWEEN ?2 AND ?3) AS spent,
+		        (SELECT count(*) FROM photos WHERE uploaded_by = ?1 AND is_active = 1 AND season = ?4) AS photos`,
 	).bind(me.id, from, to, season).first<Record<string, number> & { photo: string | null }>();
 	const pay = s!.owner ? 0 : s!.stays * ROOM_PRICES.숙박 + s!.rests * ROOM_PRICES.휴식;
 	return {
@@ -189,14 +189,14 @@ export async function adminReset(c: Ctx) {
 	const db = c.env.DB;
 	const actor = await need(c, 'master');
 	const id = String(c.body.memberId ?? '');
-	const target = await db.prepare('SELECT id FROM members WHERE id = ?').bind(id).first();
+	const target = await db.prepare('SELECT id FROM members WHERE id = ? AND is_active = 1').bind(id).first();
 	if (!target) return { ok: false, error: '회원을 찾지 못했어요.' };
 	if (!c.env.RESET_PASSWORD) return { ok: false, error: '초기화 비밀번호가 설정되지 않았어요.' };
 	const until = iso(later(c.now, RESET_MS));
 	await db.batch([
 		db.prepare(
 			`INSERT INTO member_credentials (member_id, hash, salt, iter, reset_until, changed_at) VALUES (?1, NULL, NULL, NULL, ?2, ?3)
-			 ON CONFLICT(member_id) DO UPDATE SET hash = NULL, salt = NULL, iter = NULL, reset_until = ?2, changed_at = ?3`,
+			 ON CONFLICT(member_id) DO UPDATE SET hash = NULL, salt = NULL, iter = NULL, reset_until = ?2, changed_at = ?3, is_active = 1`,
 		).bind(id, until, iso(c.now)),
 		db.prepare('UPDATE sessions SET revoked_at = ? WHERE member_id = ? AND revoked_at IS NULL').bind(iso(c.now), id),
 		db.prepare('INSERT INTO admin_logs (at, actor_id, action, target_id, detail) VALUES (?, ?, ?, ?, ?)').bind(iso(c.now), actor.id, 'password.reset', id, JSON.stringify({ resetUntil: until })),

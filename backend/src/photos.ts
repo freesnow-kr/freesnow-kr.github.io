@@ -29,7 +29,7 @@ export async function upload(req: Request, env: Env, now: Date) {
 	if (!(orig instanceof File) || !(large instanceof File) || !(thumb instanceof File)) throw new Reply({ ok: false, error: '사진을 확인해 주세요.' });
 	if (!ORIG_TYPES.includes(orig.type) || orig.size > ORIG_MAX) return { ok: false, error: 'JPG·PNG·WEBP·HEIC 사진만, 한 장 30MB까지 올릴 수 있어요.' };
 	if (large.type !== 'image/jpeg' || thumb.type !== 'image/jpeg' || large.size > SMALL_MAX || thumb.size > SMALL_MAX) return { ok: false, error: '사진을 확인해 주세요.' };
-	const n = await env.DB.prepare('SELECT count(*) AS n FROM photos WHERE uploaded_by = ? AND created_at > ?').bind(me.id, iso(new Date(now.getTime() - 864e5))).first<{ n: number }>();
+	const n = await env.DB.prepare('SELECT count(*) AS n FROM photos WHERE uploaded_by = ? AND created_at > ? AND is_active = 1').bind(me.id, iso(new Date(now.getTime() - 864e5))).first<{ n: number }>();
 	if (n!.n >= PER_DAY) return { ok: false, error: '오늘은 더 올릴 수 없어요. 내일 다시 올려 주세요.' };
 
 	const t = Number(form.get('taken'));
@@ -55,7 +55,7 @@ export async function serve(env: Env, id: string, size: string): Promise<Respons
 			headers: { 'Content-Type': obj.httpMetadata?.contentType ?? 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable', ETag: obj.httpEtag },
 		});
 	}
-	const row = await env.DB.prepare("SELECT drive_id FROM photos WHERE id = ? AND storage = 'drive'").bind(id).first<{ drive_id: string }>();
+	const row = await env.DB.prepare("SELECT drive_id FROM photos WHERE id = ? AND storage = 'drive' AND is_active = 1").bind(id).first<{ drive_id: string }>();
 	if (!row) return new Response('Not found', { status: 404 });
 	return Response.redirect(`https://lh3.googleusercontent.com/d/${row.drive_id}=w${DRIVE_W[size as keyof typeof DRIVE_W]}`, 302);
 }
@@ -65,7 +65,7 @@ export async function listPhotos(c: Ctx) {
 	let me: { id: string; role: string } | null = null;
 	if (c.body.token) me = await need(c).catch(() => null);
 	const base = new URL(c.req.url).origin;
-	const { results } = await c.env.DB.prepare('SELECT id, caption, season, storage, drive_id, uploaded_by FROM photos ORDER BY taken_at DESC, created_at DESC').all<any>();
+	const { results } = await c.env.DB.prepare('SELECT id, caption, season, storage, drive_id, uploaded_by FROM photos WHERE is_active = 1 ORDER BY taken_at DESC, created_at DESC').all<any>();
 	return results.map((p) => ({
 		id: p.id,
 		caption: p.caption,
@@ -79,11 +79,11 @@ export async function listPhotos(c: Ctx) {
 // {id} 올린 사람 또는 운영진. R2에 있으면 파일도 지움 (드라이브로 옮긴 건 목록에서만 뺌)
 export async function deletePhoto(c: Ctx) {
 	const me = await need(c);
-	const p = await c.env.DB.prepare('SELECT id, uploaded_by FROM photos WHERE id = ?').bind(String(c.body.id ?? '')).first<{ id: string; uploaded_by: string }>();
+	const p = await c.env.DB.prepare('SELECT id, uploaded_by FROM photos WHERE id = ? AND is_active = 1').bind(String(c.body.id ?? '')).first<{ id: string; uploaded_by: string }>();
 	if (!p) return { ok: false, error: '사진을 찾지 못했어요.' };
 	if (p.uploaded_by !== me.id && me.role === 'member') return { ok: false, error: '내가 올린 사진만 지울 수 있어요.' };
 	await c.env.PHOTOS.delete(SIZES.map((s) => `${s}/${p.id}`));
-	await c.env.DB.prepare('DELETE FROM photos WHERE id = ?').bind(p.id).run();
+	await c.env.DB.prepare('UPDATE photos SET is_active = 0 WHERE id = ?').bind(p.id).run(); // 기록은 소프트 삭제, R2 파일은 지움
 	return { ok: true };
 }
 
@@ -93,7 +93,7 @@ const BATCH = 8;
 
 export async function archiveStatus(c: Ctx) {
 	await need(c, 'staff');
-	const { results } = await c.env.DB.prepare("SELECT season, storage, count(*) AS n, sum(size) AS bytes FROM photos GROUP BY season, storage ORDER BY season DESC").all();
+	const { results } = await c.env.DB.prepare("SELECT season, storage, count(*) AS n, sum(size) AS bytes FROM photos WHERE is_active = 1 GROUP BY season, storage ORDER BY season DESC").all();
 	return { ok: true, keepFrom: keepFrom(c.now), seasons: results, ready: !!(c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_REFRESH_TOKEN) };
 }
 
@@ -107,7 +107,7 @@ export async function archiveAction(c: Ctx) {
 // 보관할 시즌 중 가장 오래된 것부터 한 묶음 (Cron)
 export async function archiveDue(env: Env, now: Date) {
 	if (!env.GOOGLE_REFRESH_TOKEN) return;
-	const row = await env.DB.prepare("SELECT season FROM photos WHERE storage = 'r2' AND season < ? ORDER BY season LIMIT 1").bind(keepFrom(now)).first<{ season: string }>();
+	const row = await env.DB.prepare("SELECT season FROM photos WHERE storage = 'r2' AND is_active = 1 AND season < ? ORDER BY season LIMIT 1").bind(keepFrom(now)).first<{ season: string }>();
 	if (row) await archive(env, row.season);
 }
 
@@ -115,7 +115,7 @@ async function archive(env: Env, season: string) {
 	if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REFRESH_TOKEN) throw new Reply({ ok: false, error: '구글 드라이브 연결이 아직 안 됐어요. (backend/scripts/google-auth.mjs)' });
 	const token = await accessToken(env);
 	const folder = await seasonFolder(env, token, season);
-	const { results } = await env.DB.prepare("SELECT id, content_type, taken_at FROM photos WHERE season = ? AND storage = 'r2' ORDER BY taken_at LIMIT ?").bind(season, BATCH).all<any>();
+	const { results } = await env.DB.prepare("SELECT id, content_type, taken_at FROM photos WHERE season = ? AND storage = 'r2' AND is_active = 1 ORDER BY taken_at LIMIT ?").bind(season, BATCH).all<any>();
 	let moved = 0;
 	for (const p of results) {
 		const obj = await env.PHOTOS.get(`orig/${p.id}`);
@@ -137,7 +137,7 @@ async function archive(env: Env, season: string) {
 		await env.PHOTOS.delete(SIZES.map((s) => `${s}/${p.id}`));
 		moved++;
 	}
-	const left = await env.DB.prepare("SELECT count(*) AS n FROM photos WHERE season = ? AND storage = 'r2'").bind(season).first<{ n: number }>();
+	const left = await env.DB.prepare("SELECT count(*) AS n FROM photos WHERE season = ? AND storage = 'r2' AND is_active = 1").bind(season).first<{ n: number }>();
 	return { season, moved, remaining: left!.n };
 }
 

@@ -13,8 +13,8 @@ useDb(
 		A = await sessionFor('m-a');
 		B = await sessionFor('m-b');
 		await env.DB.batch([
-			env.DB.prepare("INSERT INTO room_owners VALUES ('26-27', 'm-b'), ('25-26', 'm-a')"), // 주주는 시즌마다
-			env.DB.prepare("INSERT INTO room_stays VALUES ('m-a', '2026-11-01', '숙박', '2026-11-01T00:00:00.000Z')"),
+			env.DB.prepare("INSERT INTO room_owners (season, member_id) VALUES ('26-27', 'm-b'), ('25-26', 'm-a')"), // 주주는 시즌마다
+			env.DB.prepare("INSERT INTO room_stays (member_id, date, kind, updated_at) VALUES ('m-a', '2026-11-01', '숙박', '2026-11-01T00:00:00.000Z')"),
 		]);
 	},
 );
@@ -91,6 +91,6 @@ test('마이페이지 이번 시즌 요약: 내 숙박·휴식·출격, 주주�
 	await room(A, { season: cur, op: 'add', date: day, kind: '출격' });
 	const s = (await post({ action: 'me' }, A)).season;
 	assert.deepEqual([s.season, s.stays - before.stays, s.rests - before.rests, s.rides - before.rides, s.owner, s.pay - before.pay], [cur, 1, 1, 1, false, 15000]);
-	await env.DB.prepare('INSERT INTO room_owners VALUES (?, ?)').bind(cur, 'm-a').run();
+	await env.DB.prepare('INSERT INTO room_owners (season, member_id) VALUES (?, ?)').bind(cur, 'm-a').run();
 	assert.equal((await post({ action: 'me' }, A)).season.pay, 0);
 });

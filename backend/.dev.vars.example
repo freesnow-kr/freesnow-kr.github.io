@@ -1,3 +1,4 @@
 # .dev.vars 로 복사 (로컬 wrangler dev 전용, gitignore). 배포 값은 `wrangler secret put 이름`
 RESET_PASSWORD=
 LOGIN_KEY_SECRET=
+SNOWLIVE_API=

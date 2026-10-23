@@ -1,0 +1,241 @@
+---
+import { club } from '../../data/club';
+import Meta from '../../components/Meta.astro';
+import '../../styles/ride.css';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<Meta title={`${club.name} — Board`} />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}>FREE SNOW</a>
+			<nav id="site-nav" aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/board/`} aria-current="page">BOARD</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/rank/`}>CHAT RANK</a>
+				<a href={`${base}/shredlog/`}>SHRED LOG</a>
+				<a href={`${base}/seasonroom/`}>RIDE &amp; STAY</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">COMMUNITY</p>
+				<h1>BOARD.</h1>
+			</section>
+
+			<section class="mem-body">
+				<!-- 게시판: 공지는 누구나, 나머지는 회원만 (backend/src/board.ts) -->
+				<div class="b-top">
+					<div class="b-tabs" role="tablist">
+						<button type="button" data-cat="" aria-selected="true">전체</button>
+						<button type="button" data-cat="notice">공지</button>
+						<button type="button" data-cat="review">모임후기</button>
+						<button type="button" data-cat="greeting">가입인사</button>
+						<button type="button" data-cat="free">자유</button>
+					</div>
+					<a class="btn btn-ink b-write" href={`${base}/board/write/`} hidden>글쓰기</a>
+				</div>
+				<p class="b-guest" hidden>공지 말고 다른 글은 회원만 볼 수 있어요. <a href={`${base}/login/?next=${base}/board/`}>로그인 →</a></p>
+				<ul class="b-list"></ul>
+				<p class="mem-msg b-msg" role="status">불러오는 중…</p>
+				<button class="btn btn-line-dark b-more" type="button" hidden>더 보기</button>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<span>{club.footer}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { base, call, store } from '../../scripts/session';
+			// 말머리 (서버 board.ts CATS와 같음)
+			const CAT: Record<string, string> = { notice: '공지', review: '모임후기', greeting: '가입인사', free: '자유' };
+			const when = (iso: string) => {
+				const d = new Date(iso);
+				const today = new Date().toDateString() === d.toDateString();
+				return today ? d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString('ko-KR', { year: '2-digit', month: 'numeric', day: 'numeric' });
+			};
+			const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
+				const e = document.createElement(tag);
+				if (cls) e.className = cls;
+				if (text) e.textContent = text; // 글·이름은 textContent로만 (HTML 주입 방지)
+				return e;
+			};
+
+			const list = document.querySelector<HTMLUListElement>('.b-list')!;
+			const msg = document.querySelector<HTMLElement>('.b-msg')!;
+			const more = document.querySelector<HTMLButtonElement>('.b-more')!;
+			const tabs = [...document.querySelectorAll<HTMLButtonElement>('.b-tabs button')];
+			const q = new URLSearchParams(location.search);
+			let cat = CAT[q.get('c') ?? ''] ? q.get('c')! : '';
+			let page = 1;
+
+			async function load(reset: boolean) {
+				if (reset) (page = 1), list.replaceChildren();
+				msg.hidden = false;
+				msg.textContent = '불러오는 중…';
+				const res = await call({ action: 'board.list', token: store.get() ?? undefined, category: cat || undefined, page }).catch(() => null);
+				if (!res?.ok) return void (msg.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
+				document.querySelector<HTMLElement>('.b-guest')!.hidden = res.member;
+				document.querySelector<HTMLElement>('.b-write')!.hidden = !res.member;
+				for (const p of res.posts) {
+					const li = el('li', p.pinned ? 'pinned' : '');
+					const a = el('a');
+					a.href = `${base}/board/view/?id=${encodeURIComponent(p.id)}`;
+					const head = el('span', 'b-head');
+					head.append(el('span', `b-cat c-${p.category}`, CAT[p.category]));
+					if (p.pinned) head.append(el('span', 'b-pin', '📌'));
+					head.append(el('span', 'b-title', p.title));
+					if (p.photos) head.append(el('span', 'b-ico', '📷'));
+					if (p.comments) head.append(el('span', 'b-cnt', `[${p.comments}]`));
+					const meta = el('span', 'b-meta', `${p.author} · ${when(p.created_at)}${p.likes ? ` · ♥ ${p.likes}` : ''}`);
+					a.append(head, meta);
+					li.append(a);
+					list.append(li);
+				}
+				msg.hidden = !!list.children.length;
+				msg.textContent = '아직 글이 없어요.';
+				more.hidden = !res.more;
+			}
+			const select = (c: string) => {
+				cat = c;
+				tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.cat === c)));
+				history.replaceState(null, '', c ? `?c=${c}` : location.pathname);
+				const w = document.querySelector<HTMLAnchorElement>('.b-write')!;
+				w.href = `${base}/board/write/${c ? `?c=${c}` : ''}`;
+				load(true);
+			};
+			tabs.forEach((t) => t.addEventListener('click', () => select(t.dataset.cat!)));
+			more.addEventListener('click', () => (page++, load(false)));
+			select(cat);
+		</script>
+	</body>
+</html>
+
+<style>
+	.b-top {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-bottom: 18px;
+	}
+	.b-tabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.b-tabs button {
+		min-height: 40px;
+		padding: 0 16px;
+		border: 1.5px solid var(--black);
+		border-radius: 999px;
+		background: var(--white);
+		color: var(--black);
+		font: 700 14px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.b-tabs button[aria-selected='true'] {
+		background: var(--black);
+		color: var(--white);
+	}
+	.b-write {
+		min-height: 42px;
+		padding: 0 20px;
+	}
+	.b-guest {
+		margin-bottom: 14px;
+		color: #4a4d55;
+		font-size: 14px;
+	}
+	.b-guest a {
+		font-weight: 700;
+	}
+	.b-list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		border-top: 1.5px solid var(--black);
+	}
+	.b-list :global(li) {
+		border-bottom: 1px solid var(--line);
+	}
+	.b-list :global(li.pinned) {
+		background: #fff6f1;
+	}
+	.b-list :global(a) {
+		display: grid;
+		gap: 6px;
+		padding: 16px 6px;
+		color: var(--black);
+		text-decoration: none;
+	}
+	@media (hover: hover) {
+		.b-list :global(a:hover .b-title) {
+			text-decoration: underline;
+		}
+	}
+	.b-list :global(.b-head) {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+	}
+	.b-list :global(.b-title) {
+		overflow: hidden;
+		font-weight: 700;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.b-list :global(.b-cat) {
+		flex: none;
+		padding: 2px 8px;
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		background: var(--white);
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.b-list :global(.c-notice) {
+		background: var(--black);
+		color: var(--white);
+	}
+	.b-list :global(.b-cnt) {
+		flex: none;
+		color: var(--accent);
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.b-list :global(.b-meta) {
+		color: #4a4d55;
+		font-size: 13px;
+	}
+	.b-more {
+		display: flex;
+		margin: 20px auto 0;
+	}
+</style>

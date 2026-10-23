@@ -365,6 +365,55 @@ a {
 	}
 }
 
+/* 메인 NOTICE 줄 (고정 공지) */
+.notice {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 20px;
+	padding: 18px var(--gutter);
+	background: var(--white);
+	border-bottom: 1px solid var(--line);
+}
+.notice-tag {
+	padding: 4px 10px;
+	background: var(--accent);
+	color: var(--black);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+}
+.notice-list {
+	display: grid;
+	flex: 1;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	min-width: 0;
+}
+.notice-list li {
+	display: flex;
+	gap: 12px;
+	align-items: baseline;
+}
+.notice-list a {
+	overflow: hidden;
+	font-weight: 700;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--black);
+	text-decoration: none;
+}
+.notice-list a:hover {
+	text-decoration: underline;
+}
+.notice-list span,
+.notice-all {
+	flex: none;
+	font-size: 13px;
+	color: #4a4d55;
+}
 /* season */
 .season {
 	padding: clamp(64px, 10vw, 140px) var(--gutter);

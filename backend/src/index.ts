@@ -9,6 +9,7 @@ import { avatar, serveProfile, signup } from './members.ts';
 import { chatRank, gallery } from './gallery.ts';
 import * as admin from './admin.ts';
 import * as photos from './photos.ts';
+import * as board from './board.ts';
 
 export type Env = {
 	DB: D1Database;
@@ -54,6 +55,14 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	'admin.roomOwners': admin.roomOwners,
 	'admin.chatUpload': admin.chatUpload,
 	photoDelete: photos.deletePhoto,
+	'board.list': board.list,
+	'board.get': board.get,
+	'board.write': board.write,
+	'board.delete': board.remove,
+	'board.comment': board.comment,
+	'board.commentDelete': board.commentRemove,
+	'board.like': board.like,
+	'board.photoDelete': board.photoRemove,
 	'admin.photoStatus': photos.archiveStatus,
 	'admin.photoArchive': photos.archiveAction,
 	'admin.reset': adminReset,
@@ -68,8 +77,19 @@ export default {
 		const m = /^\/photo\/([\w-]+)\/(\w+)$/.exec(path);
 		if (req.method === 'GET' && m) return photos.serve(env, m[1], m[2]);
 		if (req.method === 'GET' && path.startsWith('/profile/')) return serveProfile(env, path.slice(1));
+		if (req.method === 'GET' && path.startsWith('/board/')) return board.servePhoto(env, path.slice(1));
 		if (req.method !== 'POST') return json({ ok: true, service: 'Free Snow API', note: '사이트에서 POST로만 사용해요.' }, cors);
 		// 사진 올리기: multipart (사진 파일이라 JSON 대신. multipart도 CORS 사전요청 없음)
+		// 게시판 사진 올리기 (multipart)
+		if (path === '/board-photos') {
+			try {
+				return json(await board.uploadPhotos(req, env, new Date()), cors);
+			} catch (err) {
+				if (err instanceof Reply) return json(err.body, cors);
+				console.error('board photo upload', err);
+				return json({ ok: false, error: '사진을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.' }, cors, 500);
+			}
+		}
 		if (path === '/photos') {
 			try {
 				return json(await photos.upload(req, env, new Date()), cors);

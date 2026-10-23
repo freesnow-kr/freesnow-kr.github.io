@@ -20,17 +20,17 @@ export async function seasonRoom(c: Ctx) {
 		if (c.body.kind === '출격') {
 			await db.prepare(
 				`INSERT INTO ride_checks (member_id, date, status, updated_at) VALUES (?1, ?2, ?3, ?4)
-				 ON CONFLICT(member_id, date) DO UPDATE SET status = ?3, updated_at = ?4`,
+				 ON CONFLICT(member_id, date) DO UPDATE SET status = ?3, updated_at = ?4, is_active = 1`,
 			).bind(me.id, date, c.body.op === 'add' ? '출격' : '취소', iso(c.now)).run(); // 기록 없는 날 취소면 '취소' 줄이 생길 뿐 (응답엔 안 나옴)
 		} else if (c.body.op === 'add') {
 			const kind = c.body.kind === '휴식' ? '휴식' : '숙박';
 			await db.prepare(
 				`INSERT INTO room_stays (member_id, date, kind, updated_at) VALUES (?1, ?2, ?3, ?4)
-				 ON CONFLICT(member_id, date) DO UPDATE SET kind = ?3, updated_at = ?4`,
+				 ON CONFLICT(member_id, date) DO UPDATE SET kind = ?3, updated_at = ?4, is_active = 1`,
 			).bind(me.id, date, kind, iso(c.now)).run();
 		} else {
 			// 기록 없는 날 취소는 아무 일 없음
-			await db.prepare("UPDATE room_stays SET kind = '취소', updated_at = ? WHERE member_id = ? AND date = ?").bind(iso(c.now), me.id, date).run();
+			await db.prepare("UPDATE room_stays SET kind = '취소', updated_at = ? WHERE member_id = ? AND date = ? AND is_active = 1").bind(iso(c.now), me.id, date).run();
 		}
 	}
 
@@ -39,14 +39,14 @@ export async function seasonRoom(c: Ctx) {
 	const { results } = await db.prepare(
 		`SELECT r.date, m.name, r.kind, r.member_id = ?1 AS me, o.member_id IS NOT NULL AS owner
 		 FROM room_stays r JOIN members m ON m.id = r.member_id
-		 LEFT JOIN room_owners o ON o.season = ?2 AND o.member_id = r.member_id
-		 WHERE r.date BETWEEN ?3 AND ?4 AND r.kind != '취소'`,
+		 LEFT JOIN room_owners o ON o.season = ?2 AND o.member_id = r.member_id AND o.is_active = 1
+		 WHERE r.date BETWEEN ?3 AND ?4 AND r.kind != '취소' AND r.is_active = 1 AND m.is_active = 1`,
 	).bind(me.id, season, from, to).all<{ date: string; name: string; kind: string; me: number; owner: number }>();
 	const nights = results.map((r) => ({ date: r.date, name: r.name, kind: r.kind, me: !!r.me, owner: !!r.owner })).sort(byDateName);
 	const rides = (
 		await db.prepare(
 			`SELECT r.date, m.name, r.member_id = ?1 AS me FROM ride_checks r JOIN members m ON m.id = r.member_id
-			 WHERE r.date BETWEEN ?2 AND ?3 AND r.status = '출격'`,
+			 WHERE r.date BETWEEN ?2 AND ?3 AND r.status = '출격' AND r.is_active = 1 AND m.is_active = 1`,
 		).bind(me.id, from, to).all<{ date: string; name: string; me: number }>()
 	).results.map((r) => ({ date: r.date, name: r.name, me: !!r.me })).sort(byDateName);
 	return { ok: true, season, prices: PRICES, nights, rides };

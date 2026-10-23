@@ -29,7 +29,7 @@ const sl = async (body: object) => {
 	const { status, cors, ...r } = await post({ action: 'snowlive', ...body }, A);
 	return r;
 };
-const records = async () => (await env.DB.prepare('SELECT season, data, fetched_at FROM snowlive_records ORDER BY season').all()).results;
+const records = async () => (await env.DB.prepare('SELECT season, data, fetched_at FROM snowlive_records WHERE is_active = 1 ORDER BY season').all()).results;
 const age = (season: string, ms: number) => env.DB.prepare('UPDATE snowlive_records SET fetched_at = ? WHERE season = ?').bind(new Date(Date.now() - ms).toISOString(), season).run();
 const now = new Date(), y = now.getFullYear() % 100;
 const cur = now.getMonth() >= 3 ? `${y}-${y + 1}` : `${y - 1}-${y}`; // 진행 중(또는 다가오는) 시즌

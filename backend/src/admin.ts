@@ -21,9 +21,9 @@ export function normArea(v: unknown) {
 export async function summary(c: Ctx) {
 	const me = await need(c, 'staff');
 	const r = await c.env.DB.prepare(
-		`SELECT (SELECT count(*) FROM members WHERE status = 'active') AS active,
-		        (SELECT count(*) FROM members) AS total,
-		        (SELECT count(*) FROM signup_requests WHERE status = 'pending') AS pending,
+		`SELECT (SELECT count(*) FROM members WHERE status = 'active' AND is_active = 1) AS active,
+		        (SELECT count(*) FROM members WHERE is_active = 1) AS total,
+		        (SELECT count(*) FROM signup_requests WHERE status = 'pending' AND is_active = 1) AS pending,
 		        (SELECT count(*) FROM login_logs WHERE ok = 0 AND at > ?) AS fails`,
 	).bind(iso(new Date(c.now.getTime() - 864e5))).first();
 	return { ok: true, role: me.role, ...r };
@@ -31,7 +31,7 @@ export async function summary(c: Ctx) {
 
 export async function signups(c: Ctx) {
 	await need(c, 'staff');
-	const { results } = await c.env.DB.prepare("SELECT id, created_at, name, gender, birth, sido, area, phone FROM signup_requests WHERE status = 'pending' ORDER BY created_at").all();
+	const { results } = await c.env.DB.prepare("SELECT id, created_at, name, gender, birth, sido, area, phone FROM signup_requests WHERE status = 'pending' AND is_active = 1 ORDER BY created_at").all();
 	return { ok: true, signups: results };
 }
 
@@ -39,14 +39,14 @@ export async function signups(c: Ctx) {
 export async function signupDecide(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
-	const s = await db.prepare("SELECT * FROM signup_requests WHERE id = ? AND status = 'pending'").bind(Number(c.body.id)).first<any>();
+	const s = await db.prepare("SELECT * FROM signup_requests WHERE id = ? AND status = 'pending' AND is_active = 1").bind(Number(c.body.id)).first<any>();
 	if (!s) throw bad('이미 처리했거나 없는 신청이에요.');
 	const approve = c.body.approve === true;
 	const now = iso(c.now);
 	const stmts = [db.prepare('UPDATE signup_requests SET status = ?, decided_by = ?, decided_at = ? WHERE id = ?').bind(approve ? 'approved' : 'rejected', me.id, now, s.id)];
 	let memberId = null;
 	if (approve) {
-		if (await db.prepare('SELECT 1 FROM members WHERE phone = ?').bind(s.phone).first()) throw bad('이미 회원인 연락처예요.');
+		if (await db.prepare('SELECT 1 FROM members WHERE phone = ? AND is_active = 1').bind(s.phone).first()) throw bad('이미 회원인 연락처예요.');
 		memberId = 'm' + randomToken().slice(0, 15);
 		stmts.push(
 			db.prepare(
@@ -67,7 +67,8 @@ export async function members(c: Ctx) {
 		`SELECT m.id, m.name, m.phone, m.gender, m.birth, m.grade, m.area, m.private_contact, m.role, m.status, m.joined_at,
 		        (SELECT max(at) FROM login_logs l WHERE l.member_id = m.id AND l.ok = 1) AS last_login,
 		        c.member_id IS NOT NULL AND c.hash IS NULL AS reset_pending, c.changed_at AS password_changed
-		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id
+		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1
+		 WHERE m.is_active = 1
 		 ORDER BY m.sort_no, m.name`,
 	).all();
 	return { ok: true, role: me.role, members: results };
@@ -78,7 +79,7 @@ const FIELDS = ['name', 'phone', 'gender', 'birth', 'grade', 'area', 'private_co
 export async function memberUpdate(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
-	const before = await db.prepare(`SELECT ${FIELDS.join(', ')} FROM members WHERE id = ?`).bind(String(c.body.id)).first<any>();
+	const before = await db.prepare(`SELECT ${FIELDS.join(', ')} FROM members WHERE id = ? AND is_active = 1`).bind(String(c.body.id)).first<any>();
 	if (!before) throw bad('회원을 찾지 못했어요.');
 	const next: Record<string, any> = {};
 	for (const k of FIELDS) {
@@ -92,7 +93,7 @@ export async function memberUpdate(c: Ctx) {
 		if (v !== (before[k] ?? '')) next[k] = v || null;
 	}
 	if (!Object.keys(next).length) return { ok: true };
-	if (next.phone && (await db.prepare('SELECT 1 FROM members WHERE phone = ? AND id != ?').bind(next.phone, c.body.id).first())) throw bad('다른 회원이 쓰는 연락처예요.');
+	if (next.phone && (await db.prepare('SELECT 1 FROM members WHERE phone = ? AND id != ? AND is_active = 1').bind(next.phone, c.body.id).first())) throw bad('다른 회원이 쓰는 연락처예요.');
 	const keys = Object.keys(next);
 	await db.batch([
 		db.prepare(`UPDATE members SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`).bind(...keys.map((k) => next[k]), iso(c.now), c.body.id),
@@ -106,7 +107,7 @@ export async function memberStatus(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'master');
 	const id = String(c.body.id ?? '');
-	const before = await db.prepare('SELECT status, role FROM members WHERE id = ?').bind(id).first<{ status: string; role: string }>();
+	const before = await db.prepare('SELECT status, role FROM members WHERE id = ? AND is_active = 1').bind(id).first<{ status: string; role: string }>();
 	if (!before) throw bad('회원을 찾지 못했어요.');
 	const status = c.body.status ?? before.status, role = c.body.role ?? before.role;
 	if (!['active', 'suspended', 'withdrawn'].includes(status) || !['member', 'staff', 'master'].includes(role)) throw bad('값을 확인해 주세요.');
@@ -143,12 +144,13 @@ export async function roomOwners(c: Ctx) {
 	if (Array.isArray(c.body.memberIds)) {
 		const ids = [...new Set(c.body.memberIds.map(String))];
 		await db.batch([
-			db.prepare('DELETE FROM room_owners WHERE season = ?').bind(season),
-			...ids.map((id) => db.prepare('INSERT INTO room_owners (season, member_id) SELECT ?, id FROM members WHERE id = ?').bind(season, id)),
+			// 그 시즌 주주를 모두 끄고(소프트 삭제) 고른 사람만 다시 켬
+			db.prepare('UPDATE room_owners SET is_active = 0 WHERE season = ? AND is_active = 1').bind(season),
+			...ids.map((id) => db.prepare('INSERT INTO room_owners (season, member_id) SELECT ?, id FROM members WHERE id = ? AND is_active = 1 ON CONFLICT(season, member_id) DO UPDATE SET is_active = 1').bind(season, id)),
 			log(c, me.id, 'roomowners.set', null, { season, ids }),
 		]);
 	}
-	const { results } = await db.prepare('SELECT member_id FROM room_owners WHERE season = ?').bind(season).all<{ member_id: string }>();
+	const { results } = await db.prepare('SELECT member_id FROM room_owners WHERE season = ? AND is_active = 1').bind(season).all<{ member_id: string }>();
 	return { ok: true, season, memberIds: results.map((r) => r.member_id) };
 }
 

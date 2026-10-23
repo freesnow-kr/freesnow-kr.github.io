@@ -100,6 +100,7 @@ export default {
 	// 매일: 90일 지난 로그인 이력, 끝난 지 30일 지난 세션, 지난 캐시 삭제
 	async scheduled(_event: unknown, env: Env): Promise<void> {
 		const now = new Date();
+		// 개인정보 보관 기한·만료 데이터는 소프트 삭제가 아니라 진짜로 지움 (로그인 이력 90일, 끝난 세션, 지난 캐시)
 		await env.DB.batch([
 			env.DB.prepare('DELETE FROM login_logs WHERE at < ?').bind(iso(later(now, -90 * 864e5))),
 			env.DB.prepare('DELETE FROM sessions WHERE coalesce(revoked_at, expires_at) < ?').bind(iso(later(now, -30 * 864e5))),

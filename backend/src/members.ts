@@ -24,7 +24,7 @@ export async function signup(c: Ctx) {
 
 	const n = await db.prepare(
 		`SELECT (SELECT count(*) FROM signup_requests WHERE created_at > ?1) AS recent,
-		        (SELECT count(*) FROM members WHERE phone = ?2) + (SELECT count(*) FROM signup_requests WHERE phone = ?2 AND status = 'pending') AS dup`,
+		        (SELECT count(*) FROM members WHERE phone = ?2 AND is_active = 1) + (SELECT count(*) FROM signup_requests WHERE phone = ?2 AND status = 'pending' AND is_active = 1) AS dup`,
 	).bind(iso(later(c.now, -3600e3)), phone).first<{ recent: number; dup: number }>();
 	if (n!.recent >= SIGNUP_PER_HOUR) return { ok: false, error: '신청이 많아요. 잠시 뒤 다시 시도해 주세요.' };
 	if (n!.dup) return { ok: false, error: '이미 신청했거나 가입된 연락처예요. 오픈채팅으로 문의해 주세요.' };
@@ -39,13 +39,13 @@ export async function avatar(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c);
 	if (c.body.remove) {
-		await db.prepare('DELETE FROM profiles WHERE member_id = ?').bind(me.id).run();
+		await db.prepare('UPDATE profiles SET is_active = 0 WHERE member_id = ?').bind(me.id).run(); // 소프트 삭제
 		return { ok: true, photo: '' };
 	}
 	const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(c.body.data ?? ''));
 	if (!m || m[1].length > PHOTO_MAX) return { ok: false, error: '사진을 확인해 주세요. (JPG, 너무 큰 사진은 안 돼요)' };
 	const photo = String(c.body.data);
-	await db.prepare('INSERT INTO profiles (member_id, photo, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(member_id) DO UPDATE SET photo = ?2, updated_at = ?3')
+	await db.prepare('INSERT INTO profiles (member_id, photo, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(member_id) DO UPDATE SET photo = ?2, updated_at = ?3, is_active = 1')
 		.bind(me.id, photo, iso(c.now)).run();
 	return { ok: true, photo };
 }

@@ -59,3 +59,17 @@ test('다른 회원 기록은 안 보이고, 남의 ID로 지워도 그대로. �
 	r = await log(A, { op: 'delete', expense: 'e2' });
 	assert.deepEqual(r.expenses, []);
 });
+
+test('지우면 소프트 삭제(is_active = 0)라 줄은 남고, 시각은 자동으로 기록됨', async () => {
+	await log(A, { op: 'add', visits: [{ id: 'v9', date: '2025-12-20', resort: '휘닉스' }] });
+	const before = await env.DB.prepare("SELECT created_at, updated_at, is_active FROM ride_logs WHERE id = 'v9'").first();
+	assert.equal(before.is_active, 1);
+	assert.match(before.created_at, /^\d{4}-\d{2}-\d{2}T/);
+	await log(A, { op: 'delete', visit: 'v9' });
+	const after = await env.DB.prepare("SELECT created_at, updated_at, is_active FROM ride_logs WHERE id = 'v9'").first();
+	assert.deepEqual([after.is_active, after.created_at], [0, before.created_at]);
+	assert.ok(after.updated_at >= before.updated_at);
+	assert.equal((await log(A)).visits.some((v: any) => v.id === 'v9'), false);
+	await log(A, { op: 'add', visits: [{ id: 'v9', date: '2025-12-20', resort: '휘닉스' }] });
+	assert.equal((await log(A)).visits.some((v: any) => v.id === 'v9'), false, '지운 ID로 다시 보내도 되살리지 않음');
+});

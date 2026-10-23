@@ -13,7 +13,7 @@ const ID = 'fs-member-id'; // '로그인 상태 유지' 때 아이디 기억 (�
 export const store = {
 	get: () => { try { return localStorage.getItem(KEY); } catch { return null; } },
 	set: (v: string) => { try { localStorage.setItem(KEY, v); } catch {} },
-	clear: () => { try { localStorage.removeItem(KEY); localStorage.removeItem(NAME); localStorage.removeItem('fs-chatrank'); } catch {} }, // 채팅 랭킹(회원 전용) 저장본도
+	clear: () => { try { localStorage.removeItem(KEY); localStorage.removeItem(NAME); localStorage.removeItem('fs-chatrank'); localStorage.removeItem('fs-gallery'); } catch {} }, // 채팅 랭킹(회원 전용)·갤러리(내 사진 표시) 저장본도
 	name: () => { try { return localStorage.getItem(NAME); } catch { return null; } },
 	setName: (v: string) => { try { localStorage.setItem(NAME, v); } catch {} },
 	id: () => { try { return localStorage.getItem(ID); } catch { return null; } },
@@ -47,11 +47,15 @@ export const photoSrc = (photo: string, w: number) => (photo.startsWith('data:im
 
 // 갤러리 사진 목록: 이 브라우저에 저장해 두고 다시 열 때 바로 보여 줌
 // 저장본이 10분 지났으면 보여 주는 동시에 뒤에서 새로 받아 둠 → 새 사진은 그다음 방문에 (서버도 5분 캐시)
-type Photo = { id: string; caption: string };
+// 회원이 올린 사진(R2·보관한 드라이브)은 thumb·large 주소가 오고, 예전 드라이브 폴더 사진은 id만 (driveImg로)
+export type Photo = { id: string; caption: string; thumb?: string; large?: string; mine?: boolean };
+export const thumbOf = (p: Photo) => p.thumb ?? driveImg(p.id, 720);
+export const largeOf = (p: Photo) => p.large ?? driveImg(p.id, 1800);
 const GKEY = 'fs-gallery';
 const GTTL = 10 * 60 * 1000;
-const fetchPhotos = async (): Promise<Photo[] | null> => {
-	const res = await call({ action: 'gallery' }).catch(() => null);
+// 로그인했으면 토큰도 → 내가 올린 사진(지울 수 있는 사진)에 mine
+export const fetchPhotos = async (): Promise<Photo[] | null> => {
+	const res = await call({ action: 'gallery', token: store.get() ?? undefined }).catch(() => null);
 	if (!res?.ok) return null;
 	try { localStorage.setItem(GKEY, JSON.stringify({ t: Date.now(), photos: res.photos })); } catch {}
 	return res.photos;

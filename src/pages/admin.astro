@@ -54,6 +54,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<button type="button" data-tab="members">회원</button>
 						<button type="button" data-tab="owners">시즌방 주주</button>
 						<button type="button" data-tab="chat">채팅 랭킹</button>
+						<button type="button" data-tab="photos">사진 보관</button>
 						<button type="button" data-tab="logins">로그인 이력</button>
 						<button type="button" data-tab="audit" class="master-only">운영 기록</button>
 					</div>
@@ -80,6 +81,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<p class="hint">카카오톡 오픈채팅방 → 대화 내보내기(CSV) 파일을 고르면, 이 브라우저에서 닉네임별 메시지 수만 세서 올려요. 대화 내용은 서버로 가지 않아요. 전체 기록이라 가장 최근 파일 하나면 돼요.</p>
 						<input class="chat-file" type="file" accept=".csv,text/csv,.txt" />
 						<p class="chat-msg" role="status"></p>
+					</section>
+
+					<section class="panel" data-panel="photos" hidden>
+						<p class="hint">회원이 올린 사진은 Cloudflare에 원본으로 저장돼요. 이번·지난 시즌만 남기고, 그보다 오래된 시즌은 구글 드라이브 '프리스노우 시즌' 폴더로 옮겨요(매일 자동으로 조금씩, 아래 버튼으로 바로).</p>
+						<p class="photo-ready hint"></p>
+						<div class="scroll"><table><thead><tr><th>시즌</th><th>Cloudflare</th><th>드라이브</th><th></th></tr></thead><tbody class="photo-rows"></tbody></table></div>
+						<p class="photo-msg" role="status"></p>
 					</section>
 
 					<section class="panel" data-panel="logins" hidden>
@@ -303,6 +311,41 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				msg.textContent = res ? `올렸어요: ${stats.from} ~ ${stats.to}, 메시지 ${stats.total.toLocaleString()}개, ${stats.ranks.length}명` : '';
 			});
 
+			// 사진 보관: 시즌별 Cloudflare/드라이브 장 수, 보관할 수 있는 시즌은 버튼 → 남은 게 없을 때까지 묶음으로 반복
+			const mb = (b: number) => `${(b / 1024 / 1024).toFixed(b > 1e8 ? 0 : 1)}MB`;
+			async function loadPhotos() {
+				const res = await api('admin.photoStatus');
+				if (!res) return;
+				$('.photo-ready').textContent = res.ready ? '구글 드라이브 연결됨.' : '구글 드라이브가 아직 연결되지 않았어요 — 보관하려면 개발 담당이 backend/scripts/google-auth.mjs로 한 번 연결해야 해요.';
+				const by: Record<string, { r2: number; drive: number; bytes: number }> = {};
+				for (const r of res.seasons) {
+					const x = (by[r.season] ||= { r2: 0, drive: 0, bytes: 0 });
+					x[r.storage as 'r2' | 'drive'] = r.n;
+					if (r.storage === 'r2') x.bytes = r.bytes;
+				}
+				const body = $('.photo-rows');
+				const seasons = Object.keys(by).sort().reverse();
+				if (!seasons.length) return empty(body, 4, '아직 올린 사진이 없어요.');
+				body.replaceChildren(
+					...seasons.map((s) => {
+						const x = by[s];
+						const cell = s < res.keepFrom && x.r2 && res.ready
+							? button('드라이브로 보관', async () => {
+								if (!confirm(`${s} 시즌 사진 ${x.r2}장을 드라이브로 옮길까요? 옮긴 뒤 Cloudflare에서는 지워요.`)) return;
+								for (;;) {
+									const r = await api('admin.photoArchive', { season: s });
+									if (!r) break;
+									$('.photo-msg').textContent = `${s}: 옮기는 중… 남은 사진 ${r.remaining}장`;
+									if (!r.remaining || !r.moved) break;
+								}
+								loadPhotos();
+							}, 'btn-mini ink')
+							: s >= res.keepFrom ? 'Cloudflare에 둠' : '';
+						return tr([s, x.r2 ? `${x.r2}장 · ${mb(x.bytes)}` : '-', x.drive ? `${x.drive}장` : '-', cell]);
+					}),
+				);
+			}
+
 			async function loadLogins() {
 				const res = await api('admin.logins');
 				if (!res) return;
@@ -331,7 +374,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			}
 
 			// 탭: 처음 열 때 불러옴
-			const loaders: Record<string, () => unknown> = { signups: loadSignups, members: loadMembers, owners: loadOwners, chat: () => {}, logins: loadLogins, audit: loadAudit };
+			const loaders: Record<string, () => unknown> = { signups: loadSignups, members: loadMembers, owners: loadOwners, chat: () => {}, photos: loadPhotos, logins: loadLogins, audit: loadAudit };
 			const tabs = [...document.querySelectorAll<HTMLButtonElement>('.tabs button')];
 			const open = (name: string) => {
 				tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));

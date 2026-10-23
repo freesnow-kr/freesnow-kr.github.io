@@ -46,10 +46,11 @@
 - **링크·ID는 코드에 넣지 않음**(사용자 요구, 2026-10-22):
   - 사이트: `club`의 링크 3개는 빌드 환경변수 `PUBLIC_JOIN_URL`, `PUBLIC_SOMOIM_URL`, `PUBLIC_MEMBERS_API` — 로컬은 `.env`(gitignore, 양식 `.env.example`), 배포는 GitHub 저장소 Actions **Secrets**(또는 Variables, 같은 이름) → `deploy.yml`이 넘겨 줌. 하나라도 비면 빌드가 멈춰서 떠 있는 사이트는 그대로. 브라우저가 쓰는 값이라 배포된 사이트에선 보임(진짜 숨길 값은 아래 스크립트 속성).
   - Apps Script: 폴더 id·외부 주소는 로컬 `Code.gs`(저장소에 없음) 맨 위 `CONFIG` — `GALLERY_FOLDER_ID`, `CHAT_FOLDER_ID`, `AVATAR_FOLDER_ID`(비우면 자동 생성 후 스크립트 속성에 저장), `SOMOIM_URL`, `SNOWLIVE_API`. 코드는 `config('이름')` = 같은 이름 스크립트 속성 → 없으면 `CONFIG`. 비어 있으면 해당 기능 '준비 중'/오류. `authorizeDrive` 실행하면 빠진 값을 알려 줌. 테스트는 `CONFIG`를 비우고 `load()`의 `props`에 가짜 값.
-- 헤더/푸터 마크업은 페이지마다 복사돼 있음. 메뉴 항목을 바꾸면 헤더가 있는 페이지 전부(`index`, `gallery`, `webcam`, `login`, `signup`, `members`, `rank`, `shredlog`, `seasonroom`) 수정. 메뉴는 SEASON·GALLERY·WEBCAM·MEMBERS·CHAT RANK·SHRED LOG·RIDE & STAY 7개(`password` 페이지 헤더도)(RIDE·FAQ는 사용자 요청으로 뺌, 섹션은 메인에 그대로). 1200px 이하는 ☰ 메뉴(`ride.css` 미디어쿼리 + `session.ts`의 `min-width: 1201px`, 실제 필요 폭 약 1170px — 메뉴를 늘리면 다시 재서 바꿀 것) — 메뉴를 더 늘리면 이 값도 늘릴 것.
+- 헤더/푸터 마크업은 페이지마다 복사돼 있음. 메뉴 항목을 바꾸면 헤더가 있는 페이지 전부(`index`, `gallery`, `webcam`, `login`, `signup`, `members`, `rank`, `shredlog`, `seasonroom`) 수정. 메뉴는 SEASON·GALLERY·WEBCAM·CHAT RANK·SHRED LOG·RIDE & STAY 6개(MEMBERS는 2026-10-23 사용자 요청으로 빼고 동그란 내 메뉴로 — 아래, `password`·`admin` 페이지 헤더도)(RIDE·FAQ는 사용자 요청으로 뺌, 섹션은 메인에 그대로). 1200px 이하는 ☰ 메뉴(`ride.css` 미디어쿼리 + `session.ts`의 `min-width: 1201px`, 실제 필요 폭 약 1170px — 메뉴를 늘리면 다시 재서 바꿀 것) — 메뉴를 더 늘리면 이 값도 늘릴 것.
 - `src/scripts/session.ts`: 에디토리얼 페이지 공통 클라이언트 모듈. 헤더 스크롤 배경(`.is-solid`), 로그인 상태면 헤더 버튼 LOGIN→LOGOUT, 토큰 저장(`store`), Apps Script 호출(`call`). 각 페이지 `<script>`에서 import.
 - `ride.css`의 `[hidden] { display: none !important }` — display를 지정한 요소에 `hidden`을 써도 숨겨지게(빠뜨리면 폼/완료 화면이 같이 보이는 버그).
-- 헤더 오른쪽 버튼(`.nav-join`)은 **LOGIN** → `/login/` (로그인 상태면 LOGOUT). MEMBERS 메뉴 → `/members/`. 오픈채팅(`club.joinUrl`)은 메인 히어로 `KAKAO OPEN CHAT` 버튼, 로그인 화면의 가입 문의 버튼, 푸터 링크로 연결.
+- 헤더 오른쪽 버튼(`.nav-join`)은 **LOGIN** → `/login/`. 로그인 상태면 `session.ts`가 그 자리를 **동그란 내 메뉴**(`.nav-me`, 프로필 사진 — `/members`에서 받아 `fs-member-photo`에 둠 — 없으면 이름 끝 두 글자)로 바꾸고, 누르면 **내 정보**(`/members/`) / **로그아웃**. 바깥 클릭·Esc로 닫힘.
+- 푸터 오른쪽 문구는 `club.footer`(지금 **SINCE 2024**, 사용자 선택) — 모든 페이지 공통. 오픈채팅(`club.joinUrl`)은 메인 히어로 `KAKAO OPEN CHAT` 버튼, 로그인 화면의 가입 문의 버튼, 푸터 링크로 연결.
 
 ## 경로 규칙 (중요)
 

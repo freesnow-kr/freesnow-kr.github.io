@@ -29,7 +29,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				<a href={`${base}/#season`}>SEASON</a>
 				<a href={`${base}/gallery/`}>GALLERY</a>
 				<a href={`${base}/webcam/`}>WEBCAM</a>
-				<a href={`${base}/members/`} aria-current="page">MEMBERS</a>
 				<a href={`${base}/rank/`}>CHAT RANK</a>
 				<a href={`${base}/shredlog/`}>SHRED LOG</a>
 				<a href={`${base}/seasonroom/`}>RIDE &amp; STAY</a>
@@ -80,7 +79,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<footer class="footer">
 			<div class="footer-row">
 				<a href={`${base}/`}>메인으로</a>
-				<span>{club.copyright}</span>
+				<span>{club.footer}</span>
 			</div>
 			<p class="giant" aria-hidden="true">FREE SNOW</p>
 		</footer>
@@ -103,6 +102,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					dash.hidden = false;
 					// 시트 값은 textContent로만 넣음 (HTML 주입 방지)
 					store.setName(res.me.name);
+					store.setPhoto(res.me.photo ? photoSrc(res.me.photo, 96) : ''); // 헤더 내 메뉴 동그라미
 					dash.querySelector('.me-name')!.textContent = `${res.me.name}님`;
 					// 운영진·마스터에게만 링크 (권한은 서버가 따로 확인)
 					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'master'].includes(res.me.role);
@@ -162,6 +162,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						return;
 					}
 					show(r.photo);
+					store.setPhoto(r.photo ? photoSrc(r.photo, 96) : '');
 					msg.textContent = done;
 				};
 				show(photo);

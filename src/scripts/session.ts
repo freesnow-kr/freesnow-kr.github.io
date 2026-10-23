@@ -9,13 +9,16 @@ export const membersUrl = `${base}/members/`;
 // 토큰은 이 브라우저 편의용. 만료·위조는 서버(Worker 세션)가 판정
 const KEY = 'fs-member-token';
 const NAME = 'fs-member-name'; // 화면 표시용 (권한 판단엔 안 씀)
+const PHOTO = 'fs-member-photo'; // 헤더 내 메뉴 동그라미 사진 (/members에서 받아 둠)
 const ID = 'fs-member-id'; // '로그인 상태 유지' 때 아이디 기억 (비밀번호는 저장 안 함)
 export const store = {
 	get: () => { try { return localStorage.getItem(KEY); } catch { return null; } },
 	set: (v: string) => { try { localStorage.setItem(KEY, v); } catch {} },
-	clear: () => { try { localStorage.removeItem(KEY); localStorage.removeItem(NAME); localStorage.removeItem('fs-chatrank'); localStorage.removeItem('fs-gallery'); } catch {} }, // 채팅 랭킹(회원 전용)·갤러리(내 사진 표시) 저장본도
+	clear: () => { try { localStorage.removeItem(KEY); localStorage.removeItem(NAME); localStorage.removeItem(PHOTO); localStorage.removeItem('fs-chatrank'); localStorage.removeItem('fs-gallery'); } catch {} }, // 채팅 랭킹(회원 전용)·갤러리(내 사진 표시) 저장본도
 	name: () => { try { return localStorage.getItem(NAME); } catch { return null; } },
 	setName: (v: string) => { try { localStorage.setItem(NAME, v); } catch {} },
+	photo: () => { try { return localStorage.getItem(PHOTO); } catch { return null; } },
+	setPhoto: (v: string) => { try { v ? localStorage.setItem(PHOTO, v) : localStorage.removeItem(PHOTO); } catch {} },
 	id: () => { try { return localStorage.getItem(ID); } catch { return null; } },
 	setId: (v: string | null) => { try { v ? localStorage.setItem(ID, v) : localStorage.removeItem(ID); } catch {} },
 };
@@ -119,12 +122,49 @@ if (nav) {
 		matchMedia('(min-width: 1201px)').addEventListener('change', () => setOpen(false));
 	}
 
-	// 로그인 상태면 LOGIN → LOGOUT
+	// 로그인 상태면 LOGIN 대신 동그란 내 메뉴(프로필 사진, 없으면 이름 끝 두 글자) → 내 정보 / 로그아웃
 	const btn = nav.querySelector<HTMLAnchorElement>('.nav-join');
 	if (btn && store.get()) {
-		btn.textContent = 'LOGOUT';
-		btn.href = `${base}/`;
-		btn.removeAttribute('aria-current');
-		btn.addEventListener('click', logout);
+		const wrap = document.createElement('div');
+		wrap.className = 'nav-me';
+		const me = document.createElement('button');
+		me.type = 'button';
+		me.className = 'nav-me-btn';
+		me.ariaLabel = '내 메뉴';
+		me.setAttribute('aria-haspopup', 'menu');
+		me.setAttribute('aria-expanded', 'false');
+		const photo = store.photo();
+		if (photo) {
+			const img = document.createElement('img');
+			img.src = photo;
+			img.alt = '';
+			img.referrerPolicy = 'no-referrer';
+			me.append(img);
+		} else me.textContent = (store.name() || '나').slice(-2);
+		const menu = document.createElement('div');
+		menu.className = 'nav-me-menu';
+		menu.setAttribute('role', 'menu');
+		menu.hidden = true;
+		const info = document.createElement('a');
+		info.href = membersUrl;
+		info.textContent = '내 정보';
+		const out = document.createElement('button');
+		out.type = 'button';
+		out.textContent = '로그아웃';
+		out.addEventListener('click', () => {
+			logout();
+			location.href = `${base}/`;
+		});
+		for (const item of [info, out]) item.setAttribute('role', 'menuitem');
+		menu.append(info, out);
+		const open = (on: boolean) => {
+			menu.hidden = !on;
+			me.setAttribute('aria-expanded', String(on));
+		};
+		me.addEventListener('click', () => open(menu.hidden));
+		addEventListener('click', (e) => { if (!wrap.contains(e.target as Node)) open(false); });
+		addEventListener('keydown', (e) => { if (e.key === 'Escape') open(false); });
+		wrap.append(me, menu);
+		btn.replaceWith(wrap);
 	}
 }

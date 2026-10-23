@@ -77,7 +77,7 @@ export default {
 		const m = /^\/photo\/([\w-]+)\/(\w+)$/.exec(path);
 		if (req.method === 'GET' && m) return photos.serve(env, m[1], m[2]);
 		if (req.method === 'GET' && path.startsWith('/profile/')) return serveProfile(env, path.slice(1));
-		if (req.method === 'GET' && path.startsWith('/board/')) return board.servePhoto(env, path.slice(1));
+		if (req.method === 'GET' && path.startsWith('/board/')) return board.servePhoto(env, path.slice(1), new URL(req.url).searchParams);
 		if (req.method !== 'POST') return json({ ok: true, service: 'Free Snow API', note: '사이트에서 POST로만 사용해요.' }, cors);
 		// 사진 올리기: multipart (사진 파일이라 JSON 대신. multipart도 CORS 사전요청 없음)
 		// 게시판 사진 올리기 (multipart)

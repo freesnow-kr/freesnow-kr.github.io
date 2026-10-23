@@ -3,12 +3,23 @@
 // 고치기는 쓴 사람만, 지우기는 쓴 사람·운영진 (소프트 삭제). 사진은 R2 board/{글}/{사진}.jpg
 import type { Ctx, Env } from './index.ts';
 import { need, Reply, type Me } from './auth.ts';
-import { randomToken } from './lib.ts';
+import { hmac, iso, randomToken } from './lib.ts';
 
 const CATS = ['notice', 'review', 'greeting', 'free'] as const;
 const PAGE = 30;
 const PHOTO_MAX = 4 * 1024 * 1024; // 브라우저가 1600px JPG로 줄여 보냄
 const PHOTOS_PER_POST = 10;
+// 스팸 막기 (사용자 요구 2026-10-23): 한 사람이 1시간에 글 10개·댓글 30개까지, 같은 제목 글 10분·같은 댓글 5분 안에 다시 못 씀
+const POSTS_PER_HOUR = 10;
+const COMMENTS_PER_HOUR = 30;
+const HOUR = 3600e3;
+// 사진 주소 서명: 글을 볼 수 있는 사람에게만 서명된 주소를 줌 (<img>는 로그인 헤더를 못 보내서). 기한은 오늘 끝 + 7일 → 하루 동안은 같은 주소라 캐시됨
+const SIGN_DAYS = 7;
+const photoSig = (env: Env, key: string, exp: number) => hmac(env.LOGIN_KEY_SECRET, `photo|${key}|${exp}`).then((h) => h.slice(0, 32));
+async function signedUrl(c: Ctx, key: string) {
+	const exp = Math.floor(c.now.getTime() / 864e5 + 1 + SIGN_DAYS) * 864e5;
+	return `${new URL(c.req.url).origin}/${key}?e=${exp}&s=${await photoSig(c.env, key, exp)}`;
+}
 const bad = (error: string) => new Reply({ ok: false, error });
 const isStaff = (me: Me | null) => !!me && (me.role === 'staff' || me.role === 'admin');
 // 로그인 안 했거나 토큰이 만료됐으면 null (공지는 볼 수 있게)
@@ -50,7 +61,6 @@ export async function get(c: Ctx) {
 	const me = await viewer(c);
 	const p = await activePost(c, c.body.id);
 	if (p.category !== 'notice' && !me) return { ok: false, needLogin: true, error: '회원만 볼 수 있는 글이에요. 로그인해 주세요.' };
-	const base = new URL(c.req.url).origin;
 	const [author, photos, comments, likes] = await db.batch([
 		db.prepare('SELECT name FROM members WHERE id = ?').bind(p.author_id),
 		db.prepare('SELECT id FROM board_photos WHERE post_id = ? AND is_active = 1 ORDER BY sort, created_at').bind(p.id),
@@ -66,7 +76,7 @@ export async function get(c: Ctx) {
 			id: p.id, category: p.category, title: p.title, body: p.body, pinned: !!p.pinned, created_at: p.created_at, updated_at: p.updated_at,
 			author: (author.results[0] as any)?.name ?? '', mine, canDelete: mine || isStaff(me),
 			likes: (likes.results[0] as any).n, liked: !!(likes.results[0] as any).mine,
-			photos: photos.results.map((x: any) => ({ id: x.id, url: `${base}/board/${p.id}/${x.id}.jpg` })),
+			photos: await Promise.all(photos.results.map(async (x: any) => ({ id: x.id, url: await signedUrl(c, `board/${p.id}/${x.id}.jpg`) }))),
 			comments: comments.results.map((x: any) => ({ id: x.id, body: x.body, created_at: x.created_at, author: x.author, mine: x.author_id === me?.id, canDelete: x.author_id === me?.id || isStaff(me) })),
 		},
 	};
@@ -89,6 +99,11 @@ export async function write(c: Ctx) {
 		await db.prepare('UPDATE board_posts SET category = ?, title = ?, body = ?, pinned = ? WHERE id = ?').bind(category, title, body, pinned, p.id).run();
 		return { ok: true, id: p.id };
 	}
+	const recent = await db.prepare(
+		`SELECT count(*) AS n, sum(title = ? AND created_at > ?) AS same FROM board_posts WHERE author_id = ? AND created_at > ?`,
+	).bind(title, iso(new Date(c.now.getTime() - 10 * 60e3)), me.id, iso(new Date(c.now.getTime() - HOUR))).first<{ n: number; same: number }>();
+	if (recent!.same) throw bad('같은 제목의 글을 방금 올렸어요.');
+	if (recent!.n >= POSTS_PER_HOUR) throw bad('글을 너무 많이 올렸어요. 잠시 뒤 다시 써 주세요.');
 	const id = newId();
 	await db.prepare('INSERT INTO board_posts (id, category, title, body, author_id, pinned) VALUES (?, ?, ?, ?, ?, ?)').bind(id, category, title, body, me.id, pinned).run();
 	return { ok: true, id };
@@ -111,6 +126,11 @@ export async function comment(c: Ctx) {
 	const p = await activePost(c, c.body.postId);
 	const body = text(c.body.body, 1000);
 	if (!body) throw bad('댓글을 적어 주세요.');
+	const recent = await c.env.DB.prepare(
+		`SELECT count(*) AS n, sum(post_id = ? AND body = ? AND created_at > ?) AS same FROM board_comments WHERE author_id = ? AND created_at > ?`,
+	).bind(p.id, body, iso(new Date(c.now.getTime() - 5 * 60e3)), me.id, iso(new Date(c.now.getTime() - HOUR))).first<{ n: number; same: number }>();
+	if (recent!.same) throw bad('같은 댓글을 방금 달았어요.');
+	if (recent!.n >= COMMENTS_PER_HOUR) throw bad('댓글을 너무 많이 달았어요. 잠시 뒤 다시 달아 주세요.');
 	await c.env.DB.prepare('INSERT INTO board_comments (id, post_id, author_id, body) VALUES (?, ?, ?, ?)').bind(newId(), p.id, me.id, body).run();
 	return get({ ...c, body: { ...c.body, id: p.id } });
 }
@@ -165,10 +185,12 @@ export async function photoRemove(c: Ctx) {
 	return { ok: true };
 }
 
-// GET /board/{글}/{사진}.jpg (주소를 알아야 볼 수 있는 무작위 이름, 1년 캐시)
-export async function servePhoto(env: Env, key: string): Promise<Response> {
+// GET /board/{글}/{사진}.jpg?e=기한&s=서명 — board.get이 글을 볼 수 있는 사람에게만 서명된 주소를 줌 (회원 글 사진은 회원만)
+export async function servePhoto(env: Env, key: string, q: URLSearchParams): Promise<Response> {
 	if (!/^board\/[\w-]+\/[\w-]+\.jpg$/.test(key)) return new Response('Not found', { status: 404 });
+	const exp = Number(q.get('e'));
+	if (!(exp > Date.now()) || q.get('s') !== (await photoSig(env, key, exp))) return new Response('Forbidden', { status: 403 });
 	const obj = await env.PHOTOS.get(key);
 	if (!obj) return new Response('Not found', { status: 404 });
-	return new Response(obj.body, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable', ETag: obj.httpEtag } });
+	return new Response(obj.body, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': `private, max-age=${Math.floor((exp - Date.now()) / 1000)}`, ETag: obj.httpEtag } });
 }

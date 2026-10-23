@@ -20,9 +20,29 @@ export const store = {
 	setId: (v: string | null) => { try { v ? localStorage.setItem(ID, v) : localStorage.removeItem(ID); } catch {} },
 };
 
-// text/plain POST → CORS 사전요청 없이 Apps Script 호출 (Content-Type 헤더 붙이지 말 것)
-export const call = async (body: object) =>
-	(await fetch(club.membersApi, { method: 'POST', body: JSON.stringify(body) })).json();
+// Worker(club.workerApi)가 맡는 action. 나머지는 Apps Script. 로그인 토큰이 서버마다 달라서 회원 기능은 한꺼번에 옮김
+// (docs/migration/02-design.md §5) — Worker로 옮긴 action을 여기 추가. workerApi가 비어 있으면 전부 Apps Script
+const WORKER_ACTIONS = new Set(['login', 'logout', 'password', 'me', 'seasonroom', 'shredlog', 'snowlive']);
+const apiFor = (action: string) => (club.workerApi && WORKER_ACTIONS.has(action) ? club.workerApi : club.membersApi);
+export const passwordUrl = `${base}/password/`;
+
+// text/plain POST → CORS 사전요청 없이 호출 (Content-Type·Authorization 헤더 붙이지 말 것 — 토큰은 body.token)
+export const call = async (body: { action: string; [k: string]: unknown }) => {
+	const res = await (await fetch(apiFor(body.action), { method: 'POST', body: JSON.stringify(body) })).json();
+	// 새 비밀번호를 정하기 전 세션(첫 전환·초기화)이면 어느 페이지든 비밀번호 화면으로
+	if (res?.mustChange && body.action !== 'login' && !location.pathname.startsWith(passwordUrl)) { // login은 토큰 저장 후 login.astro가 보냄
+		location.href = `${passwordUrl}?first`;
+		return new Promise(() => {}); // 페이지가 오류 안내(alert 등)를 띄우지 않게 응답을 돌려주지 않음
+	}
+	return res;
+};
+
+// 로그아웃: Worker면 서버 세션도 끝냄(페이지를 떠나도 보내지게 keepalive). Apps Script 토큰은 서버에 저장이 없어 지우기만
+export const logout = () => {
+	const token = store.get();
+	if (token && club.workerApi) fetch(club.workerApi, { method: 'POST', body: JSON.stringify({ action: 'logout', token }), keepalive: true }).catch(() => {});
+	store.clear();
+};
 
 // 드라이브가 크기를 줄여 주는 이미지 주소 (폴더가 '링크가 있는 모든 사용자' 공유여야 보임)
 export const driveImg = (id: string, w: number) => `https://lh3.googleusercontent.com/d/${encodeURIComponent(id)}=w${w}`;
@@ -87,6 +107,6 @@ if (nav) {
 		btn.textContent = 'LOGOUT';
 		btn.href = `${base}/`;
 		btn.removeAttribute('aria-current');
-		btn.addEventListener('click', () => store.clear());
+		btn.addEventListener('click', logout);
 	}
 }

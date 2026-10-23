@@ -67,7 +67,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							<h2 class="me-name"></h2>
 							<p class="me-meta"></p>
 						</div>
-						<button class="btn btn-line-dark logout" type="button">로그아웃</button>
+						<div class="me-btns">
+							{club.workerApi && <a class="btn btn-line-dark" href={`${base}/password/`}>비밀번호 변경</a>}
+							<button class="btn btn-line-dark logout" type="button">로그아웃</button>
+						</div>
 					</div>
 				</div>
 			</section>
@@ -82,7 +85,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		</footer>
 
 		<script>
-			import { base, call, loginUrl, photoSrc, store } from '../scripts/session';
+			import { base, call, loginUrl, logout, photoSrc, store } from '../scripts/session';
 
 			const dash = document.querySelector<HTMLElement>('.dash')!;
 			const token = store.get();
@@ -174,7 +177,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			}
 
 			dash.querySelector('.logout')!.addEventListener('click', () => {
-				store.clear();
+				logout();
 				location.href = `${base}/`;
 			});
 		</script>
@@ -268,10 +271,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		.me-info {
 			margin-right: 0;
 		}
-		.me .logout {
+		.me-btns {
 			width: 100%;
+			flex-direction: column;
+		}
+		.me-btns .btn {
 			justify-content: center;
 		}
+	}
+	.me-btns {
+		display: flex;
+		gap: 10px;
 	}
 	.me-name {
 		font-size: clamp(1.6rem, 3vw, 2.2rem);

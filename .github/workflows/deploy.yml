@@ -18,6 +18,8 @@ jobs:
       PUBLIC_JOIN_URL: ${{ secrets.PUBLIC_JOIN_URL || vars.PUBLIC_JOIN_URL }}
       PUBLIC_SOMOIM_URL: ${{ secrets.PUBLIC_SOMOIM_URL || vars.PUBLIC_SOMOIM_URL }}
       PUBLIC_MEMBERS_API: ${{ secrets.PUBLIC_MEMBERS_API || vars.PUBLIC_MEMBERS_API }}
+      # 선택: 비어 있으면 전부 Apps Script (Worker 전환 전엔 비워 둠)
+      PUBLIC_WORKER_API: ${{ secrets.PUBLIC_WORKER_API || vars.PUBLIC_WORKER_API }}
     steps:
       # 하나라도 비어 있으면 여기서 멈춤 → 지금 떠 있는 사이트는 그대로 (빈 링크로 덮어쓰지 않게)
       - name: Check site settings

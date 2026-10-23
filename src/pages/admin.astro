@@ -52,7 +52,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<div class="stats">
 						<button type="button" class="stat" data-go="members">활동 회원 <b class="stat-active">-</b><span class="stat-total"></span></button>
 						<button type="button" class="stat" data-go="signups">가입 대기 <b class="stat-pending">-</b></button>
-						<button type="button" class="stat" data-go="lessons">강습 연결 대기 <b class="stat-lessons">-</b><span class="stat-lessons-total"></span></button>
+						<button type="button" class="stat" data-go="lessons">강습 연결 대기 <b class="stat-lessons">-</b></button>
 					</div>
 					<div class="tabs" role="tablist">
 						<button type="button" data-tab="signups">가입 신청</button>
@@ -152,7 +152,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 					<!-- 강습 요청: 회원이 출격한 날 요청 → 운영진이 회원 중 한 명과 연결. 요청·연결은 운영진만 봄(요청한 회원은 자기 요청만) -->
 					<section class="panel" data-panel="lessons" hidden>
-						<p class="hint">2주 전부터 앞으로의 요청이에요. '연결할 회원'에서 고르면 바로 저장돼요. 연결은 운영진만 보니까, 정해지면 두 회원에게 따로 연락해 주세요. 그날 출격하는 회원이 목록 위에 나와요.</p>
+						<p class="hint">2주 전부터 앞으로의 요청이에요. '연결할 회원'에 이름을 쳐서 고르면 바로 저장되고, 지우면 연결이 풀려요. 연결은 운영진만 보니까, 정해지면 두 회원에게 따로 연락해 주세요. 그날 출격하는 회원이 목록 위에 나와요.</p>
 						<div class="scroll"><table><thead><tr><th>날짜</th><th>요청한 회원</th><th>연락처</th><th>지역</th><th>연결할 회원</th></tr></thead><tbody class="lesson-rows"></tbody></table></div>
 					</section>
 
@@ -818,20 +818,36 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (!res.lessons.length) return empty(body, 5, '강습 요청이 없어요.');
 				const active = members.filter((m) => m.status === 'active');
 				body.replaceChildren(...res.lessons.map((l: any) => {
-					const sel = document.createElement('select');
-					sel.ariaLabel = `${l.name} 강습 연결할 회원`;
-					const group = (label: string, list: any[]) => {
-						const g = document.createElement('optgroup');
-						g.label = label;
-						g.append(...list.map((m) => new Option(m.name, m.id)));
-						return g;
-					};
+					// 이름으로 찾아 고르기(회원이 많아서): <input list> + 줄마다 datalist, 그날 출격하는 회원 먼저. 비우면 연결 해제
 					const riders = active.filter((m) => l.riders.includes(m.id));
 					const others = active.filter((m) => m.id !== l.member_id && !l.riders.includes(m.id));
-					sel.append(new Option('연결 전', ''), ...(riders.length ? [group('그날 출격하는 회원', riders)] : []), group('다른 회원', others));
-					sel.value = l.teacher_id ?? '';
-					sel.addEventListener('change', () => loadLessons({ memberId: l.member_id, date: l.date, teacherId: sel.value || null }));
-					const row = tr([l.date.replace(/-/g, '.'), l.name, phone(l.phone), [l.region, l.area].filter(Boolean).join(' '), sel]);
+					const byLabel = new Map<string, string>();
+					const list = document.createElement('datalist');
+					list.id = `lesson-${l.member_id}-${l.date}`;
+					for (const m of [...riders, ...others]) {
+						let text = `${m.name} (${[m.region, m.area].filter(Boolean).join(' ') || '-'})`;
+						if (byLabel.has(text)) text += ` ${m.phone.slice(-4)}`; // 이름·지역이 같은 회원 구분
+						byLabel.set(text, m.id);
+						const o = new Option(text);
+						if (riders.includes(m)) o.label = '그날 출격';
+						list.append(o);
+					}
+					const sel = document.createElement('input');
+					sel.type = 'search';
+					sel.setAttribute('list', list.id);
+					sel.placeholder = '이름 검색';
+					sel.ariaLabel = `${l.name} 강습 연결할 회원`;
+					const current = [...byLabel].find(([, id]) => id === l.teacher_id)?.[0] ?? '';
+					sel.value = current;
+					sel.addEventListener('change', () => {
+						const v = sel.value.trim();
+						const id = v ? byLabel.get(v) : null;
+						if (id === undefined) return void (alert('목록에서 회원을 골라 주세요.'), (sel.value = current));
+						if ((id ?? null) !== (l.teacher_id ?? null)) loadLessons({ memberId: l.member_id, date: l.date, teacherId: id });
+					});
+					const cell = document.createElement('span');
+					cell.append(sel, list);
+					const row = tr([l.date.replace(/-/g, '.'), l.name, phone(l.phone), [l.region, l.area].filter(Boolean).join(' '), cell]);
 					if (!l.teacher_id) row.className = 'todo';
 					return row;
 				}));
@@ -864,9 +880,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				$('.stat-total').textContent = ` / ${res.total}`;
 				$('.stat-pending').textContent = String(res.pending);
 				$('.stat-pending').closest('.stat')!.classList.toggle('is-todo', res.pending > 0);
-				// 강습: 오늘부터 앞으로의 요청 중 아직 연결 안 한 것 / 전체
+				// 강습: 오늘부터 앞으로의 요청 중 아직 연결 안 한 것
 				$('.stat-lessons').textContent = String(res.lessonsTodo ?? 0);
-				$('.stat-lessons-total').textContent = ` / 요청 ${res.lessons ?? 0}`;
 				$('.stat-lessons').closest('.stat')!.classList.toggle('is-todo', res.lessonsTodo > 0);
 				return res;
 			}
@@ -1121,10 +1136,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.status-form input {
 		accent-color: var(--black);
 	}
-	.lesson-rows :global(select) {
-		min-width: 180px;
+	.lesson-rows :global(input) {
+		width: 220px;
 		min-height: 34px;
-		padding: 0 34px 0 10px;
+		padding: 0 10px;
 		border: 1.5px solid var(--black);
 		background-color: var(--white);
 		font: 700 13px 'Noto Sans KR', sans-serif;

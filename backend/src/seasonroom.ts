@@ -33,7 +33,7 @@ export async function seasonRoom(c: Ctx) {
 				if (!rode) return { ok: false, error: '먼저 그날 출격을 체크해 주세요.' };
 				const was = await db.prepare('SELECT is_active FROM lesson_requests WHERE member_id = ? AND date = ?').bind(me.id, date).first<{ is_active: number }>();
 				await db.prepare('INSERT INTO lesson_requests (member_id, date) VALUES (?, ?) ON CONFLICT(member_id, date) DO UPDATE SET is_active = 1').bind(me.id, date).run();
-				if (!was?.is_active) await lessonRequested(c.env, me.name, date); // 새 요청일 때만 운영진 메일 (두 번 눌러도 한 번)
+				if (!was?.is_active) await lessonRequested(c.env, me.id, me.name, date); // 새 요청일 때만 운영진 메일 (두 번 눌러도 한 번)
 			} else await db.prepare('UPDATE lesson_requests SET is_active = 0, teacher_id = NULL WHERE member_id = ? AND date = ? AND is_active = 1').bind(me.id, date).run();
 		} else if (c.body.op === 'add') {
 			const kind = c.body.kind === '휴식' ? '휴식' : '숙박';

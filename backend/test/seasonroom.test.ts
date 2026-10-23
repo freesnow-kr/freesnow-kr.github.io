@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { env, post, sessionFor, useDb } from './setup.ts';
+import { lessonMail } from '../src/notify.ts';
 
 let A: string, B: string, S: string;
 useDb(
@@ -156,6 +157,7 @@ test('강습 알림 메일: 회원 정보에 메일이 있는 활동 운영진�
 	Object.assign(env, { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 's', GOOGLE_REFRESH_TOKEN: 'r' });
 	try {
 		const day = '2026-12-27';
+		await room(A, { op: 'add', date: day, kind: '출격' });
 		await room(B, { op: 'add', date: day, kind: '출격' });
 		await room(B, { op: 'add', date: day, kind: '강습' });
 		await room(B, { op: 'add', date: day, kind: '강습' }); // 두 번 눌러도 메일 한 번
@@ -165,6 +167,13 @@ test('강습 알림 메일: 회원 정보에 메일이 있는 활동 운영진�
 		const subject = /Subject: =\?UTF-8\?B\?([^?]+)\?=/.exec(mime)![1];
 		assert.equal(new TextDecoder().decode(Uint8Array.from(atob(subject), (ch) => ch.charCodeAt(0))), '[프리스노우][강습 요청] 2026-12-27(일) 회원B');
 		assert.equal(mime.includes('01060000002'), false); // 연락처는 메일에 안 넣음
+		// 시안 A HTML + 글자판: 같은 날 출격(본인 빼고), 연결 대기, 이름은 HTML 이스케이프
+		const partOf = (type: string) => {
+			const m = new RegExp(`Content-Type: ${type}; charset=UTF-8\\r\\nContent-Transfer-Encoding: base64\\r\\n\\r\\n([A-Za-z0-9+/=\\r\\n]+)`).exec(mime)!;
+			return new TextDecoder().decode(Uint8Array.from(atob(m[1].replace(/\r\n/g, '')), (ch) => ch.charCodeAt(0)));
+		};
+		assert.match(partOf('text/plain'), /같은 날 출격: 회원A \(1명\)\n연결 대기: \d+건/);
+		assert.match(partOf('text/html'), /LESSON<br>REQUEST\.[\s\S]*회원A[\s\S]*연결하러 가기/);
 		await room(B, { op: 'remove', date: day, kind: '강습' });
 		await room(B, { op: 'add', date: day, kind: '강습' }); // 취소 후 다시 요청 = 새 요청
 		assert.equal(sent.length, 2);
@@ -186,4 +195,11 @@ test('강습 알림 메일: 회원 정보에 메일이 있는 활동 운영진�
 		globalThis.fetch = realFetch;
 		for (const k of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REFRESH_TOKEN']) delete env[k];
 	}
+});
+
+test('강습 메일 HTML: 이름은 이스케이프, 날짜는 YYYY-MM-DD(요일)', () => {
+	const m = lessonMail({ name: '<b>"김"</b>', date: '2026-10-29', riders: ['a&b'], pending: 1 });
+	assert.equal(m.subject, '[프리스노우][강습 요청] 2026-10-29(목) <b>"김"</b>');
+	assert.equal(/<b>"김"<\/b>|a&b/.test(m.html), false);
+	assert.match(m.html, /&#60;b&#62;&#34;김&#34;&#60;\/b&#62;/);
 });

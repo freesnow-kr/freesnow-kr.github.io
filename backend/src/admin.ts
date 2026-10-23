@@ -3,7 +3,7 @@
 // staff는 비밀번호 초기화(auth.ts adminReset)도 — 관리자 계정은 관리자만
 // admin(관리자): + 정지·탈퇴·권한 변경(마스터 지정 포함), 운영 기록. master(마스터)는 명예 — 권한은 회원과 같음
 // 바꾸는 일은 전부 admin_logs (누가·언제·무엇을·전후 값)
-import { EMAIL, sendMail, staffEmails } from './notify.ts';
+import { EMAIL, lessonMail, pendingLessons, sendMail, staffEmails } from './notify.ts';
 import type { Ctx } from './index.ts';
 import { need, Reply } from './auth.ts';
 import { iso, normPhone, randomToken } from './lib.ts';
@@ -164,7 +164,9 @@ export async function lessons(c: Ctx) {
 		const to = staff.map((r) => r.email);
 		if (!to.length) throw bad('메일이 등록된 운영진이 없어요. 회원 탭에서 운영진 정보에 메일을 넣어 주세요.');
 		try {
-			await sendMail(c.env, to, '[프리스노우] 강습 알림 시험 메일', `강습 요청이 들어오면 이렇게 메일이 와요.\n\n보낸 사람: ${me.name} (운영진 화면 '시험 메일')`);
+			// 실제 강습 요청 메일과 같은 모양으로 (이름은 누른 운영진, 날짜는 오늘)
+			const mail = lessonMail({ name: me.name, date: new Date(c.now.getTime() + 9 * 3600e3).toISOString().slice(0, 10), riders: [], pending: await pendingLessons(c.env, c.now), test: true });
+			await sendMail(c.env, to, mail.subject, mail.text, mail.html);
 		} catch (e) {
 			throw bad((e as Error).message);
 		}

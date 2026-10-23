@@ -58,10 +58,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<button type="button" data-tab="members">회원</button>
 						<button type="button" data-tab="room">시즌방 정산</button>
 						<button type="button" data-tab="owners">시즌방 주주</button>
-						<button type="button" data-tab="teams">조 편성</button>
 						<button type="button" data-tab="chat">채팅 랭킹</button>
 						<button type="button" data-tab="photos">사진 보관</button>
 						<button type="button" data-tab="logins">로그인 이력</button>
+						<button type="button" data-tab="teams">조 편성</button>
 						<button type="button" data-tab="audit" class="admin-only">운영 기록</button>
 					</div>
 
@@ -91,7 +91,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<p class="owner-msg" role="status"></p>
 					</section>
 
-					<!-- 조 편성: 정모·체육대회 때 조 짜기 + 팀 대항 점수판 (free-snow-summer 홈 점수판 참고), 행사별 저장 -->
+					<!-- 조 편성: 정모·체육대회 때 임시로 조 짜 보기 (점수판은 사용자 요청으로 뺌), 저장은 선택 -->
 					<section class="panel" data-panel="teams" hidden>
 						<div class="tm-top">
 							<select class="tm-pick" aria-label="행사"></select>
@@ -107,7 +107,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<div class="tm-steps" role="tablist">
 							<button type="button" data-step="people" aria-selected="true">① 참가자 <b class="tm-n"></b></button>
 							<button type="button" data-step="split">② 조 편성</button>
-							<button type="button" data-step="score">③ 점수판</button>
 						</div>
 
 						<div class="tm-step" data-step="people">
@@ -136,16 +135,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							<div class="tm-teams"></div>
 						</div>
 
-						<div class="tm-step" data-step="score" hidden>
-							<div class="tm-row">
-								<input class="tm-gamename" maxlength="30" placeholder="게임 이름 (예: 줄다리기)" />
-								<input class="tm-gamepts" type="number" min="0" max="1000" value="10" aria-label="점수" />
-								<button class="btn-mini ink tm-gameadd" type="button">게임 추가</button>
-							</div>
-							<p class="hint">칸을 눌러 그 게임에서 이긴 조를 체크해요. 다시 누르면 해제.</p>
-							<div class="scroll"><table class="tm-board"><thead></thead><tbody></tbody></table></div>
-							<p class="tm-winner"></p>
-						</div>
 					</section>
 
 					<section class="panel" data-panel="chat" hidden>
@@ -486,10 +475,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 			// ── 조 편성 ──
 			type Person = { key: string; name: string; gender: string; memberId?: string; staff?: boolean; guest?: boolean; team: number };
-			type Ev = { id?: string; title: string; date: string; data: { teams: { name: string }[]; people: Person[]; games: { name: string; points: number; winners: number[] }[] } };
+			type Ev = { id?: string; title: string; date: string; data: { teams: { name: string }[]; people: Person[] } };
 			let ev: Ev | null = null;
 			let tmEvents: any[] = [];
-			const blank = (): Ev => ({ title: '', date: new Date().toLocaleDateString('sv-SE'), data: { teams: [], people: [], games: [] } });
+			const blank = (): Ev => ({ title: '', date: new Date().toLocaleDateString('sv-SE'), data: { teams: [], people: [] } });
 			const dirty = (on = true) => ($('.tm-dirty').hidden = !on);
 			const tmTeamColor = ['#ff5a1f', '#2f6df6', '#1e9e5a', '#a64ce0', '#e0245e', '#d49b00', '#0aa5b8', '#6b6d73', '#8a4b20', '#3b3f8f', '#c76e00', '#2d7d2d'];
 
@@ -551,7 +540,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				$<HTMLInputElement>('.tm-date').value = ev!.date;
 				drawPeople();
 				drawSplit();
-				drawScore();
 			}
 
 			// ① 참가자: 활동 회원 체크 + 게스트
@@ -634,7 +622,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				}
 				dirty();
 				drawSplit();
-				drawScore();
 			}
 			$('.tm-auto').addEventListener('click', () => {
 				if (!ev!.data.people.length) return alert('먼저 ① 참가자를 골라 주세요.');
@@ -657,7 +644,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						nm.value = title;
 						nm.maxLength = 20;
 						nm.ariaLabel = '조 이름';
-						nm.addEventListener('input', () => ((d.teams[ti].name = nm.value || `${ti + 1}조`), dirty(), drawScore()));
+						nm.addEventListener('input', () => ((d.teams[ti].name = nm.value || `${ti + 1}조`), dirty()));
 						h.append(nm);
 					} else h.append(document.createTextNode(title));
 					const cnt = document.createElement('small');
@@ -671,7 +658,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							const mv = document.createElement('select');
 							mv.ariaLabel = `${p.name} 옮기기`;
 							mv.append(new Option('옮기기', ''), ...d.teams.map((t, i) => new Option(t.name, String(i))).filter((_, i) => i !== ti));
-							mv.addEventListener('change', () => ((p.team = Number(mv.value)), dirty(), drawSplit(), drawScore()));
+							mv.addEventListener('change', () => ((p.team = Number(mv.value)), dirty(), drawSplit()));
 							li.append(mv);
 							return li;
 						}),
@@ -681,70 +668,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				};
 				box.replaceChildren(...d.teams.map((t, i) => card(t.name, d.people.filter((p) => p.team === i), i)), ...(waiting.length ? [card('아직 안 나눔', waiting, -1)] : []));
 			}
-
-			// ③ 점수판: 게임마다 이긴 조 체크 → 그 게임 점수, 합계·우승
-			function drawScore() {
-				const d = ev!.data;
-				const head = $('.tm-board thead'), body = $('.tm-board tbody');
-				if (!d.teams.length) {
-					head.replaceChildren();
-					body.replaceChildren();
-					$('.tm-winner').textContent = '먼저 ② 조 편성을 해 주세요.';
-					return;
-				}
-				const hr = document.createElement('tr');
-				const th = (t: string) => { const x = document.createElement('th'); x.textContent = t; return x; };
-				hr.append(th('조'));
-				d.games.forEach((g, gi) => {
-					const x = th(`${g.name} (${g.points})`);
-					const rm = document.createElement('button');
-					rm.type = 'button';
-					rm.className = 'tm-x';
-					rm.textContent = '✕';
-					rm.ariaLabel = `${g.name} 빼기`;
-					rm.addEventListener('click', () => confirm(`'${g.name}' 게임을 뺄까요?`) && ((d.games.splice(gi, 1)), dirty(), drawScore()));
-					x.append(rm);
-					hr.append(x);
-				});
-				hr.append(th('합계'));
-				head.replaceChildren(hr);
-				const total = d.teams.map((_, ti) => d.games.reduce((t, g) => t + (g.winners.includes(ti) ? g.points : 0), 0));
-				const max = Math.max(...total);
-				body.replaceChildren(
-					...d.teams.map((t, ti) => {
-						const tr = document.createElement('tr');
-						const name = document.createElement('td');
-						name.textContent = t.name;
-						name.style.color = tmTeamColor[ti % tmTeamColor.length];
-						name.style.fontWeight = '900';
-						tr.append(name);
-						d.games.forEach((g) => {
-							const td = document.createElement('td');
-							const b = document.createElement('button');
-							b.type = 'button';
-							const won = g.winners.includes(ti);
-							b.className = 'tm-cell' + (won ? ' won' : '');
-							b.textContent = won ? `✓ ${g.points}` : '';
-							b.addEventListener('click', () => ((g.winners = won ? g.winners.filter((x) => x !== ti) : [...g.winners, ti]), dirty(), drawScore()));
-							td.append(b);
-							tr.append(td);
-						});
-						const sum = document.createElement('td');
-						sum.className = 'tm-sum' + (max > 0 && total[ti] === max ? ' top' : '');
-						sum.textContent = String(total[ti]);
-						tr.append(sum);
-						return tr;
-					}),
-				);
-				$('.tm-winner').textContent = max > 0 ? `🏆 1등: ${d.teams.filter((_, i) => total[i] === max).map((t) => t.name).join(', ')} (${max}점)` : '';
-			}
-			$('.tm-gameadd').addEventListener('click', () => {
-				const name = $<HTMLInputElement>('.tm-gamename').value.trim();
-				if (!name) return;
-				ev!.data.games.push({ name, points: Math.max(0, Number($<HTMLInputElement>('.tm-gamepts').value) || 0), winners: [] });
-				$<HTMLInputElement>('.tm-gamename').value = '';
-				dirty(), drawScore();
-			});
 
 			$('.chat-file').addEventListener('change', async (e) => {
 				const f = (e.target as HTMLInputElement).files?.[0];
@@ -1155,13 +1078,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		border: 1.5px solid var(--black);
 		font: inherit;
 	}
-	.tm-row .tm-count,
-	.tm-row .tm-gamepts {
+	.tm-row .tm-count {
 		width: 80px;
 	}
 	.tm-row .tm-find,
-	.tm-row .tm-gname,
-	.tm-row .tm-gamename {
+	.tm-row .tm-gname {
 		flex: 1;
 		min-width: 180px;
 	}
@@ -1272,37 +1193,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		background-color: var(--white);
 		background-position: right 8px center;
 		font-size: 12px;
-	}
-	.tm-board :global(.tm-cell) {
-		width: 100%;
-		min-width: 70px;
-		min-height: 40px;
-		border: 1px dashed var(--line);
-		border-radius: 8px;
-		background: none;
-		font: 700 14px 'Noto Sans KR', sans-serif;
-		cursor: pointer;
-	}
-	.tm-board :global(.tm-cell.won) {
-		border: 0;
-		background: var(--accent);
-	}
-	.tm-board :global(.tm-sum) {
-		font: 1.6rem var(--display);
-	}
-	.tm-board :global(.tm-sum.top) {
-		color: var(--accent);
-	}
-	.tm-board :global(.tm-x) {
-		margin-left: 4px;
-		border: 0;
-		background: none;
-		color: #8a8d95;
-		cursor: pointer;
-	}
-	.tm-winner {
-		font-size: 18px;
-		font-weight: 900;
 	}
 	/* 시즌방 주주: 시즌 카드 3장 */
 	.owner-cards {

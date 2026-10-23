@@ -1,6 +1,6 @@
--- 조 편성 (사용자 요구 2026-10-23: 정모·체육대회 때 조 짜기 + 팀 대항 점수판, free-snow-summer 홈 점수판 참고)
+-- 조 편성 (사용자 요구 2026-10-23: 정모·체육대회 때 임시로 조 짜 보기, free-snow-summer 팀 설정 참고 — 점수판은 뺌)
 -- 행사 하나 = 한 줄. 참가자·팀·게임 점수는 화면에서 다루는 모양 그대로 JSON 한 칸(data)에 (행사마다 구성이 달라서)
---   data = { teams: [{name}], people: [{key, name, gender, memberId?, guest?, team}], games: [{name, points, winners: [팀 번호]}] }
+--   data = { teams: [{name}], people: [{key, name, gender, memberId?, staff?, guest?, team}] }
 CREATE TABLE team_events (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,

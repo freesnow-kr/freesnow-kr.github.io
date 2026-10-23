@@ -1,4 +1,4 @@
-// 조 편성 (운영진 이상): 행사별로 참가자·팀·점수판을 저장. 편성 계산은 화면(브라우저)이 하고 서버는 저장만
+// 조 편성 (운영진 이상): 행사별로 참가자·팀을 저장(선택). 편성 계산은 화면(브라우저)이 하고 서버는 저장만
 import type { Ctx } from './index.ts';
 import { need, Reply } from './auth.ts';
 import { randomToken } from './lib.ts';
@@ -37,7 +37,7 @@ export async function save(c: Ctx) {
 	if (!title) throw bad('행사 이름을 적어 주세요.');
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('날짜를 확인해 주세요.');
 	const d = c.body.data;
-	if (!d || typeof d !== 'object' || !Array.isArray(d.teams) || !Array.isArray(d.people) || !Array.isArray(d.games)) throw bad('편성 내용을 확인해 주세요.');
+	if (!d || typeof d !== 'object' || !Array.isArray(d.teams) || !Array.isArray(d.people)) throw bad('편성 내용을 확인해 주세요.');
 	const data = JSON.stringify(d);
 	if (data.length > DATA_MAX) throw bad('편성 내용이 너무 커요.');
 	if (c.body.id) {

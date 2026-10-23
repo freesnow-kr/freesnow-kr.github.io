@@ -82,6 +82,12 @@ a {
 	letter-spacing: 0.02em;
 	text-decoration: none;
 }
+/* 로고 이미지 (사용자 요구 2026-10-23: freesnow_logo3.jpeg를 배경 지우고 흰색으로 — public/logo-white.png, 만든 방법은 AGENTS.md '에셋') */
+.wordmark img {
+	display: block;
+	width: auto;
+	height: 40px;
+}
 .nav nav {
 	display: flex;
 	gap: 28px;

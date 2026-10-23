@@ -142,7 +142,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 									<label class="tm-opt"><input class="tm-s" type="checkbox" checked /> 운영진 나눠서</label>
 									<button class="btn-mini ink tm-auto" type="button">자동 편성 ↻</button>
 								</div>
-								<p class="hint">이름 오른쪽 ⋮⋮을 끌어 다른 조에 놓으면 옮겨져요. 이름을 누르면 조장으로 정하거나 메뉴로 옮길 수 있어요. 조장은 자동 편성을 다시 해도 그 조에 그대로 있어요.</p>
+								<p class="hint">이름을 끌어 다른 조에 놓으면 옮겨져요(휴대폰은 오른쪽 ⋮⋮을 끌어요). 오른쪽 ⋯ 메뉴로 조장을 정하거나 옮길 수도 있어요. 조장은 자동 편성을 다시 해도 그 조에 그대로 있어요.</p>
 								<div class="tm-teams"></div>
 							</div>
 						</div>
@@ -588,7 +588,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			$('.tm-date').addEventListener('input', () => dirty());
 			const genderCount = (list: Person[]) => {
 				const m = list.filter((p) => p.gender === '남').length, f = list.filter((p) => p.gender === '여').length;
-				return `${list.length}명${m || f ? ` (남 ${m} · 여 ${f})` : ''}`;
+				return `${list.length}명${m || f ? ` (남 ${m} / 여 ${f})` : ''}`;
 			};
 			const asPerson = (m: any): Person => ({ key: `m:${m.id}`, name: m.name, gender: m.gender ?? '', memberId: m.id, staff: m.role === 'staff' || m.role === 'admin', team: -1 });
 			const genderDot = (g: string) => {
@@ -775,9 +775,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				dirty(), drawSplit();
 			}
 			// 끌어서 옮기기 (사용자 요구 2026-10-23, 지라 보드처럼): 포인터 이벤트라 마우스·터치 모두. 줄 복사본이 따라다니고, 놓은 곳의 조 카드로 옮김
-			function startDrag(e: PointerEvent, p: Person, row: HTMLElement) {
+			// e = 지금 포인터, (x0, y0) = 처음 누른 곳(잡은 위치 유지), grip = 포인터를 붙잡을 요소
+			function startDrag(e: PointerEvent, p: Person, row: HTMLElement, grip: HTMLElement, x0: number, y0: number) {
 				e.preventDefault();
-				const grip = e.currentTarget as HTMLElement;
 				grip.setPointerCapture(e.pointerId);
 				const r = row.getBoundingClientRect();
 				const ghost = row.cloneNode(true) as HTMLElement;
@@ -786,7 +786,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				ghost.style.setProperty('--tc', getComputedStyle(row).getPropertyValue('--tc'));
 				document.body.append(ghost);
 				row.classList.add('tm-dragging');
-				const dx = e.clientX - r.left, dy = e.clientY - r.top;
+				const dx = x0 - r.left, dy = y0 - r.top;
 				let over: HTMLElement | null = null;
 				const move = (ev: PointerEvent) => {
 					ghost.style.transform = `translate(${ev.clientX - dx}px, ${ev.clientY - dy}px) rotate(-2deg)`;
@@ -822,22 +822,37 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					nm.textContent = p.name;
 					const tags = [p.leader && '조장', p.staff && '운영진', p.guest && '게스트'].filter(Boolean).map((t) => Object.assign(document.createElement('small'), { textContent: t as string }));
 					c.append(genderDot(p.gender), nm, ...tags);
+					// 오른쪽 ⋯ 메뉴: 조장 정하기·옮기기 (줄은 끌어서 옮기기에 씀)
 					const mv = document.createElement('select');
-					mv.ariaLabel = `${p.name}${p.leader ? ' (조장)' : ''} 옮기기`;
-					const head = new Option(`${p.name}`, '');
-					head.disabled = true;
+					mv.className = 'tm-menu';
+					mv.ariaLabel = `${p.name}${p.leader ? ' (조장)' : ''} 메뉴`;
+					const head = new Option('⋯', '');
+					head.disabled = head.hidden = true;
 					mv.append(head);
 					if (ti >= 0) mv.append(new Option(p.leader ? '조장 풀기' : '조장으로 정하기', 'leader'));
 					mv.append(...d.teams.map((t, i) => new Option(`${t.name}로 옮기기`, String(i))).filter((_, i) => i !== ti));
 					if (ti >= 0) mv.append(new Option('안 나눔으로', '-1'));
 					mv.value = '';
 					mv.addEventListener('change', () => (mv.value === 'leader' ? (setLeader(p, !p.leader), dirty(), drawSplit()) : movePerson(p, Number(mv.value))));
-					// 끌어서 옮기기 손잡이 (줄의 다른 곳을 누르면 위 메뉴)
+					// 끌어서 옮기기: 마우스는 줄 아무 데나 눌러 끌기(조금 움직여야 시작 — 그냥 누르면 아무 일 없음),
+					// 터치는 ⋮⋮ 손잡이로만(줄 전체를 잡으면 휴대폰에서 화면 스크롤이 안 돼서)
+					c.addEventListener('pointerdown', (e) => {
+						if (e.pointerType !== 'mouse' || e.button !== 0 || (e.target as HTMLElement).closest('select, .tm-grip')) return;
+						const x = e.clientX, y = e.clientY;
+						const wait = (ev: PointerEvent) => {
+							if (Math.abs(ev.clientX - x) + Math.abs(ev.clientY - y) < 5) return;
+							stop();
+							startDrag(ev, p, c, c, x, y);
+						};
+						const stop = () => (c.removeEventListener('pointermove', wait), c.removeEventListener('pointerup', stop));
+						c.addEventListener('pointermove', wait);
+						c.addEventListener('pointerup', stop);
+					});
 					const grip = document.createElement('span');
 					grip.className = 'tm-grip';
 					grip.textContent = '⋮⋮';
 					grip.title = '끌어서 다른 조로 옮기기';
-					grip.addEventListener('pointerdown', (e) => startDrag(e, p, c));
+					grip.addEventListener('pointerdown', (e) => startDrag(e, p, c, grip, e.clientX, e.clientY));
 					c.append(mv, grip);
 					return c;
 				};
@@ -1554,16 +1569,40 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		cursor: pointer;
 	}
 	/* 줄 전체를 덮는 투명한 select — 누르면 옮기기·조장 메뉴 */
-	.tm-teams :global(.tm-person select) {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		opacity: 0;
+	/* 줄은 마우스로 끌기 (지라 보드처럼) — 마우스 화면에선 ⋮⋮ 손잡이 대신 줄 전체 */
+	.tm-teams :global(.tm-person) {
+		user-select: none;
+	}
+	@media (hover: hover) {
+		.tm-teams :global(.tm-person) {
+			cursor: grab;
+		}
+		.tm-teams :global(.tm-grip) {
+			display: none;
+		}
+	}
+	/* 오른쪽 ⋯ 메뉴 (select를 작은 버튼 모양으로) */
+	.tm-teams :global(.tm-menu) {
+		flex: none;
+		width: 28px;
+		min-width: 0;
+		height: 24px;
+		min-height: 0;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 6px;
+		background: none;
+		color: #8a8d95;
+		font: 900 14px/1 'Noto Sans KR', sans-serif;
+		text-align: center;
+		text-align-last: center;
+		appearance: none;
 		cursor: pointer;
 	}
-	.tm-teams :global(.tm-person:has(select:focus-visible)) {
-		outline: 2px solid var(--black);
-		outline-offset: 2px;
+	.tm-teams :global(.tm-menu:hover),
+	.tm-teams :global(.tm-menu:focus-visible) {
+		border-color: var(--line);
+		color: var(--black);
 	}
 	.tm-teams {
 		display: grid;

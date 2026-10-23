@@ -815,7 +815,7 @@ a {
 }
 .giant {
 	font-family: var(--display);
-	font-size: 21vw;
+	font-size: 16vw; /* 사용자 요구: 조금 작게 (예전 21vw) */
 	line-height: 0.8;
 	margin: 48px 0 -0.08em;
 	white-space: nowrap;

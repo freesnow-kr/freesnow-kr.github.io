@@ -76,7 +76,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							</div>
 							<div class="day-group">
 								<p class="group-title stay-title"></p>
-								<ul class="day-names stay-names"></ul>
+								<!-- 숙박, 4시간 휴식 칸을 나눠 이름만 (사용자 요구 2026-10-26) -->
+								<div class="stay-names"></div>
 								<div class="day-actions stay-actions"></div>
 							</div>
 						</form>
@@ -194,7 +195,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				(list.length ? list : [null]).map((n) => {
 					const li = document.createElement('li');
 					// 주주는 여기선 따로 안 적음 (정산표에만)
-					li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.kind === '휴식' ? ' | 4시간 휴식' : ''}${n.lesson ? ' | 강습 요청' : ''}` : '아직 아무도 없어요.';
+					li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.lesson ? ' | 강습 요청' : ''}` : '아직 아무도 없어요.';
 					li.className = n?.me ? 'me' : n ? '' : 'empty';
 					return li;
 				});
@@ -264,7 +265,29 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const who = nights.filter((n) => n.date === selected);
 				const mine = who.find((n) => n.me);
 				$('.stay-title').textContent = `시즌방 ${who.length}명`;
-				$('.stay-names').replaceChildren(...names(who));
+				// '숙박 길동 영희' / '휴식 철수' 한 줄씩 이름만 (사용자 요구 2026-10-26, 있는 줄만, 아무도 없으면 안내 한 줄)
+				const parts = (['숙박', '휴식'] as const)
+					.map((k) => [k, who.filter((n) => n.kind === k)] as const)
+					.filter(([, list]) => list.length)
+					.map(([k, list]) => {
+						const box = document.createElement('div');
+						box.className = 'stay-part';
+						const h = document.createElement('p');
+						h.className = 'stay-kind';
+						h.textContent = k;
+						const ul = document.createElement('ul');
+						ul.className = 'day-names';
+						ul.append(...names(list));
+						box.append(h, ul);
+						return box;
+					});
+				if (!parts.length) {
+					const ul = document.createElement('ul');
+					ul.className = 'day-names';
+					ul.append(...names([]));
+					parts.push(ul);
+				}
+				$('.stay-names').replaceChildren(...parts);
 				$('.stay-actions').replaceChildren(
 					...buttons(
 						!mine
@@ -512,7 +535,31 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-size: 1.2rem;
 		font-weight: 900;
 	}
-	.day-names {
+	.stay-names {
+		display: grid;
+		gap: 8px;
+	}
+	.stay-names :global(.stay-part) {
+		display: flex;
+		align-items: baseline;
+		gap: 12px;
+	}
+	.stay-names :global(.stay-kind) {
+		flex: none;
+		color: var(--gray);
+		font-size: 13px;
+		font-weight: 700;
+	}
+	/* 여기 명단은 화면 코드가 만든 ul이라 :global로 */
+	.stay-names :global(li.me) {
+		font-weight: 700;
+		color: #c2410c;
+	}
+	.stay-names :global(li.empty) {
+		color: #4a4d55;
+	}
+	.day-names,
+	.stay-names :global(.day-names) {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 4px 12px;

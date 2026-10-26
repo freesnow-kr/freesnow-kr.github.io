@@ -10,7 +10,7 @@ const PHOTO_MAX = 400_000; // base64 글자 수 (브라우저가 256px JPG로 �
 
 // 응답은 {ok} / {ok:false, error}뿐. 숨은 칸(website)이 채워지면 저장 없이 ok
 // 받는 것(사용자 결정 2026-10-26): 휴대폰 번호(= 아이디, 010 빼고)·비밀번호·이름·성별 필수, 출생연도·시도·시군구·비상 연락처 사용 선택(선택 동의 한 번)
-// 휴대폰 번호는 HMAC(phone_key)만 저장, 선택 동의하면 비상 연락처로 암호문(phone_enc)도. 비밀번호는 해시 → 승인하면 그대로 로그인 비밀번호 (admin.signupDecide)
+// 휴대폰 번호는 HMAC(login_key)만 저장, 선택 동의하면 비상 연락처로 암호문(phone_enc)도. 비밀번호는 해시 → 승인하면 그대로 로그인 비밀번호 (admin.signupDecide)
 export async function signup(c: Ctx) {
 	const db = c.env.DB;
 	const b = c.body;
@@ -32,7 +32,7 @@ export async function signup(c: Ctx) {
 	const key = await phoneKey(c.env.PHONE_KEY, phone);
 	const n = await db.prepare(
 		`SELECT (SELECT count(*) FROM signup_requests WHERE created_at > ?1) AS recent,
-		        (SELECT count(*) FROM members WHERE phone_key = ?2) + (SELECT count(*) FROM signup_requests WHERE phone_key = ?2 AND status = 'pending' AND is_active = 1) AS dup`,
+		        (SELECT count(*) FROM members WHERE login_key = ?2) + (SELECT count(*) FROM signup_requests WHERE login_key = ?2 AND status = 'pending' AND is_active = 1) AS dup`,
 	).bind(iso(later(c.now, -3600e3)), key).first<{ recent: number; dup: number }>();
 	if (n!.recent >= SIGNUP_PER_HOUR) return { ok: false, error: '신청이 많아요. 잠시 뒤 다시 시도해 주세요.' };
 	const DUP = { ok: false, error: '이미 가입했거나 신청한 번호예요. 오픈채팅으로 문의해 주세요.' };
@@ -40,7 +40,7 @@ export async function signup(c: Ctx) {
 	const salt = randomB64(16);
 	// 동의 기록: 언제 무엇에 동의했는지 + 그때 처리방침 시행일 (승인하면 회원 정보로 옮김). 같은 번호 동시 신청은 UNIQUE 부분 인덱스로 하나만
 	const r = await db.prepare(
-		`INSERT INTO signup_requests (phone_key, name, gender, birth_year, sido, area, phone_enc, pw_hash, pw_salt, pw_iter, agreed_at, agreed_opt_at, policy, created_at)
+		`INSERT INTO signup_requests (login_key, name, gender, birth_year, sido, area, phone_enc, pw_hash, pw_salt, pw_iter, agreed_at, agreed_opt_at, policy, created_at)
 		 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?11) ON CONFLICT DO NOTHING`,
 	).bind(key, name, gender, year, sido, area, b.emergency === true && opt ? await sealPhone(c.env.PHONE_KEY, phone) : null,
 		await pbkdf2(pw, salt, PBKDF2_ITER), salt, PBKDF2_ITER, iso(c.now), opt ? iso(c.now) : null, POLICY_VERSION).run();
@@ -89,7 +89,7 @@ export async function withdraw(c: Ctx) {
 	const photo = await db.prepare('SELECT photo FROM profiles WHERE member_id = ?').bind(me.id).first<{ photo: string }>();
 	const del = (table: string) => db.prepare(`DELETE FROM ${table} WHERE member_id = ?`).bind(me.id);
 	await db.batch([
-		db.prepare("UPDATE members SET status = 'withdrawn', login_id = NULL, name = '탈퇴 회원', gender = NULL, birth_year = NULL, region = '', area = '', phone_key = NULL, phone_enc = NULL, email = NULL, role = 'member', updated_at = ?2 WHERE id = ?1")
+		db.prepare("UPDATE members SET status = 'withdrawn', name = '탈퇴 회원', gender = NULL, birth_year = NULL, region = '', area = '', login_key = NULL, phone_enc = NULL, email = NULL, role = 'member', updated_at = ?2 WHERE id = ?1")
 			.bind(me.id, iso(c.now)), // 번호도 비움 → 같은 번호로 다시 가입 가능
 		...['sessions', 'member_credentials', 'profiles', 'push_subscriptions', 'ride_logs', 'expense_logs', 'season_passes', 'snowlive_records', 'snowlive_links'].map(del),
 		db.prepare('INSERT INTO admin_logs (at, actor_id, action, target_id, detail) VALUES (?, ?, ?, ?, ?)').bind(iso(c.now), me.id, 'member.withdraw', me.id, '{}'),

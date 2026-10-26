@@ -353,14 +353,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						// 상태 변경: 운영진 이상 (관리자 계정은 관리자만 — 서버도 확인)
 						if (m.role !== 'admin' || role === 'admin') btns.append(button('상태 변경', () => changeStatus(m)));
 						const pw = m.reset_pending ? '초기화 대기' : m.password_changed ? '설정함' : '첫 로그인 전';
-						// 로그인: 휴대폰(번호는 안 보임) / 번호를 아직 안 넣은 예전 회원은 fs_ 아이디. 비상 연락처는 '보기'를 눌러야 풀림(운영 기록)
+						// 로그인: 휴대폰 번호 등록 여부(번호는 안 보임). 비상 연락처는 '보기'를 눌러야 풀림(운영 기록)
 						const em = m.emergency
 							? button('보기', async () => {
 									const r = await api('admin.memberPhone', { id: m.id });
 									if (r) alert(`${m.name} 님 비상 연락처: ${phone(r.phone)}`);
 								})
 							: '-';
-						const row = tr([String(i + 1), m.name, m.has_phone ? '휴대폰' : m.login_id ?? '-', em, m.region, m.area, ROLE[m.role], statusBadge(m.status), when(m.last_login), pw, btns]);
+						const row = tr([String(i + 1), m.name, m.has_phone ? '휴대폰' : '-', em, m.region, m.area, ROLE[m.role], statusBadge(m.status), when(m.last_login), pw, btns]);
 						if (m.status !== 'active') row.className = 'off';
 						return row;
 					}),
@@ -378,7 +378,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const head = ['No', '로그인', '이름', '성별', '출생연도', '지역', '거주지', '비상 연락처', '메일', '권한', '상태', '가입일', '최근 로그인', '필수 동의', '선택 동의', '처리방침'];
 				const rows: Cell[][] = [
 					head,
-					...res.members.map((m: any, i: number) => [i + 1, m.has_phone ? '휴대폰' : m.login_id, m.name, m.gender, m.birth_year, m.region, m.area, phone(m.phone), m.email, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login), when(m.agreed_at), when(m.agreed_opt_at), m.policy].map((v) => (v == null ? '' : String(v)))),
+					...res.members.map((m: any, i: number) => [i + 1, m.has_phone ? '휴대폰' : '', m.name, m.gender, m.birth_year, m.region, m.area, phone(m.phone), m.email, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login), when(m.agreed_at), when(m.agreed_opt_at), m.policy].map((v) => (v == null ? '' : String(v)))),
 				];
 				const a = document.createElement('a');
 				a.href = URL.createObjectURL(xlsx(rows, { widths: [6, 10, 10, 6, 9, 12, 10, 15, 24, 10, 8, 12, 12, 17, 17, 11], sheet: '회원명부' }));

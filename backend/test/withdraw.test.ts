@@ -16,7 +16,7 @@ test('탈퇴', async () => {
 	assert.equal((await post({ action: 'withdraw', password: PASSWORD }, token)).ok, true);
 
 	const m = await env.DB.prepare("SELECT * FROM members WHERE id = 'm-kim'").first();
-	assert.deepEqual([m.status, m.name, m.login_id, m.phone_key, m.gender, m.birth_year, m.area], ['withdrawn', '탈퇴 회원', null, null, null, null, '']);
+	assert.deepEqual([m.status, m.name, m.login_key, m.gender, m.birth_year, m.area], ['withdrawn', '탈퇴 회원', null, null, null, '']);
 	for (const t of ['sessions', 'member_credentials', 'ride_logs']) assert.equal((await env.DB.prepare(`SELECT count(*) AS n FROM ${t} WHERE member_id = 'm-kim'`).first()).n, 0, t);
 	assert.equal((await post({ action: 'me' }, token)).expired, true);
 	assert.equal((await post({ action: 'login', loginId: '1111-2222', password: PASSWORD })).ok, false);

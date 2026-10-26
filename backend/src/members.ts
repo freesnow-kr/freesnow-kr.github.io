@@ -27,8 +27,8 @@ export async function signup(c: Ctx) {
 	const weak = weakReason(pw, phone, c.env.RESET_PASSWORD);
 	if (weak) return { ok: false, error: weak };
 	if (!(year >= 1930 && year <= c.now.getFullYear())) return { ok: false, error: '출생연도를 골라 주세요.' };
-	// 만 19세 이상만 (사용자 요구 2026-10-26, 동호회 규칙 — 법의 만 14세보다 높음): 올해-20년 이전 출생만 (생일 전이어도 19세 이상). 화면 고르기 칸도 같은 범위라 따로 체크받지 않음
-	if (year > c.now.getFullYear() - 20) return { ok: false, error: '만 19세 이상만 가입할 수 있어요.' };
+	// 19세 이상만 (사용자 요구 2026-10-26, 동호회 규칙): 연 나이 기준 — 올해 19세가 되는 해(올해-19년생)부터. 화면 고르기 칸도 같은 범위라 따로 체크받지 않음
+	if (year > c.now.getFullYear() - 19) return { ok: false, error: `${c.now.getFullYear() - 19}년생부터 가입할 수 있어요.` };
 
 	const key = await phoneKey(c.env.PHONE_KEY, phone);
 	const n = await db.prepare(

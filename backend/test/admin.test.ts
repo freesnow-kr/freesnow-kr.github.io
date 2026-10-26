@@ -21,7 +21,7 @@ const form = { action: 'signup', phone: '4444-5555', password: 'snow-board-1', n
 
 test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저장 안 함, 응답엔 아무 데이터 없음, 번호는 HMAC, 암호문으로만', async () => {
 	assert.match((await post({ ...form, agree: false })).error, /동의/);
-	assert.match((await post({ ...form, year: String(new Date().getFullYear() - 19) })).error, /19세/); // 올해-19년생은 생일 전이면 18세
+	assert.match((await post({ ...form, year: String(new Date().getFullYear() - 18) })).error, /년생부터/); // 연 나이 19세(올해-19년생)부터
 	assert.match((await post({ ...form, gender: '' })).error, /성별/);
 	assert.match((await post({ ...form, phone: '1234' })).error, /휴대폰/);
 	assert.match((await post({ ...form, password: 'short' })).error, /8자/);
@@ -29,7 +29,7 @@ test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저�
 	assert.match((await post({ ...form, year: '1800' })).error, /출생연도/);
 	assert.match((await post({ ...form, year: '' })).error, /출생연도/); // 필수
 	assert.match((await post({ ...form, phone: '010-1111-0000' })).error, /이미/); // 회원 번호
-	const { status, cors, ...r } = await post(form);
+	const { status, cors, ...r } = await post({ ...form, year: String(new Date().getFullYear() - 19) }); // 올해 19세가 되는 해(2026년이면 2007년생)부터 됨
 	assert.deepEqual(r, { ok: true });
 	assert.match((await post(form)).error, /이미/); // 대기 중 신청도
 	assert.equal((await post({ ...form, phone: '4444-5556', agreeOpt: false })).ok, true); // 선택 동의 안 하면 지역, 비상 연락처는 안 받음
@@ -39,18 +39,18 @@ test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저�
 	assert.equal(/snow-board-1|44445555/.test(rows), false); // 비밀번호, 번호 원문 없음
 	// 동의 기록: 시각, 선택 동의, 처리방침 시행일
 	const consent = await env.DB.prepare("SELECT agreed_at IS NOT NULL AS req, agreed_opt_at IS NOT NULL AS opt, policy, birth_year, sido, phone_enc IS NOT NULL AS em FROM signup_requests ORDER BY id").all();
-	assert.deepEqual(consent.results.map((x: any) => [x.req, x.opt, x.policy, x.birth_year, x.sido, x.em]), [[1, 1, '2026-10-26', 1998, '경기도', 1], [1, 0, '2026-10-26', 1998, '', 0]]);
+	assert.deepEqual(consent.results.map((x: any) => [x.req, x.opt, x.policy, x.birth_year, x.sido, x.em]), [[1, 1, '2026-10-26', new Date().getFullYear() - 19, '경기도', 1], [1, 0, '2026-10-26', 1998, '', 0]]);
 });
 
 test('승인: 운영진만, 신청 때 정한 번호, 비밀번호로 바로 로그인, 기록 남음', async () => {
 	assert.match((await post({ action: 'admin.signups' }, M)).error, /권한/);
 	const list = (await post({ action: 'admin.signups' }, S)).signups;
-	assert.deepEqual(list.map((x: any) => [x.birth_year, x.same_name, x.emergency]), [[1998, 1, 1], [1998, 1, 0]]); // 같은 이름 신청이 하나 더
+	assert.deepEqual(list.map((x: any) => [x.birth_year, x.same_name, x.emergency]), [[new Date().getFullYear() - 19, 1, 1], [1998, 1, 0]]); // 같은 이름 신청이 하나 더
 	assert.equal(/pw_|login_key|4444/.test(JSON.stringify(list)), false);
 	const r = await post({ action: 'admin.signupDecide', id: list[0].id, approve: true }, S);
 	assert.equal(r.ok, true);
 	const m = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(r.memberId).first();
-	assert.deepEqual([m.name, m.gender, m.region, m.area, m.birth_year, m.role, m.policy, !!m.agreed_at, !!m.agreed_opt_at, !!m.login_key, !!m.phone_enc], ['새회원', '여', '경기북부', '의정부', 1998, 'member', '2026-10-26', true, true, true, true]);
+	assert.deepEqual([m.name, m.gender, m.region, m.area, m.birth_year, m.role, m.policy, !!m.agreed_at, !!m.agreed_opt_at, !!m.login_key, !!m.phone_enc], ['새회원', '여', '경기북부', '의정부', new Date().getFullYear() - 19, 'member', '2026-10-26', true, true, true, true]);
 	assert.equal((await post({ action: 'admin.signupDecide', id: list[0].id, approve: true }, S)).ok, false);
 	const s = await post({ action: 'login', loginId: '44445555', password: 'snow-board-1' });
 	assert.equal(s.ok, true);
@@ -213,5 +213,5 @@ test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 �
 test('동의 문구: 지금 처리방침 시행일(POLICY_VERSION)의 문구가 consent_terms에 다 있음 (문구를 바꾸면 새 version 줄을 더할 것)', async () => {
 	const { POLICY_VERSION } = await import('../src/lib.ts');
 	const types = (await env.DB.prepare('SELECT type FROM consent_terms WHERE version = ? AND is_active = 1').bind(POLICY_VERSION).all()).results.map((r: any) => r.type).sort();
-	assert.deepEqual(types, ['emergency', 'notice', 'optional', 'policy', 'required', 'warning']); // 나이(만 19세 이상)는 출생연도로 (0021)
+	assert.deepEqual(types, ['emergency', 'notice', 'optional', 'policy', 'required', 'warning']); // 나이(19세 이상)는 출생연도로 (0021)
 });

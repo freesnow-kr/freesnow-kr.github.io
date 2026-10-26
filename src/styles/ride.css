@@ -393,7 +393,7 @@ a {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr); /* 긴 제목이 칸을 넓히지 않고 … 으로 줄게 */
 	flex: 1;
-	gap: 6px;
+	gap: 0;
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -404,6 +404,11 @@ a {
 	gap: 12px;
 	align-items: baseline;
 	min-width: 0;
+	padding: 7px 0;
+}
+/* 공지끼리 밝은 회색 줄로 구분 (사용자 요구 2026-10-26) */
+.notice-list li + li {
+	border-top: 1px solid #ebe8e2;
 }
 .notice-list a {
 	min-width: 0;

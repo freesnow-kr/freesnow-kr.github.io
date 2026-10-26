@@ -34,6 +34,9 @@ test('비회원은 공지만 보고, 회원은 다 봄, 고정이 위로', async
 	assert.deepEqual(pub.posts.map((p: any) => p.id), [notice]);
 	assert.equal((await post({ action: 'board.get', id: free })).needLogin, true);
 	assert.equal((await post({ action: 'board.get', id: notice })).post.body, '첫 줄\n둘째 줄');
+	assert.equal((await post({ action: 'board.get', id: notice })).post.author, '운*진'); // 비회원에겐 가린 이름
+	assert.equal(pub.posts[0].author, '운*진');
+	assert.equal((await post({ action: 'board.get', id: notice }, A)).post.author, '영진'); // 회원에겐 성 뺀 이름
 	const all = await post({ action: 'board.list' }, B);
 	assert.deepEqual(all.posts.map((p: any) => p.id), [notice, free]);
 	assert.deepEqual((await post({ action: 'board.list', category: 'free' }, B)).posts.map((p: any) => p.id), [free]);
@@ -60,7 +63,7 @@ test('댓글, 좋아요: 회원만, 좋아요는 다시 누르면 취소, 댓글
 	assert.deepEqual([r.likes, r.liked], [1, false]);
 	r = await post({ action: 'board.comment', postId: free, body: '좋네요' }, B);
 	const cid = r.post.comments[0].id;
-	assert.deepEqual([r.post.comments[0].author, r.post.comments[0].mine], ['회원B', true]);
+	assert.deepEqual([r.post.comments[0].author, r.post.comments[0].mine], ['원B', true]); // 회원끼리는 성 뺀 이름
 	assert.match((await post({ action: 'board.commentDelete', id: cid }, A)).error, /내 댓글/);
 	r = await post({ action: 'board.commentDelete', id: cid }, S);
 	assert.equal(r.post.comments.length, 0);

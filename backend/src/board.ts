@@ -3,7 +3,7 @@
 // 고치기는 쓴 사람만, 지우기는 쓴 사람, 운영진 (소프트 삭제). 사진은 R2 board/{글}/{사진}.jpg
 import type { Ctx, Env } from './index.ts';
 import { need, Reply, type Me } from './auth.ts';
-import { hmac, iso, randomToken } from './lib.ts';
+import { givenName, hmac, iso, maskName, randomToken } from './lib.ts';
 
 const CATS = ['notice', 'review', 'greeting', 'free'] as const;
 const PAGE = 30;
@@ -33,6 +33,9 @@ async function activePost(c: Ctx, id: unknown) {
 	return p;
 }
 
+// 글쓴이 이름 (사용자 요구 2026-10-26): 회원끼리는 성 뺀 이름(길동), 비회원(공지, 메인 NOTICE 줄)에겐 가린 이름(홍*동)
+const shownName = (me: unknown, name: string) => (me ? givenName(name) : maskName(name));
+
 // {category?, page?, pinned?} → {posts: [{id, category, title, author, pinned, created_at, comments, likes, photos}], more, member, staff}
 export async function list(c: Ctx) {
 	const me = await viewer(c);
@@ -52,7 +55,7 @@ export async function list(c: Ctx) {
 		 FROM board_posts p JOIN members m ON m.id = p.author_id
 		 WHERE ${where.join(' AND ')} ORDER BY p.pinned DESC, p.created_at DESC LIMIT ? OFFSET ?`,
 	).bind(...args, PAGE + 1, (page - 1) * PAGE).all();
-	return { ok: true, posts: results.slice(0, PAGE), more: results.length > PAGE, member: !!me, staff: isStaff(me) };
+	return { ok: true, posts: results.slice(0, PAGE).map((p: any) => ({ ...p, author: shownName(me, p.author) })), more: results.length > PAGE, member: !!me, staff: isStaff(me) };
 }
 
 // {id} → 글 + 사진 + 댓글 + 좋아요 (공지 아닌 글은 회원만)
@@ -74,10 +77,10 @@ export async function get(c: Ctx) {
 		staff: isStaff(me),
 		post: {
 			id: p.id, category: p.category, title: p.title, body: p.body, pinned: !!p.pinned, created_at: p.created_at, updated_at: p.updated_at,
-			author: (author.results[0] as any)?.name ?? '', mine, canDelete: mine || isStaff(me),
+			author: shownName(me, (author.results[0] as any)?.name ?? ''), mine, canDelete: mine || isStaff(me),
 			likes: (likes.results[0] as any).n, liked: !!(likes.results[0] as any).mine,
 			photos: await Promise.all(photos.results.map(async (x: any) => ({ id: x.id, url: await signedUrl(c, `board/${p.id}/${x.id}.jpg`) }))),
-			comments: comments.results.map((x: any) => ({ id: x.id, body: x.body, created_at: x.created_at, author: x.author, mine: x.author_id === me?.id, canDelete: x.author_id === me?.id || isStaff(me) })),
+			comments: comments.results.map((x: any) => ({ id: x.id, body: x.body, created_at: x.created_at, author: shownName(me, x.author), mine: x.author_id === me?.id, canDelete: x.author_id === me?.id || isStaff(me) })),
 		},
 	};
 }

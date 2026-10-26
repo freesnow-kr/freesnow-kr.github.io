@@ -10,6 +10,7 @@ function sheet() {
 	if (dlg) return dlg;
 	dlg = document.createElement('dialog');
 	dlg.className = 'picker';
+	dlg.tabIndex = -1; // 열 때 첫 항목 대신 창에 포커스 (첫 줄이 고른 것처럼 칠해지고 주황 테두리가 생기던 문제)
 	dlg.innerHTML = `<form method="dialog" class="picker-box"><p class="picker-title"></p><input class="picker-find" type="search" placeholder="찾기" autocomplete="off" /><ul class="picker-list"></ul><button class="picker-close" value="">닫기</button></form>`;
 	dlg.addEventListener('click', (e) => e.target === dlg && dlg!.close('')); // 바깥 누르면 닫기
 	document.body.append(dlg);
@@ -46,6 +47,7 @@ export function pick(title: string, opts: PickOpt[], search = opts.length > 12):
 	d.returnValue = '';
 	d.showModal();
 	if (search && matchMedia('(hover: hover)').matches) find.focus(); // 휴대폰에선 키보드가 목록을 가리지 않게 자동 포커스 안 함
+	else d.focus();
 	list.querySelector<HTMLElement>('.on')?.scrollIntoView({ block: 'center' }); // 지금 고른 것이 보이게
 	return new Promise((res) => d.addEventListener('close', () => res(d.returnValue || null), { once: true }));
 }

@@ -1,17 +1,17 @@
 -- 동의받는 내용(문구)을 시행일별로 보관 (사용자 요구 2026-10-26): 회원·신청의 policy(= lib.ts POLICY_VERSION)가 이 표의 version을 가리킴
 -- → 그 회원이 '어떤 문구'에 동의했는지 나중에도 확인 가능. 문구를 바꾸면 이 줄을 고치지 말고 새 version으로 줄을 더하고 POLICY_VERSION·privacy.astro 시행일도 같이
--- kind: age14(만 14세 확인) / required(필수 동의) / optional(선택 동의) / emergency(비상 연락처 사용 체크) / notice(가입 화면 수집·이용 안내 전체) / warning(허위 가입 안내) / policy(개인정보처리방침)
+-- type: age14(만 14세 확인) / required(필수 동의) / optional(선택 동의) / emergency(비상 연락처 사용 체크) / notice(가입 화면 수집·이용 안내 전체) / warning(허위 가입 안내) / policy(개인정보처리방침)
 CREATE TABLE consent_terms (
   id INTEGER PRIMARY KEY,
   version TEXT NOT NULL,                      -- 시행일 '2026-10-26'
-  kind TEXT NOT NULL,
+  type TEXT NOT NULL,
   required INTEGER NOT NULL CHECK (required IN (0, 1)),
   title TEXT NOT NULL,                        -- 체크박스·제목 문구 그대로
   body TEXT NOT NULL,                         -- 함께 보여 준 안내 문구 그대로 (없으면 '')
   is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
   created_at TEXT,
   updated_at TEXT,
-  UNIQUE (version, kind)
+  UNIQUE (version, type)
 );
 CREATE TRIGGER consent_terms_stamp_insert AFTER INSERT ON consent_terms WHEN NEW.created_at IS NULL OR NEW.updated_at IS NULL
 BEGIN
@@ -23,7 +23,7 @@ BEGIN
 END;
 
 -- 2026-10-26 가입 화면 (src/pages/signup.astro) 문구 그대로
-INSERT INTO consent_terms (version, kind, required, title, body) VALUES
+INSERT INTO consent_terms (version, type, required, title, body) VALUES
 ('2026-10-26', 'age14', 1, '만 14세 이상이에요 (필수)', ''),
 ('2026-10-26', 'required', 1, '필수 항목 수집·이용에 동의해요 (필수)',
  '필수 항목: 휴대폰 번호(아이디 — 알아볼 수 없게 바꿔서 저장), 비밀번호, 이름, 성별 — 회원 로그인, 중복 가입 방지, 출격·시즌방 명단, 정모 조 편성

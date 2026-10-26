@@ -77,14 +77,14 @@ test('출격: 시즌방과 따로, 취소해도 줄은 남김, 연락처 안 보
 	assert.ok(r.nights.some((n: any) => n.date === '2026-12-13' && n.name === '회원B'), '출격 취소해도 시즌방 기록은 그대로');
 });
 
-test('잘못된 날짜·시즌 거부', async () => {
+test('잘못된 날짜, 시즌 거부', async () => {
 	assert.equal((await room(A, { op: 'add', date: '2026-02-30' })).ok, false);
 	assert.equal((await room(A, { op: 'add', date: '내일' })).ok, false);
 	assert.equal((await room(A, { season: '2026' })).ok, false);
 	assert.equal((await rows()).length, 4);
 });
 
-test('마이페이지 이번 시즌 요약: 내 숙박·휴식·출격, 주주면 0원', async () => {
+test('마이페이지 이번 시즌 요약: 내 숙박, 휴식, 출격, 주주면 0원', async () => {
 	const now = new Date(), y = now.getFullYear() % 100;
 	const cur = now.getMonth() >= 6 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 	const day = `20${cur.slice(0, 2)}-12-01`;
@@ -141,7 +141,7 @@ test('강습 요청: 출격한 날만, 본인 요청만 보임, 출격 취소하
 });
 
 test('강습 알림 메일: 회원 정보에 메일이 있는 활동 운영진에게만, 새 요청일 때만 Gmail로 한 번, 구글 실패해도 요청은 저장', async () => {
-	// 메일은 운영진 화면 회원 수정으로 (검사·소문자)
+	// 메일은 운영진 화면 회원 수정으로 (검사, 소문자)
 	assert.match((await post({ action: 'admin.memberUpdate', id: 'm-s', email: '이상한주소' }, S)).error, /메일/);
 	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-s', email: 'Staff@X.com' }, S)).ok, true);
 	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-b', email: 'member@y.kr' }, S)).ok, true); // 일반 회원 → 안 받음
@@ -180,7 +180,7 @@ test('강습 알림 메일: 회원 정보에 메일이 있는 활동 운영진�
 		assert.equal(sent.length, 2);
 		assert.equal((await post({ action: 'admin.lessons', test: true }, S)).ok, true);
 		assert.equal(sent.length, 3);
-		// 정지된 운영진·메일 지운 운영진은 안 받음 → 받을 사람 없으면 안 보냄
+		// 정지된 운영진, 메일 지운 운영진은 안 받음 → 받을 사람 없으면 안 보냄
 		await post({ action: 'admin.memberUpdate', id: 'm-s', email: '' }, S);
 		assert.match((await post({ action: 'admin.lessons', test: true }, S)).error, /메일이 등록된 운영진이 없어요/);
 		await room(B, { op: 'remove', date: day, kind: '강습' });

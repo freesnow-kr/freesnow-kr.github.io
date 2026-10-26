@@ -19,7 +19,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 		<Meta title={`${club.name} — Ride Together`} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<!-- API(Worker)·사진(드라이브) 서버에 미리 연결 -->
+		<!-- API(Worker), 사진(드라이브) 서버에 미리 연결 -->
 		<link rel="preconnect" href="https://api.freesnow.workers.dev" crossorigin />
 		<link rel="preconnect" href="https://lh3.googleusercontent.com" />
 		<link
@@ -201,7 +201,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 				const state = left <= 0 ? 'full' : left <= 2 ? 'soon' : '';
 				const head = el('div', 'att-head');
 				head.append(el('span', 'att-num', m.cap ? `${m.count} / ${m.cap}명` : `${m.count}명 참석`));
-				if (m.cap) head.append(el('span', `att-left ${state}`, state === 'full' ? '마감' : state === 'soon' ? `마감 임박 · ${left}자리 남음` : `${left}자리 남음`));
+				if (m.cap) head.append(el('span', `att-left ${state}`, state === 'full' ? '마감' : state === 'soon' ? `마감 임박 | ${left}자리 남음` : `${left}자리 남음`));
 				wrap.append(head);
 				if (m.cap) {
 					const b = el('div', `att-bar ${state}`);
@@ -232,7 +232,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 					if (m.fee) main.append(el('p', 'trip-fee', m.fee));
 					const box = el('div', 'trip-rsvp');
 					const full = m.cap != null && m.count != null && m.count >= m.cap;
-					const go = el('a', full ? 'btn-rsvp is-full' : 'btn-rsvp go', full ? '마감 · 소모임 보기 ↗' : '소모임에서 참석 ↗');
+					const go = el('a', full ? 'btn-rsvp is-full' : 'btn-rsvp go', full ? '마감 | 소모임 보기 ↗' : '소모임에서 참석 ↗');
 					go.href = res.url;
 					go.target = '_blank';
 					go.rel = 'noopener';

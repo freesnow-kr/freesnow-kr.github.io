@@ -1,4 +1,4 @@
-// 게시판: 공지는 누구나·운영진만 씀, 나머지는 회원만, 고치기는 쓴 사람, 지우기는 쓴 사람·운영진, 사진·댓글·좋아요
+// 게시판: 공지는 누구나, 운영진만 씀, 나머지는 회원만, 고치기는 쓴 사람, 지우기는 쓴 사람, 운영진, 사진, 댓글, 좋아요
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../src/index.ts';
@@ -41,7 +41,7 @@ test('비회원은 공지만 보고, 회원은 다 봄, 고정이 위로', async
 	assert.equal(JSON.stringify(all).includes('0101'), false, '연락처 안 보냄');
 });
 
-test('고치기는 쓴 사람만, 지우기는 쓴 사람·운영진 (소프트 삭제, 운영 기록)', async () => {
+test('고치기는 쓴 사람만, 지우기는 쓴 사람, 운영진 (소프트 삭제, 운영 기록)', async () => {
 	assert.match((await post({ action: 'board.write', id: free, category: 'free', title: '바꿈', body: '' }, B)).error, /내가 쓴/);
 	assert.equal((await post({ action: 'board.write', id: free, category: 'review', title: '후기로 바꿈', body: '좋았어요' }, A)).ok, true);
 	const x = await post({ action: 'board.write', category: 'free', title: '지울 글', body: '' }, B);
@@ -52,7 +52,7 @@ test('고치기는 쓴 사람만, 지우기는 쓴 사람·운영진 (소프트 
 	assert.equal((await post({ action: 'board.get', id: x.id }, A)).ok, false);
 });
 
-test('댓글·좋아요: 회원만, 좋아요는 다시 누르면 취소, 댓글 지우기는 쓴 사람·운영진', async () => {
+test('댓글, 좋아요: 회원만, 좋아요는 다시 누르면 취소, 댓글 지우기는 쓴 사람, 운영진', async () => {
 	assert.equal((await post({ action: 'board.like', postId: free })).expired, true);
 	assert.deepEqual(Object.values(await post({ action: 'board.like', postId: free }, B)).slice(2), [true, 1, true]);
 	await post({ action: 'board.like', postId: free }, A);

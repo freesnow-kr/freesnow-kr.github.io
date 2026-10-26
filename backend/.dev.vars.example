@@ -1,7 +1,7 @@
 # .dev.vars 로 복사 (로컬 wrangler dev 전용, gitignore). 배포 값은 `wrangler secret put 이름`
 RESET_PASSWORD=
 LOGIN_KEY_SECRET=
-# 휴대폰 번호 HMAC·비상 연락처 암호화 (openssl rand -base64 32). 실서버 값은 잃으면 복구 불가 → 따로 백업
+# 휴대폰 번호 HMAC, 비상 연락처 암호화 (openssl rand -base64 32). 실서버 값은 잃으면 복구 불가 → 따로 백업
 PHONE_KEY=
 SNOWLIVE_API=
 SOMOIM_URL=

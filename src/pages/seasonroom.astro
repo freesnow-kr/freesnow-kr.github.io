@@ -47,7 +47,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			<section class="mem-body">
 				<p class="mem-msg loading">불러오는 중…</p>
 				<div class="room" hidden>
-					<p class="room-hint">날짜를 누르면 그날 출격·시즌방을 쓴 사람이 보이고, 내 출격·숙박·4시간 휴식을 체크하거나 바꾸거나 취소할 수 있어요.<br />출격한 날엔 강습도 요청할 수 있어요.</p>
+					<p class="room-hint">날짜를 누르면 그날 출격, 시즌방을 쓴 사람이 보이고, 내 출격, 숙박, 4시간 휴식을 체크하거나 바꾸거나 취소할 수 있어요.<br />출격한 날엔 강습도 요청할 수 있어요.</p>
 
 					<!-- 넓은 화면: 달력 오른쪽에 고른 날 명단 (달력 높이만큼, 넘치면 안에서 스크롤) / 좁은 화면: 달력 아래 -->
 					<div class="room-main">
@@ -126,7 +126,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			const weekStart = (date: string) => shift(date, -new Date(`${date}T00:00`).getDay()); // 그 주 일요일
 
 			// 보기: 넓은 화면은 늘 한 달(사용자 요구 2026-10-23 — 옆 명단 칸 높이가 3주 달력에 안 맞아서).
-			// 좁은 화면(860px 이하, 명단이 달력 아래)만 기본 3주(지난주·이번 주·다음 주) + '한 달 보기' 버튼. 고른 보기는 이 브라우저에 기억
+			// 좁은 화면(860px 이하, 명단이 달력 아래)만 기본 3주(지난주, 이번 주, 다음 주) + '한 달 보기' 버튼. 고른 보기는 이 브라우저에 기억
 			const VIEW_KEY = 'fs-room-view';
 			const narrow = matchMedia('(max-width: 860px)');
 			const wanted = (): 'weeks' | 'month' => (narrow.matches && localStorage.getItem(VIEW_KEY) !== 'month' ? 'weeks' : 'month');
@@ -163,7 +163,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			}
 
 			const back = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
-			// 시즌방 API (op 있으면 체크·취소). 실패하면 null
+			// 시즌방 API (op 있으면 체크, 취소). 실패하면 null
 			async function room(season: string, body: object = {}) {
 				const res = await call({ action: 'seasonroom', token, season, ...body }).catch(() => null);
 				if (res?.expired) {
@@ -194,7 +194,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				(list.length ? list : [null]).map((n) => {
 					const li = document.createElement('li');
 					// 주주는 여기선 따로 안 적음 (정산표에만)
-					li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.kind === '휴식' ? ' · 4시간 휴식' : ''}${n.lesson ? ' · 강습 요청' : ''}` : '아직 아무도 없어요.';
+					li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.kind === '휴식' ? ' | 4시간 휴식' : ''}${n.lesson ? ' | 강습 요청' : ''}` : '아직 아무도 없어요.';
 					li.className = n?.me ? 'me' : n ? '' : 'empty';
 					return li;
 				});
@@ -539,5 +539,5 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		min-height: 44px;
 		padding: 0 16px;
 	}
-	/* 시즌방 사용 이력·정산은 운영진 화면(/admin '시즌방 정산'), 본인 것은 마이페이지 (사용자 요구 2026-10-23) */
+	/* 시즌방 사용 이력, 정산은 운영진 화면(/admin '시즌방 정산'), 본인 것은 마이페이지 (사용자 요구 2026-10-23) */
 </style>

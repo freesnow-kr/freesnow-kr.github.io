@@ -33,7 +33,7 @@ data/*.csv
 # 예전 Apps Script 서버 (2026-10-23 Cloudflare Worker로 옮김, 되돌릴 때만 씀 — 이 컴퓨터에만 보관)
 apps-script/
 
-# 시트 내보내기·이전 SQL (개인정보)
+# 시트 내보내기, 이전 SQL (개인정보)
 *.xlsx
 migration-*.sql
 

@@ -1,5 +1,5 @@
 // 앱 알림(웹 푸시) 서명 키 만들기 — 한 번만: cd backend && node scripts/vapid.mjs
-// P-256 개인키(JWK)를 만들어 Worker secret VAPID_JWK로 바로 넣음 (화면·파일에 안 남김). 공개키는 Worker가 push.key로 줌
+// P-256 개인키(JWK)를 만들어 Worker secret VAPID_JWK로 바로 넣음 (화면, 파일에 안 남김). 공개키는 Worker가 push.key로 줌
 // 다시 만들면 예전 구독은 전부 무효 → 운영진이 마이페이지에서 앱 알림을 다시 켜야 함
 import { execFileSync } from 'node:child_process';
 

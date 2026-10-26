@@ -1,6 +1,6 @@
-// 공용 선택 창 (사용자 요구 2026-10-26: 휴대폰에서 select·datalist가 불편 → 운영진 화면에서 만든 창을 모든 페이지 공통으로)
-// - pick(): 직접 불러 쓰는 창 (운영진 화면의 회원 고르기·⋯ 메뉴 등). 휴대폰은 아래에서 올라오는 시트, 넓으면 가운데 창
-// - 터치 기기(휴대폰·태블릿)에서는 모든 <select>를 누르면 기본 휠 대신 이 창 → 고르면 select 값을 바꾸고 change 이벤트
+// 공용 선택 창 (사용자 요구 2026-10-26: 휴대폰에서 select, datalist가 불편 → 운영진 화면에서 만든 창을 모든 페이지 공통으로)
+// - pick(): 직접 불러 쓰는 창 (운영진 화면의 회원 고르기, ⋯ 메뉴 등). 휴대폰은 아래에서 올라오는 시트, 넓으면 가운데 창
+// - 터치 기기(휴대폰, 태블릿)에서는 모든 <select>를 누르면 기본 휠 대신 이 창 → 고르면 select 값을 바꾸고 change 이벤트
 //   (select는 그대로라 각 페이지 코드는 손댈 필요 없음. ride.css가 터치 기기에서 select를 눌러도 기본 창이 안 뜨게 pointer-events: none)
 //   마우스 화면은 기본 select 그대로. 스크린리더로 select를 직접 열면 기본 창(그대로 동작)
 export type PickOpt = { label: string; value: string; sub?: string; group?: string; selected?: boolean };
@@ -52,7 +52,7 @@ export function pick(title: string, opts: PickOpt[], search = opts.length > 12):
 	return new Promise((res) => d.addEventListener('close', () => res(d.returnValue || null), { once: true }));
 }
 
-// select → 선택 창 항목 (숨김·잠긴 선택지 빼고, 필수 칸의 빈 값 '시도' 같은 안내 줄도 뺌, optgroup은 소제목)
+// select → 선택 창 항목 (숨김, 잠긴 선택지 빼고, 필수 칸의 빈 값 '시도' 같은 안내 줄도 뺌, optgroup은 소제목)
 function optionsOf(s: HTMLSelectElement): PickOpt[] {
 	return [...s.options]
 		.filter((o) => !o.disabled && !o.hidden && !(s.required && o.value === ''))
@@ -72,7 +72,7 @@ const selectAt = (x: number, y: number) =>
 		const r = s.getBoundingClientRect();
 		return r.width > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 	});
-// 열기는 pointerup으로 (아이폰 Safari는 버튼·링크가 아닌 곳을 누르면 문서 전체 click이 안 오는 경우가 있어서).
+// 열기는 pointerup으로 (아이폰 Safari는 버튼, 링크가 아닌 곳을 누르면 문서 전체 click이 안 오는 경우가 있어서).
 // 화면을 밀어 스크롤하면 pointerup 대신 pointercancel이 와서 안 열림
 document.addEventListener('pointerup', async (e) => {
 	if (!touch.matches || e.pointerType === 'mouse' || dlg?.open) return;

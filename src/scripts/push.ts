@@ -1,4 +1,4 @@
-// 앱 알림(웹 푸시) 켜기·끄기 — 브라우저 쪽 (서버 backend/src/push.ts, 알림 띄우기 public/sw.js)
+// 앱 알림(웹 푸시) 켜기, 끄기 — 브라우저 쪽 (서버 backend/src/push.ts, 알림 띄우기 public/sw.js)
 // 아이폰은 홈 화면에 설치한 앱에서만 됨(애플 정책: iOS 16.4+, Safari 탭에선 PushManager가 없음)
 import { app, call, store } from './session';
 

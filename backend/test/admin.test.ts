@@ -19,7 +19,7 @@ useDb(
 );
 const form = { action: 'signup', phone: '4444-5555', password: 'snow-board-1', name: '새회원', gender: '여', agreeOpt: true, year: '1998', sido: '경기도', sigungu: '의정부시', emergency: true, agree: true, age14: true };
 
-test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저장 안 함, 응답엔 아무 데이터 없음, 번호는 HMAC·암호문으로만', async () => {
+test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저장 안 함, 응답엔 아무 데이터 없음, 번호는 HMAC, 암호문으로만', async () => {
 	assert.match((await post({ ...form, agree: false })).error, /동의/);
 	assert.match((await post({ ...form, age14: false })).error, /14세/);
 	assert.match((await post({ ...form, gender: '' })).error, /성별/);
@@ -31,17 +31,17 @@ test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저�
 	const { status, cors, ...r } = await post(form);
 	assert.deepEqual(r, { ok: true });
 	assert.match((await post(form)).error, /이미/); // 대기 중 신청도
-	assert.equal((await post({ ...form, phone: '4444-5556', agreeOpt: false })).ok, true); // 선택 동의 안 하면 출생연도·지역·비상 연락처는 안 받음
+	assert.equal((await post({ ...form, phone: '4444-5556', agreeOpt: false })).ok, true); // 선택 동의 안 하면 출생연도, 지역, 비상 연락처는 안 받음
 	await post({ ...form, phone: '9999-9999', website: 'spam' });
 	assert.equal((await env.DB.prepare('SELECT count(*) AS n FROM signup_requests').first()).n, 2);
 	const rows = JSON.stringify((await env.DB.prepare('SELECT * FROM signup_requests').all()).results);
-	assert.equal(/snow-board-1|44445555/.test(rows), false); // 비밀번호·번호 원문 없음
-	// 동의 기록: 시각·선택 동의·처리방침 시행일
+	assert.equal(/snow-board-1|44445555/.test(rows), false); // 비밀번호, 번호 원문 없음
+	// 동의 기록: 시각, 선택 동의, 처리방침 시행일
 	const consent = await env.DB.prepare("SELECT agreed_at IS NOT NULL AS req, agreed_opt_at IS NOT NULL AS opt, policy, birth_year, sido, phone_enc IS NOT NULL AS em FROM signup_requests ORDER BY id").all();
 	assert.deepEqual(consent.results.map((x: any) => [x.req, x.opt, x.policy, x.birth_year, x.sido, x.em]), [[1, 1, '2026-10-26', 1998, '경기도', 1], [1, 0, '2026-10-26', null, '', 0]]);
 });
 
-test('승인: 운영진만, 신청 때 정한 번호·비밀번호로 바로 로그인, 기록 남음', async () => {
+test('승인: 운영진만, 신청 때 정한 번호, 비밀번호로 바로 로그인, 기록 남음', async () => {
 	assert.match((await post({ action: 'admin.signups' }, M)).error, /권한/);
 	const list = (await post({ action: 'admin.signups' }, S)).signups;
 	assert.deepEqual(list.map((x: any) => [x.birth_year, x.same_name, x.emergency]), [[1998, 1, 1], [null, 1, 0]]); // 같은 이름 신청이 하나 더
@@ -71,7 +71,7 @@ test('승인: 운영진만, 신청 때 정한 번호·비밀번호로 바로 로
 	assert.equal((await env.DB.prepare('SELECT count(*) AS n FROM signup_requests').first()).n, 0);
 });
 
-test('회원 관리: 운영진은 정보 수정·상태 변경, 권한·관리자 계정은 관리자만, 정지하면 바로 로그아웃, 내 권한은 못 바꿈', async () => {
+test('회원 관리: 운영진은 정보 수정, 상태 변경, 권한, 관리자 계정은 관리자만, 정지하면 바로 로그아웃, 내 권한은 못 바꿈', async () => {
 	assert.equal((await post({ action: 'admin.members' }, M)).ok, false);
 	const all = (await post({ action: 'admin.members' }, S)).members;
 	assert.equal(all.length, 5);
@@ -160,7 +160,7 @@ test('갤러리: 공개 폴더 보기에서 사진만, 5분 캐시, 실패하면
 	globalThis.fetch = real;
 });
 
-test('조 편성: 운영진만, 행사 저장·목록·불러오기·고치기·지우기', async () => {
+test('조 편성: 운영진만, 행사 저장, 목록, 불러오기, 고치기, 지우기', async () => {
 	const data = { teams: [{ name: '1조' }, { name: '2조' }], people: [{ key: 'm:m-1', name: '회원일', team: 0 }, { key: 'g:1', name: '게스트', guest: true, team: 1 }], games: [{ name: '줄다리기', points: 10, winners: [0] }] };
 	assert.match((await post({ action: 'admin.teams.save', title: '체육대회', date: '2026-11-07', data }, M)).error ?? '', /권한|로그인/);
 	const id = (await post({ action: 'admin.teams.save', title: '  가을   체육대회 ', date: '2026-11-07', data }, S)).id;
@@ -189,7 +189,7 @@ test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 �
 	try {
 		const f = { ...form, name: '알림신청', phone: '7777-1234' };
 		assert.equal((await post(f)).ok, true);
-		await post({ ...f, phone: '7777-1235', website: 'spam' }); // 숨은 칸 → 저장·메일 없음
+		await post({ ...f, phone: '7777-1235', website: 'spam' }); // 숨은 칸 → 저장, 메일 없음
 		await post(f); // 중복 → 거부, 메일 없음
 		assert.equal(sent.length, 1);
 		const mime = new TextDecoder().decode(Uint8Array.from(atob(sent[0].raw.replace(/-/g, '+').replace(/_/g, '/')), (ch) => ch.charCodeAt(0)));
@@ -199,7 +199,7 @@ test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 �
 		const body = [...mime.matchAll(/base64\r\n\r\n([A-Za-z0-9+/=\r\n]+)/g)].map((m) => new TextDecoder().decode(Uint8Array.from(atob(m[1].replace(/\r\n/g, '')), (ch) => ch.charCodeAt(0)))).join('\n');
 		assert.match(body, /NEW<br>MEMBER\./);
 		assert.match(body, /지역: 경기도 의정부시/);
-		assert.equal(/7777|snow-board/.test(body), false); // 번호·비밀번호 X
+		assert.equal(/7777|snow-board/.test(body), false); // 번호, 비밀번호 X
 		// 구글 실패해도 신청은 저장
 		globalThis.fetch = (async () => new Response('no', { status: 500 })) as any;
 		assert.equal((await post({ ...f, phone: '7777-1236' })).ok, true);

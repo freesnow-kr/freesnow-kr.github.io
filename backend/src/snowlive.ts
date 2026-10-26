@@ -1,4 +1,4 @@
-// 스노우라이브 연동 — Apps Script snowlive와 같은 규칙·응답 (AGENTS.md 'SHRED LOG' 스노우라이브 연동)
+// 스노우라이브 연동 — Apps Script snowlive와 같은 규칙, 응답 (AGENTS.md 'SHRED LOG' 스노우라이브 연동)
 // {season: '25-26', op?: 'link'|'unlink'|'refresh', id?} → {ok, id, stats}. 공식 API 아님(앱이 쓰는 주소, 사용자 동의) — 주소는 secret SNOWLIVE_API
 // 저장된 것(snowlive_records)이 캐시 역할: 끝난 시즌(4/1 이후)은 다시 요청 안 함, 진행 중 시즌은 1시간 지나면 새로, 실패하면 저장된 것
 import type { Ctx } from './index.ts';

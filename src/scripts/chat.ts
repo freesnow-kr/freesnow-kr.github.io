@@ -32,7 +32,7 @@ export function parseChat(text: string): ChatStats {
 	return { from, to, ...rank(all), months: byMonth };
 }
 
-// 따옴표 안 쉼표·줄바꿈·"" 처리. 머리글이 탭으로 나뉘어 있으면 탭 구분
+// 따옴표 안 쉼표, 줄바꿈, "" 처리. 머리글이 탭으로 나뉘어 있으면 탭 구분
 function parseCsv(text: string): string[][] {
 	const sep = /^[^\n]*\t/.test(text) ? '\t' : ',';
 	const rows: string[][] = [];

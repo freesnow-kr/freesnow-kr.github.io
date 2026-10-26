@@ -76,7 +76,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
 				const e = document.createElement(tag);
 				if (cls) e.className = cls;
-				if (text) e.textContent = text; // 글·이름은 textContent로만 (HTML 주입 방지)
+				if (text) e.textContent = text; // 글, 이름은 textContent로만 (HTML 주입 방지)
 				return e;
 			};
 
@@ -106,7 +106,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					head.append(el('span', 'b-title', p.title));
 					if (p.photos) head.append(el('span', 'b-ico', '📷'));
 					if (p.comments) head.append(el('span', 'b-cnt', `[${p.comments}]`));
-					const meta = el('span', 'b-meta', `${p.author} · ${when(p.created_at)}${p.likes ? ` · ♥ ${p.likes}` : ''}`);
+					const meta = el('span', 'b-meta', `${p.author} | ${when(p.created_at)}${p.likes ? ` | ♥ ${p.likes}` : ''}`);
 					a.append(head, meta);
 					li.append(a);
 					list.append(li);
@@ -182,7 +182,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.b-list :global(li.pinned) {
 		background: #fff6f1;
 	}
-	/* 한 줄: 말머리·제목(남는 폭, 길면 …) | 오른쪽 글쓴이·날짜 */
+	/* 한 줄: 말머리, 제목(남는 폭, 길면 …) | 오른쪽 글쓴이, 날짜 */
 	.b-list :global(a) {
 		display: flex;
 		align-items: center;
@@ -235,7 +235,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
-	/* 휴대폰: 한 줄이면 제목이 거의 안 보여서 글쓴이·날짜는 제목 아래 */
+	/* 휴대폰: 한 줄이면 제목이 거의 안 보여서 글쓴이, 날짜는 제목 아래 */
 	@media (max-width: 560px) {
 		/* 말머리 버튼은 작게 — 보통 휴대폰(390px)에서 다섯 개가 한 줄 (사용자 요구 2026-10-26) */
 		.b-tabs {

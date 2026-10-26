@@ -1,4 +1,4 @@
-// 앱 알림(웹 푸시): 구독·해제, 운영진만 받음, 보낸 내용을 기기처럼 복호화해서 확인(RFC 8291), VAPID 서명 확인(RFC 8292), 만료 구독은 끔
+// 앱 알림(웹 푸시): 구독, 해제, 운영진만 받음, 보낸 내용을 기기처럼 복호화해서 확인(RFC 8291), VAPID 서명 확인(RFC 8292), 만료 구독은 끔
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { env, post, sessionFor, useDb } from './setup.ts';
@@ -41,7 +41,7 @@ async function decrypt(dev: Awaited<ReturnType<typeof device>>, body: Uint8Array
 	return JSON.parse(new TextDecoder().decode(plain.slice(0, -1)));
 }
 
-test('앱 알림: 구독 검사·해제, 운영진만 받음, 내용 복호화·VAPID 서명 확인, 410이면 구독 끔', async () => {
+test('앱 알림: 구독 검사, 해제, 운영진만 받음, 내용 복호화, VAPID 서명 확인, 410이면 구독 끔', async () => {
 	// VAPID 키 (테스트용)
 	const vk = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
 	const jwk = await crypto.subtle.exportKey('jwk', vk.privateKey);

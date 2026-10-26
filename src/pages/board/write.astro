@@ -87,7 +87,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
 				const e = document.createElement(tag);
 				if (cls) e.className = cls;
-				if (text) e.textContent = text; // 글·이름은 textContent로만 (HTML 주입 방지)
+				if (text) e.textContent = text; // 글, 이름은 textContent로만 (HTML 주입 방지)
 				return e;
 			};
 
@@ -210,7 +210,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 			if (!token) location.replace(`${loginUrl}?next=${encodeURIComponent(location.pathname + location.search)}`);
 			else {
-				// 운영진이면 공지·고정 보이게 (서버도 따로 확인)
+				// 운영진이면 공지, 고정 보이게 (서버도 따로 확인)
 				const me = await call({ action: 'me', token }).catch(() => null);
 				const staff = ['staff', 'admin'].includes(me?.me?.role);
 				if (!staff) form.querySelectorAll<HTMLElement>('.staff-only').forEach((x) => x.remove());

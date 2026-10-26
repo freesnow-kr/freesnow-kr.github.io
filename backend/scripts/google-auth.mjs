@@ -2,8 +2,8 @@
 //   1) 구글 클라우드 콘솔에서 OAuth 클라이언트(데스크톱 앱)를 만들고 backend/.dev.vars 에
 //      GOOGLE_CLIENT_ID=… / GOOGLE_CLIENT_SECRET=… 를 적음
 //   2) cd backend && node scripts/google-auth.mjs → 브라우저에서 허용
-//   → 세 값을 Worker secret으로 넣음 (화면·파일에 리프레시 토큰을 남기지 않음)
-// 권한은 drive.file(이 앱이 만든 폴더·파일만 — 다른 드라이브 파일은 못 봄) + gmail.send(메일 보내기만 — 받은 메일은 못 읽음)
+//   → 세 값을 Worker secret으로 넣음 (화면, 파일에 리프레시 토큰을 남기지 않음)
+// 권한은 drive.file(이 앱이 만든 폴더, 파일만 — 다른 드라이브 파일은 못 봄) + gmail.send(메일 보내기만 — 받은 메일은 못 읽음)
 // 구글 클라우드 콘솔에서 Gmail API를 '사용'으로 켜 둘 것
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';

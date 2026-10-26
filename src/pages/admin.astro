@@ -68,20 +68,20 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					</div>
 
 					<section class="panel" data-panel="signups">
-						<p class="hint">승인하면 회원이 되고, 휴대폰 번호(010 빼고)와 신청할 때 정한 비밀번호로 바로 로그인해요. 같은 번호는 가입 때 막아요. 번호는 화면에 안 보이니 이름·출생연도·지역을 오픈채팅과 맞춰 보고 승인해 주세요.</p>
+						<p class="hint">승인하면 회원이 되고, 휴대폰 번호(010 빼고)와 신청할 때 정한 비밀번호로 바로 로그인해요. 같은 번호는 가입 때 막아요. 번호는 화면에 안 보이니 이름, 출생연도, 지역을 오픈채팅과 맞춰 보고 승인해 주세요.</p>
 						<div class="scroll"><table><thead><tr><th>No</th><th>신청일</th><th>이름</th><th>성별</th><th>출생연도</th><th>지역</th><th>비상 연락처</th><th></th></tr></thead><tbody class="signup-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="members" hidden>
 						<div class="member-tools">
-							<input class="search" type="search" placeholder="이름·지역으로 찾기" />
+							<input class="search" type="search" placeholder="이름, 지역으로 찾기" />
 						</div>
 						<p class="hint">비밀번호 초기화(운영진 이상, 관리자 계정은 관리자만): 그 회원의 로그인이 모두 끊기고 72시간 동안 공용 초기화 비밀번호로만 들어올 수 있어요.</p>
 						<div class="scroll"><table><thead><tr><th>No</th><th>이름</th><th>비상 연락처</th><th>지역</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="room" hidden>
-						<p class="hint">모든 회원의 시즌방 사용 이력 (숙박 1박 10,000원 · 4시간 휴식 5,000원, 시즌방 주주는 0원). 회원 본인 것은 각자 마이페이지에서 봐요.</p>
+						<p class="hint">모든 회원의 시즌방 사용 이력 (숙박 1박 10,000원 | 4시간 휴식 5,000원, 시즌방 주주는 0원). 회원 본인 것은 각자 마이페이지에서 봐요.</p>
 						<div class="row room-pick"><select class="room-season"></select><select class="room-month"></select></div>
 						<div class="scroll"><table><thead><tr><th>No</th><th>날짜</th><th>이름</th><th>구분</th><th>금액</th></tr></thead><tbody class="room-rows"></tbody><tfoot><tr><th></th><th>합계</th><th></th><th class="room-sum"></th><th class="room-won"></th></tr></tfoot></table></div>
 					</section>
@@ -92,9 +92,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<p class="owner-msg" role="status"></p>
 					</section>
 
-					<!-- 조 편성: 정모·체육대회 때 임시로 조 짜 보기 (점수판은 사용자 요청으로 뺌), 저장은 선택 -->
+					<!-- 조 편성: 정모, 체육대회 때 임시로 조 짜 보기 (점수판은 사용자 요청으로 뺌), 저장은 선택 -->
 					<section class="panel" data-panel="teams" hidden>
-						<!-- 흐름(사용자 요구 2026-10-23): 행사 고르기 / + 새 행사 → 그때 이름·날짜·저장 줄과 편성 화면이 나옴 -->
+						<!-- 흐름(사용자 요구 2026-10-23): 행사 고르기 / + 새 행사 → 그때 이름, 날짜, 저장 줄과 편성 화면이 나옴 -->
 						<div class="tm-top">
 							<select class="tm-pick" aria-label="행사"></select>
 							<button class="btn-mini tm-new" type="button">+ 새 행사</button>
@@ -111,7 +111,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<!-- 시안 A: 왼쪽 명단 체크, 오른쪽에 바로 조 (단계 탭 없음) -->
 						<div class="tm-split" hidden>
 							<div class="tm-roster">
-								<input class="tm-find" type="search" placeholder="이름·지역 찾기" />
+								<input class="tm-find" type="search" placeholder="이름, 지역 찾기" />
 								<div class="tm-row">
 									<span class="tm-n"></span>
 									<button class="btn-mini tm-all" type="button">전체</button>
@@ -156,13 +156,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					</section>
 
 					<section class="panel" data-panel="photos" hidden>
-						<p class="hint">회원이 올린 사진은 Cloudflare에 원본으로 저장돼요. 이번·지난 시즌만 남기고, 그보다 오래된 시즌은 구글 드라이브 '프리스노우 시즌' 폴더로 옮겨요(매일 자동으로 조금씩, 아래 버튼으로 바로).</p>
+						<p class="hint">회원이 올린 사진은 Cloudflare에 원본으로 저장돼요. 이번, 지난 시즌만 남기고, 그보다 오래된 시즌은 구글 드라이브 '프리스노우 시즌' 폴더로 옮겨요(매일 자동으로 조금씩, 아래 버튼으로 바로).</p>
 						<p class="photo-ready hint"></p>
 						<div class="scroll"><table><thead><tr><th>시즌</th><th>Cloudflare</th><th>드라이브</th><th></th></tr></thead><tbody class="photo-rows"></tbody></table></div>
 						<p class="photo-msg" role="status"></p>
 					</section>
 
-					<!-- 강습 요청: 회원이 출격한 날 요청 → 운영진이 회원 중 한 명과 연결. 요청·연결은 운영진만 봄(요청한 회원은 자기 요청만) -->
+					<!-- 강습 요청: 회원이 출격한 날 요청 → 운영진이 회원 중 한 명과 연결. 요청, 연결은 운영진만 봄(요청한 회원은 자기 요청만) -->
 					<section class="panel" data-panel="lessons" hidden>
 						<p class="hint">새 요청이 들어오면 회원 정보에 메일이 있는 운영진에게 메일로 알려 드려요. 2주 전부터 앞으로의 요청이에요. '연결할 회원'을 눌러 고르면 바로 저장돼요(연결 해제도 거기서). 연결은 운영진만 보니까, 정해지면 두 회원에게 따로 연락해 주세요. 그날 출격하는 회원이 목록 위에 나와요.</p>
 						<div class="lesson-notify">
@@ -280,7 +280,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				b.addEventListener('click', onClick);
 				return b;
 			};
-			// 회원 고르기 버튼(강습 연결·주주 더하기): 누르면 선택 창. first는 위에 소제목과 함께(예: 그날 출격). value가 있으면 '연결 해제'도
+			// 회원 고르기 버튼(강습 연결, 주주 더하기): 누르면 선택 창. first는 위에 소제목과 함께(예: 그날 출격). value가 있으면 '연결 해제'도
 			function memberPicker(o: { list: any[]; first?: any[]; firstLabel?: string; value?: string | null; placeholder: string; label: string; onPick: (id: string | null) => void }) {
 				const all = [...(o.first ?? []), ...o.list];
 				const area = (m: any) => [m.region, m.area].filter(Boolean).join(' ');
@@ -400,7 +400,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				loadSummary();
 			});
 
-			// 수정 창: 운영진은 정보만, 마스터는 권한·상태도
+			// 수정 창: 운영진은 정보만, 마스터는 권한, 상태도
 			const dialog = $<HTMLDialogElement>('.edit');
 			const form = $<HTMLFormElement>('.edit-form');
 			let editing: any = null;
@@ -426,13 +426,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const roleNext = role === 'admin' ? newRole : editing.role;
 				if (roleNext !== editing.role) {
 					const r2 = await call({ action: 'admin.memberStatus', token, id: editing.id, role: roleNext, status }).catch(() => null);
-					if (!r2?.ok) return void ($('.edit-error').textContent = r2?.error ?? '권한·상태를 저장하지 못했어요.');
+					if (!r2?.ok) return void ($('.edit-error').textContent = r2?.error ?? '권한, 상태를 저장하지 못했어요.');
 				}
 				dialog.close();
 				loadMembers();
 			});
 
-			// 시즌방 주주 (사용자가 고른 시안 D): 이번·지난·지지난 시즌을 카드로 나란히, ✕로 빼고 '+ 주주 더하기'로 더함, 바로 저장
+			// 시즌방 주주 (사용자가 고른 시안 D): 이번, 지난, 지지난 시즌을 카드로 나란히, ✕로 빼고 '+ 주주 더하기'로 더함, 바로 저장
 			// 이번 시즌 카드엔 '지난 시즌 주주 그대로 가져오기'
 			const ownerSeasons = (() => {
 				const now = new Date();
@@ -567,8 +567,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				return true;
 			}
 			$('.tm-save').addEventListener('click', saveEvent);
-			// 엑셀 내려받기 (사용자 요구 2026-10-23): 저장 안 됐으면 먼저 저장. 첫 줄 조 이름, 아래로 이름 — 조장 '이름 (조장)' 주황·굵게, 운영진 파랑.
-			// 그 밖의 내용(제목·인원·색 설명 등)은 넣지 않음(사용자 요구). '같은 조 안 됨' 짝도 안 넣음
+			// 엑셀 내려받기 (사용자 요구 2026-10-23): 저장 안 됐으면 먼저 저장. 첫 줄 조 이름, 아래로 이름 — 조장 '이름 (조장)' 주황, 굵게, 운영진 파랑.
+			// 그 밖의 내용(제목, 인원, 색 설명 등)은 넣지 않음(사용자 요구). '같은 조 안 됨' 짝도 안 넣음
 			$('.tm-xlsx').addEventListener('click', async () => {
 				if ((!$('.tm-dirty').hidden || !ev!.id) && !(await saveEvent())) return;
 				const d = ev!.data;
@@ -613,7 +613,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				return s;
 			};
 
-			// 행사를 고르거나 새로 만들 때만 이름·날짜·저장 줄과 편성 화면
+			// 행사를 고르거나 새로 만들 때만 이름, 날짜, 저장 줄과 편성 화면
 			function drawEvent() {
 				for (const sel of ['.tm-meta', '.tm-split']) $(sel).hidden = !ev;
 				$('.tm-empty').hidden = !!ev;
@@ -665,7 +665,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						.map((p) => {
 							const t = document.createElement('span');
 							t.className = 'tm-chip on guest';
-							t.textContent = `${p.name}${p.gender ? ` · ${p.gender}` : ''} (게스트) `;
+							t.textContent = `${p.name}${p.gender ? ` | ${p.gender}` : ''} (게스트) `;
 							const x = document.createElement('button');
 							x.type = 'button';
 							x.textContent = '✕';
@@ -759,7 +759,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						const x = document.createElement('button');
 						x.type = 'button';
 						x.textContent = '✕';
-						x.ariaLabel = `${name(pair[0])}·${name(pair[1])} 풀기`;
+						x.ariaLabel = `${name(pair[0])}, ${name(pair[1])} 풀기`;
 						x.addEventListener('click', () => ((d.apart = d.apart!.filter((v) => v !== pair)), dirty(), drawSplit()));
 						t.append(x);
 						return t;
@@ -796,7 +796,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (lead && ti >= 0) setLeader(p, true);
 				dirty(), drawSplit();
 			}
-			// 끌어서 옮기기 (사용자 요구 2026-10-23, 지라 보드처럼): 포인터 이벤트라 마우스·터치 모두. 줄 복사본이 따라다니고, 놓은 곳의 조 카드로 옮김
+			// 끌어서 옮기기 (사용자 요구 2026-10-23, 지라 보드처럼): 포인터 이벤트라 마우스, 터치 모두. 줄 복사본이 따라다니고, 놓은 곳의 조 카드로 옮김
 			// e = 지금 포인터, (x0, y0) = 처음 누른 곳(잡은 위치 유지), grip = 포인터를 붙잡을 요소
 			function startDrag(e: PointerEvent, p: Person, row: HTMLElement, grip: HTMLElement, x0: number, y0: number) {
 				e.preventDefault();
@@ -836,7 +836,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (d.teams.length) $<HTMLInputElement>('.tm-count').value = String(d.teams.length);
 				const box = $('.tm-teams');
 				const waiting = d.people.filter((p) => p.team < 0 || p.team >= d.teams.length);
-				// 한 줄에 한 명: 성별 점 · 이름 · (조장/운영진/게스트 꼬리표)
+				// 한 줄에 한 명: 성별 점 | 이름 | (조장/운영진/게스트 꼬리표)
 				const row = (p: Person, ti: number) => {
 					const c = document.createElement('li');
 					c.className = 'tm-person' + (p.leader ? ' leader' : '');
@@ -844,7 +844,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					nm.textContent = p.name;
 					const tags = [p.leader && '조장', p.staff && '운영진', p.guest && '게스트'].filter(Boolean).map((t) => Object.assign(document.createElement('small'), { textContent: t as string }));
 					c.append(genderDot(p.gender), nm, ...tags);
-					// 오른쪽 ⋯ 메뉴: 조장 정하기·옮기기 (줄은 끌어서 옮기기에 씀)
+					// 오른쪽 ⋯ 메뉴: 조장 정하기, 옮기기 (줄은 끌어서 옮기기에 씀)
 					const mv = document.createElement('button');
 					mv.type = 'button';
 					mv.className = 'tm-menu';
@@ -907,7 +907,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					if (bad.length) {
 						const w = document.createElement('p');
 						w.className = 'tm-clash';
-						w.textContent = `같은 조 안 됨: ${bad.map((pair) => pair.map((k) => d.people.find((p) => p.key === k)!.name).join('·')).join(', ')}`;
+						w.textContent = `같은 조 안 됨: ${bad.map((pair) => pair.map((k) => d.people.find((p) => p.key === k)!.name).join(', ')).join(', ')}`;
 						c.append(w);
 					}
 					return c;
@@ -959,12 +959,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 								loadPhotos();
 							}, 'btn-mini ink')
 							: s >= res.keepFrom ? 'Cloudflare에 둠' : '';
-						return tr([s, x.r2 ? `${x.r2}장 · ${mb(x.bytes)}` : '-', x.drive ? `${x.drive}장` : '-', cell]);
+						return tr([s, x.r2 ? `${x.r2}장 | ${mb(x.bytes)}` : '-', x.drive ? `${x.drive}장` : '-', cell]);
 					}),
 				);
 			}
 
-			// 시즌방 정산: 시즌(7/1~6/30)을 한 번 받아 달(또는 시즌 전체)별로 사람마다 숙박·휴식·금액
+			// 시즌방 정산: 시즌(7/1~6/30)을 한 번 받아 달(또는 시즌 전체)별로 사람마다 숙박, 휴식, 금액
 			const roomSeason = $<HTMLSelectElement>('.room-season');
 			const roomMonth = $<HTMLSelectElement>('.room-month');
 			const roomCache: Record<string, any> = {};
@@ -998,11 +998,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					body.replaceChildren(
 						...rows.map((n: any, i: number) => {
 							const [y, m, d] = n.date.split('-').map(Number);
-							return tr([String(i + 1), `${m}.${d} (${WD[new Date(y, m - 1, d).getDay()]})`, `${n.name}${n.owner ? ' · 주주' : ''}`, n.kind === '휴식' ? '4시간 휴식' : '숙박', `${fee(n).toLocaleString()}원`]);
+							return tr([String(i + 1), `${m}.${d} (${WD[new Date(y, m - 1, d).getDay()]})`, `${n.name}${n.owner ? ' | 주주' : ''}`, n.kind === '휴식' ? '4시간 휴식' : '숙박', `${fee(n).toLocaleString()}원`]);
 						}),
 					);
 				const stays = rows.filter((n: any) => n.kind !== '휴식').length;
-				$('.room-sum').textContent = `숙박 ${stays}박 · 휴식 ${rows.length - stays}회`;
+				$('.room-sum').textContent = `숙박 ${stays}박 | 휴식 ${rows.length - stays}회`;
 				$('.room-won').textContent = `${rows.reduce((t: number, n: any) => t + fee(n), 0).toLocaleString()}원`;
 			}
 			roomSeason.addEventListener('change', () => (fillMonths(), loadRoom()));
@@ -1181,7 +1181,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.tabs button[hidden] {
 		display: none;
 	}
-	/* 작은 버튼과 입력·선택 칸은 같은 높이 (사용자 요구 2026-10-23: 높이가 달라 보기 안 좋음) */
+	/* 작은 버튼과 입력, 선택 칸은 같은 높이 (사용자 요구 2026-10-23: 높이가 달라 보기 안 좋음) */
 	.panel {
 		--ctl: 34px;
 		display: grid;
@@ -1354,7 +1354,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.status-form input {
 		accent-color: var(--black);
 	}
-	/* 회원 고르기 버튼·같은 조 안 됨 버튼 (누르면 공용 선택 창) */
+	/* 회원 고르기 버튼, 같은 조 안 됨 버튼 (누르면 공용 선택 창) */
 	.panel :global(.member-pick),
 	.panel :global(.tm-pickbtn) {
 		min-width: 0;

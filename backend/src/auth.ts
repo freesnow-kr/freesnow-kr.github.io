@@ -1,4 +1,4 @@
-// 로그인·세션·비밀번호·권한. 설계: docs/migration/02-design.md §3~4
+// 로그인, 세션, 비밀번호, 권한. 설계: docs/migration/02-design.md §3~4
 import type { Ctx } from './index.ts';
 import { photoUrl } from './members.ts';
 import { regionOf } from './region.ts';
@@ -12,7 +12,7 @@ const MAX_FAILS = 5; // 같은 아이디, 1시간
 const MAX_IP_FAILS = 30; // 같은 IP, 1시간
 const DUMMY_SALT = 'AAAAAAAAAAAAAAAAAAAAAA==';
 
-const FAIL = { ok: false, error: '아이디 또는 비밀번호가 맞지 않아요.' }; // 무엇이 틀렸는지·회원인지 구분 안 함
+const FAIL = { ok: false, error: '아이디 또는 비밀번호가 맞지 않아요.' }; // 무엇이 틀렸는지, 회원인지 구분 안 함
 const LOCKED = { ok: false, error: '시도 횟수를 넘었어요. 1시간 뒤에 다시 시도해 주세요.' };
 const EXPIRED = { ok: false, expired: true, error: '다시 로그인해 주세요.' };
 const MUST_CHANGE = { ok: false, mustChange: true, error: '새 비밀번호를 먼저 정해 주세요.' };
@@ -31,7 +31,7 @@ const RANK = { member: 0, master: 0, staff: 1, admin: 2 } as const;
 export type Role = keyof typeof RANK;
 export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; name: string; region: string; area: string; role: Role };
 
-// 세션 확인 + 회원 상태·권한은 매번 DB에서 (정지·권한 변경이 바로 반영). 토큰은 Authorization 헤더, 전환 기간엔 body.token도
+// 세션 확인 + 회원 상태, 권한은 매번 DB에서 (정지, 권한 변경이 바로 반영). 토큰은 Authorization 헤더, 전환 기간엔 body.token도
 export async function need(c: Ctx, role: Role = 'member', allowMustChange = false): Promise<Me> {
 	const token = /^Bearer (\S+)$/.exec(c.req.headers.get('Authorization') || '')?.[1] || String(c.body.token || '');
 	if (!token) throw new Reply(EXPIRED);
@@ -118,7 +118,7 @@ export async function logout(c: Ctx) {
 	return { ok: true };
 }
 
-// {current?, next} — 새 비밀번호 정하기 전 세션(첫 전환·초기화)이면 current 없이. 바꾸면 다른 기기 세션은 전부 끊음
+// {current?, next} — 새 비밀번호 정하기 전 세션(첫 전환, 초기화)이면 current 없이. 바꾸면 다른 기기 세션은 전부 끊음
 export async function password(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'member', true);
@@ -157,12 +157,12 @@ export async function renew(c: Ctx) {
 	return { ok: true };
 }
 
-// 본인 정보만 (성별·출생연도는 안 보냄)
+// 본인 정보만 (성별, 출생연도는 안 보냄)
 export async function me(c: Ctx) {
 	const me = await need(c);
 	const season = seasonOf(c.now);
 	const [from, to] = seasonRange(season);
-	// 마이페이지 '이번 시즌': 출격 체크·시즌방·정산·SHRED LOG·올린 사진 (내 것만)
+	// 마이페이지 '이번 시즌': 출격 체크, 시즌방, 정산, SHRED LOG, 올린 사진 (내 것만)
 	const s = await c.env.DB.prepare(
 		`SELECT (SELECT photo FROM profiles WHERE member_id = ?1 AND is_active = 1) AS photo,
 		        (SELECT count(*) FROM ride_checks WHERE member_id = ?1 AND is_active = 1 AND status = '출격' AND date BETWEEN ?2 AND ?3) AS rides,

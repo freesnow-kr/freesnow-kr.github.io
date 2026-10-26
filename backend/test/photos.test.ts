@@ -62,7 +62,7 @@ test('올리기: 회원만, 원본 그대로 R2, 찍은 날로 시즌, 이상한
 	idOld = (await send(B, new Date(now.getTime() - 2 * 365 * 864e5))).id;
 });
 
-test('목록: 찍은 날 최신순, 내 사진·운영진만 mine, 지우기는 올린 사람·운영진', async () => {
+test('목록: 찍은 날 최신순, 내 사진, 운영진만 mine, 지우기는 올린 사람, 운영진', async () => {
 	const list = (await post({ action: 'gallery', token: A })).photos.filter((p: any) => p.thumb);
 	assert.deepEqual(list.map((p: any) => p.id), [idA, idOld]);
 	assert.equal(list[0].mine, true);
@@ -72,7 +72,7 @@ test('목록: 찍은 날 최신순, 내 사진·운영진만 mine, 지우기는 
 	assert.match((await post({ action: 'photoDelete', id: idA }, B)).error, /내가 올린/);
 });
 
-test('보관: 이번·지난 시즌은 안 됨, 지난 시즌 원본을 드라이브 시즌 폴더로 → R2에서 지움, 주소는 드라이브로', async () => {
+test('보관: 이번, 지난 시즌은 안 됨, 지난 시즌 원본을 드라이브 시즌 폴더로 → R2에서 지움, 주소는 드라이브로', async () => {
 	assert.match((await post({ action: 'admin.photoArchive', season: cur }, S)).error, /남겨/);
 	assert.match((await post({ action: 'admin.photoArchive', season: old }, S)).error, /연결/);
 	Object.assign(env, { GOOGLE_CLIENT_ID: 'cid', GOOGLE_CLIENT_SECRET: 'cs', GOOGLE_REFRESH_TOKEN: 'rt' });

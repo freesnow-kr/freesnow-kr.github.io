@@ -107,7 +107,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				select.replaceChildren();
 				months.sort((a, b) => b.month.localeCompare(a.month)).forEach((m) => {
 					const end = new Date(Number(m.month.slice(0, 4)), Number(m.month.slice(5)), 0).getDate(); // 그 달 말일
-					views[m.month] = { ...m, meta: `${dot(m.month)}.01 ~ ${dot(m.month)}.${end} · 메시지 ${m.total.toLocaleString()}개` };
+					views[m.month] = { ...m, meta: `${dot(m.month)}.01 ~ ${dot(m.month)}.${end} | 메시지 ${m.total.toLocaleString()}개` };
 					select.add(new Option(monthLabel(m.month), m.month));
 				});
 				select.value = views[picked] ? picked : lastMonth;
@@ -177,7 +177,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		display: grid;
 		gap: 6px;
 	}
-	/* 화살표 모양은 ride.css 공통, 여기선 크기·글씨만 */
+	/* 화살표 모양은 ride.css 공통, 여기선 크기, 글씨만 */
 	.rank-month {
 		min-height: 44px;
 		padding: 0 34px 0 12px;

@@ -1,8 +1,8 @@
 // 운영진 화면(/admin) API. 권한은 전부 여기서 확인 (화면에서 메뉴를 숨기는 건 편의일 뿐)
-// staff(운영진): 가입 승인·거절, 회원 목록·정보 수정·상태(정지·탈퇴), 로그인 이력, 시즌방 주주, 채팅 랭킹 올리기
+// staff(운영진): 가입 승인, 거절, 회원 목록, 정보 수정, 상태(정지, 탈퇴), 로그인 이력, 시즌방 주주, 채팅 랭킹 올리기
 // staff는 비밀번호 초기화(auth.ts adminReset)도 — 관리자 계정은 관리자만
-// admin(관리자): + 정지·탈퇴·권한 변경(마스터 지정 포함), 운영 기록. master(마스터)는 명예 — 권한은 회원과 같음
-// 바꾸는 일은 전부 admin_logs (누가·언제·무엇을·전후 값)
+// admin(관리자): + 정지, 탈퇴, 권한 변경(마스터 지정 포함), 운영 기록. master(마스터)는 명예 — 권한은 회원과 같음
+// 바꾸는 일은 전부 admin_logs (누가, 언제, 무엇을, 전후 값)
 import { EMAIL, lessonMail, pendingLessons, sendMail, staffEmails } from './notify.ts';
 import type { Ctx } from './index.ts';
 import { need, Reply } from './auth.ts';
@@ -36,7 +36,7 @@ export async function summary(c: Ctx) {
 
 export async function signups(c: Ctx) {
 	await need(c, 'staff');
-	// sameName: 같은 이름의 회원·다른 대기 신청 수 (같은 번호는 가입 때 막지만, 다른 번호로 또 신청했는지는 운영진이 확인). 번호는 안 보냄
+	// sameName: 같은 이름의 회원, 다른 대기 신청 수 (같은 번호는 가입 때 막지만, 다른 번호로 또 신청했는지는 운영진이 확인). 번호는 안 보냄
 	const { results } = await c.env.DB.prepare(
 		`SELECT s.id, s.created_at, s.name, s.gender, s.birth_year, s.sido, s.area, s.phone_enc IS NOT NULL AS emergency, s.agreed_opt_at IS NOT NULL AS agreed_opt,
 		        (SELECT count(*) FROM members m WHERE m.name = s.name AND m.status != 'withdrawn') + (SELECT count(*) FROM signup_requests o WHERE o.name = s.name AND o.id != s.id AND o.status = 'pending' AND o.is_active = 1) AS same_name
@@ -45,7 +45,7 @@ export async function signups(c: Ctx) {
 	return { ok: true, signups: results };
 }
 
-// {id, approve: true|false} — 승인하면 회원으로, 승인·거절 모두 신청 줄은 삭제 (지역 = 신청한 시도를 짧게 — 경기는 북부·남부, 거주지는 시·군 뗀 값)
+// {id, approve: true|false} — 승인하면 회원으로, 승인, 거절 모두 신청 줄은 삭제 (지역 = 신청한 시도를 짧게 — 경기는 북부, 남부, 거주지는 시, 군 뗀 값)
 export async function signupDecide(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
@@ -73,7 +73,7 @@ export async function signupDecide(c: Ctx) {
 	return { ok: true, memberId };
 }
 
-// 회원명부: 운영진에게만, 개인정보 포함 (본인 확인·연락용). 최근 로그인 함께
+// 회원명부: 운영진에게만, 개인정보 포함 (본인 확인, 연락용). 최근 로그인 함께
 export async function members(c: Ctx) {
 	const me = await need(c, 'staff');
 	const { results } = await c.env.DB.prepare(
@@ -142,8 +142,8 @@ export async function memberPhone(c: Ctx) {
 	return { ok: true, phone: await openPhone(c.env.PHONE_KEY, m.phone_enc) };
 }
 
-// {id, status?, role?} — 상태(활동·정지·탈퇴)는 운영진 이상(관리자 계정은 관리자만, 사용자 요구 2026-10-23), 권한 변경은 관리자만
-// 정지·탈퇴면 세션 끊음. 기록은 그대로 둠(사용자 결정)
+// {id, status?, role?} — 상태(활동, 정지, 탈퇴)는 운영진 이상(관리자 계정은 관리자만, 사용자 요구 2026-10-23), 권한 변경은 관리자만
+// 정지, 탈퇴면 세션 끊음. 기록은 그대로 둠(사용자 결정)
 export async function memberStatus(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
@@ -153,7 +153,7 @@ export async function memberStatus(c: Ctx) {
 	const status = c.body.status ?? before.status, role = c.body.role ?? before.role;
 	if (me.role !== 'admin' && (role !== before.role || before.role === 'admin')) throw bad('권한 변경과 관리자 계정은 관리자만 바꿀 수 있어요.');
 	if (!['active', 'suspended', 'withdrawn'].includes(status) || !['member', 'master', 'staff', 'admin'].includes(role)) throw bad('값을 확인해 주세요.');
-	if (id === me.id && (status !== 'active' || role !== 'admin')) throw bad('내 계정의 권한·상태는 바꿀 수 없어요. 다른 관리자에게 부탁해 주세요.');
+	if (id === me.id && (status !== 'active' || role !== 'admin')) throw bad('내 계정의 권한, 상태는 바꿀 수 없어요. 다른 관리자에게 부탁해 주세요.');
 	const stmts = [db.prepare('UPDATE members SET status = ?, role = ?, updated_at = ? WHERE id = ?').bind(status, role, iso(c.now), id), log(c, me.id, 'member.status', id, { before, after: { status, role } })];
 	if (status !== 'active') stmts.push(db.prepare('UPDATE sessions SET revoked_at = ? WHERE member_id = ? AND revoked_at IS NULL').bind(iso(c.now), id));
 	await db.batch(stmts);
@@ -178,7 +178,7 @@ export async function audit(c: Ctx) {
 }
 
 // {test: true} 시험 메일. 응답 notify = 알림 받는 운영진 이름(회원 정보에 메일이 있는 활동 운영진)
-// 강습 요청 (운영진이 회원 중 한 명과 연결): 2주 전부터 앞으로의 요청, 연결 전 먼저·날짜 최신순. 연락처는 운영진 회원 화면과 같은 범위
+// 강습 요청 (운영진이 회원 중 한 명과 연결): 2주 전부터 앞으로의 요청, 연결 전 먼저, 날짜 최신순. 연락처는 운영진 회원 화면과 같은 범위
 // {memberId, date, teacherId?} 이면 연결(teacherId 비우면 연결 해제) 후 목록. riders = 그날 출격 체크한 회원 ID (연결 후보 먼저 보이게)
 export async function lessons(c: Ctx) {
 	const db = c.env.DB;

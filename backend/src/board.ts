@@ -1,6 +1,6 @@
-// 게시판 (사용자 요구 2026-10-23, 소모임 게시판처럼): 말머리 공지/모임후기/가입인사/자유 + 사진·댓글·좋아요
+// 게시판 (사용자 요구 2026-10-23, 소모임 게시판처럼): 말머리 공지/모임후기/가입인사/자유 + 사진, 댓글, 좋아요
 // 보기: 공지는 누구나, 나머지는 회원만. 쓰기: 공지는 운영진만, 나머지는 회원 누구나. 고정은 운영진만
-// 고치기는 쓴 사람만, 지우기는 쓴 사람·운영진 (소프트 삭제). 사진은 R2 board/{글}/{사진}.jpg
+// 고치기는 쓴 사람만, 지우기는 쓴 사람, 운영진 (소프트 삭제). 사진은 R2 board/{글}/{사진}.jpg
 import type { Ctx, Env } from './index.ts';
 import { need, Reply, type Me } from './auth.ts';
 import { hmac, iso, randomToken } from './lib.ts';
@@ -9,7 +9,7 @@ const CATS = ['notice', 'review', 'greeting', 'free'] as const;
 const PAGE = 30;
 const PHOTO_MAX = 4 * 1024 * 1024; // 브라우저가 1600px JPG로 줄여 보냄
 const PHOTOS_PER_POST = 10;
-// 스팸 막기 (사용자 요구 2026-10-23): 한 사람이 1시간에 글 10개·댓글 30개까지, 같은 제목 글 10분·같은 댓글 5분 안에 다시 못 씀
+// 스팸 막기 (사용자 요구 2026-10-23): 한 사람이 1시간에 글 10개, 댓글 30개까지, 같은 제목 글 10분, 같은 댓글 5분 안에 다시 못 씀
 const POSTS_PER_HOUR = 10;
 const COMMENTS_PER_HOUR = 30;
 const HOUR = 3600e3;
@@ -109,7 +109,7 @@ export async function write(c: Ctx) {
 	return { ok: true, id };
 }
 
-// {id} 쓴 사람·운영진. 남의 글을 운영진이 지우면 운영 기록
+// {id} 쓴 사람, 운영진. 남의 글을 운영진이 지우면 운영 기록
 export async function remove(c: Ctx) {
 	const me = await need(c);
 	const p = await activePost(c, c.body.id);
@@ -135,7 +135,7 @@ export async function comment(c: Ctx) {
 	return get({ ...c, body: { ...c.body, id: p.id } });
 }
 
-// {id} 내 댓글·운영진
+// {id} 내 댓글, 운영진
 export async function commentRemove(c: Ctx) {
 	const me = await need(c);
 	const x = await c.env.DB.prepare('SELECT id, post_id, author_id FROM board_comments WHERE id = ? AND is_active = 1').bind(String(c.body.id ?? '')).first<any>();
@@ -174,7 +174,7 @@ export async function uploadPhotos(req: Request, env: Env, now: Date) {
 	return { ok: true, count: ids.length };
 }
 
-// {id} 사진 빼기 — 글쓴이·운영진. 기록은 소프트 삭제, 파일은 지움
+// {id} 사진 빼기 — 글쓴이, 운영진. 기록은 소프트 삭제, 파일은 지움
 export async function photoRemove(c: Ctx) {
 	const me = await need(c);
 	const x = await c.env.DB.prepare('SELECT id, post_id, author_id FROM board_photos WHERE id = ? AND is_active = 1').bind(String(c.body.id ?? '')).first<any>();

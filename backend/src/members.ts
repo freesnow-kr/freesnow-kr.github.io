@@ -1,4 +1,4 @@
-// 회원가입 신청·프로필 사진 (Apps Script signup·avatar를 옮김). 신청은 signup_requests에 쌓이고 운영진이 /admin에서 승인
+// 회원가입 신청, 프로필 사진 (Apps Script signup, avatar를 옮김). 신청은 signup_requests에 쌓이고 운영진이 /admin에서 승인
 import type { Ctx, Env } from './index.ts';
 import { need, weakReason } from './auth.ts';
 import { iso, later, normPhone, PBKDF2_ITER, phoneKey, POLICY_VERSION, pbkdf2, randomB64, randomToken, safeEqual, sealPhone } from './lib.ts';
@@ -9,13 +9,13 @@ const SIGNUP_PER_HOUR = 30; // 전체 신청 시간당 상한 (스팸 방지)
 const PHOTO_MAX = 400_000; // base64 글자 수 (브라우저가 256px JPG로 줄여서 보냄 ≈ 20~60KB)
 
 // 응답은 {ok} / {ok:false, error}뿐. 숨은 칸(website)이 채워지면 저장 없이 ok
-// 받는 것(사용자 결정 2026-10-26): 휴대폰 번호(= 아이디, 010 빼고)·비밀번호·이름·성별 필수, 출생연도·시도·시군구·비상 연락처 사용 선택(선택 동의 한 번)
+// 받는 것(사용자 결정 2026-10-26): 휴대폰 번호(= 아이디, 010 빼고), 비밀번호, 이름, 성별 필수, 출생연도, 시도, 시군구, 비상 연락처 사용 선택(선택 동의 한 번)
 // 휴대폰 번호는 HMAC(login_key)만 저장, 선택 동의하면 비상 연락처로 암호문(phone_enc)도. 비밀번호는 해시 → 승인하면 그대로 로그인 비밀번호 (admin.signupDecide)
 export async function signup(c: Ctx) {
 	const db = c.env.DB;
 	const b = c.body;
 	if (b.website) return { ok: true };
-	if (b.agree !== true) return { ok: false, error: '필수 항목 수집·이용에 동의해 주세요.' };
+	if (b.agree !== true) return { ok: false, error: '필수 항목 수집, 이용에 동의해 주세요.' };
 	if (b.age14 !== true) return { ok: false, error: '만 14세 이상만 가입할 수 있어요.' };
 	const text = (v: unknown, max: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 	const opt = b.agreeOpt === true; // 선택 동의를 안 했으면 선택 항목은 받지 않음
@@ -45,7 +45,7 @@ export async function signup(c: Ctx) {
 	).bind(key, name, gender, year, sido, area, b.emergency === true && opt ? await sealPhone(c.env.PHONE_KEY, phone) : null,
 		await pbkdf2(pw, salt, PBKDF2_ITER), salt, PBKDF2_ITER, iso(c.now), opt ? iso(c.now) : null, POLICY_VERSION).run();
 	if (!r.meta.changes) return DUP;
-	// 운영진 메일·앱 알림: 이름/출생연도 두 자리/거주지 — 적은 것만 (번호는 안 넣음)
+	// 운영진 메일, 앱 알림: 이름/출생연도 두 자리/거주지 — 적은 것만 (번호는 안 넣음)
 	const who = [name, year ? String(year).slice(2) : '', area ? normArea(area) : ''].filter(Boolean).join('/');
 	await signupRequested(c.env, { name, gender, region: [sido, area].filter(Boolean).join(' '), who, at: c.now });
 	return { ok: true };
@@ -76,10 +76,10 @@ export async function avatar(c: Ctx) {
 	return { ok: true, photo: photoUrl(c, `r2:${key}`) };
 }
 
-// 회원 탈퇴 {password} (사용자 요구 2026-10-26, 구글 플레이 정책: 앱·웹에서 직접 계정 삭제)
+// 회원 탈퇴 {password} (사용자 요구 2026-10-26, 구글 플레이 정책: 앱, 웹에서 직접 계정 삭제)
 // 개인정보처리방침대로 개인정보는 지체 없이 지움 — 운영진이 '탈퇴'로 바꾸는 것(기록 그대로)과 다름:
-//   회원 줄은 다른 기록이 가리켜서 남기고 이름 '탈퇴 회원'·아이디 등은 비움, 개인 기록(SHRED LOG·스노우라이브·프로필 사진·알림 기기·비밀번호·세션)은 진짜 삭제
-//   게시글·댓글·갤러리 사진·출격·시즌방(정산) 기록은 남지만 '탈퇴 회원'으로만 보임
+//   회원 줄은 다른 기록이 가리켜서 남기고 이름 '탈퇴 회원', 아이디 등은 비움, 개인 기록(SHRED LOG, 스노우라이브, 프로필 사진, 알림 기기, 비밀번호, 세션)은 진짜 삭제
+//   게시글, 댓글, 갤러리 사진, 출격, 시즌방(정산) 기록은 남지만 '탈퇴 회원'으로만 보임
 export async function withdraw(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c);
@@ -98,7 +98,7 @@ export async function withdraw(c: Ctx) {
 	return { ok: true };
 }
 
-// DB의 사진 값 → 화면에 줄 값: 'r2:키'는 이 서버 주소로, 드라이브 ID·data URL은 그대로
+// DB의 사진 값 → 화면에 줄 값: 'r2:키'는 이 서버 주소로, 드라이브 ID, data URL은 그대로
 export const photoUrl = (c: Ctx, v: string | null | undefined) => (v?.startsWith('r2:') ? `${new URL(c.req.url).origin}/${v.slice(3)}` : (v ?? ''));
 
 // GET /profile/{회원ID}/{파일} — 프로필 사진 (바꿀 때마다 새 주소라 1년 캐시)

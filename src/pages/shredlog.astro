@@ -241,7 +241,7 @@ const pick = {
 				return `${String(s).padStart(2, '0')}-${String(s + 1).padStart(2, '0')}`;
 			};
 			const seasons = [...document.querySelectorAll<HTMLButtonElement>('[data-season]')].map((b) => b.dataset.season!);
-			// 시즌 오픈일 (이 날부터 자동 오픈). 전에는 'OPEN 날짜' 표시·안내 문구, 처음 열 때는 지난 시즌을 보여 줌. 기록은 오픈 전에도 남길 수 있음(시즌권 미리 산 것 등)
+			// 시즌 오픈일 (이 날부터 자동 오픈). 전에는 'OPEN 날짜' 표시, 안내 문구, 처음 열 때는 지난 시즌을 보여 줌. 기록은 오픈 전에도 남길 수 있음(시즌권 미리 산 것 등)
 			const SEASON_OPEN: Record<string, string> = { '26-27': '2026-11-28' };
 			const isOpen = (s: string) => !SEASON_OPEN[s] || today >= SEASON_OPEN[s];
 			const openLabel = (s: string) => SEASON_OPEN[s].slice(5).replace('-', '.'); // '11.28'
@@ -314,7 +314,7 @@ const pick = {
 					const pass = data.pass[season] ?? {};
 					$<HTMLInputElement>('[name=price]').value = pass.price ? String(pass.price) : '';
 					$<HTMLInputElement>('[name=day]').value = pass.day ? String(pass.day) : '';
-					$('.roi').textContent = '시즌권·일일권 가격을 넣고 계산하기를 눌러 주세요.';
+					$('.roi').textContent = '시즌권, 일일권 가격을 넣고 계산하기를 눌러 주세요.';
 				}
 
 				const vBody = $('.visit-table tbody');
@@ -368,7 +368,7 @@ const pick = {
 				}),
 			);
 
-			// 계산하기: 가격 저장 → 이 시즌 라이딩 수로 1회당 단가·본전 계산
+			// 계산하기: 가격 저장 → 이 시즌 라이딩 수로 1회당 단가, 본전 계산
 			const passForm = $<HTMLFormElement>('.pass-form');
 			passForm.addEventListener('submit', async (e) => {
 				e.preventDefault();
@@ -380,14 +380,14 @@ const pick = {
 				busy(passForm, false, '');
 				if (!ok) return;
 				const n = statsOf(s).rides;
-				let roi = `시즌권 ${won(next.price)} · 이 시즌 라이딩 0일 — 출격 기록(또는 스노우라이브 연결)이 생기면 1회당 단가를 계산할 수 있어요.`;
+				let roi = `시즌권 ${won(next.price)} | 이 시즌 라이딩 0일 — 출격 기록(또는 스노우라이브 연결)이 생기면 1회당 단가를 계산할 수 있어요.`;
 				if (n) {
 					roi = `라이딩 ${n}일 기준 1회 탑승당 실질 단가 ${won(next.price / n)}`;
 					if (next.day) {
 						const saved = next.day * n - next.price;
 						roi += saved >= 0
-							? ` · 일일권 ${n}회(${won(next.day * n)}) 대비 ${won(saved)} 절약 — 본전 돌파!`
-							: ` · 본전까지 ${Math.ceil(-saved / next.day)}회 더 (일일권 대비 ${won(-saved)} 남음)`;
+							? ` | 일일권 ${n}회(${won(next.day * n)}) 대비 ${won(saved)} 절약 — 본전 돌파!`
+							: ` | 본전까지 ${Math.ceil(-saved / next.day)}회 더 (일일권 대비 ${won(-saved)} 남음)`;
 					}
 				}
 				$('.roi').textContent = roi;
@@ -537,7 +537,7 @@ const pick = {
 						slMsg.textContent = r?.error ?? '스노우라이브에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
 						return;
 					}
-					if (body.op) Object.keys(slCache).forEach((k) => delete slCache[k]); // 연결·해제하면 다른 시즌도 다시
+					if (body.op) Object.keys(slCache).forEach((k) => delete slCache[k]); // 연결, 해제하면 다른 시즌도 다시
 					res = slCache[key] = { id: r.id, stats: r.stats };
 				}
 				if (key === season) showSnowlive(res.id, res.stats); // 그새 시즌을 바꿨으면 무시
@@ -551,12 +551,12 @@ const pick = {
 					slMsg.textContent = '스노우라이브 앱 > 내 프로필 > 공유 링크를 붙여 넣으면 시즌 라이딩 통계를 보여줘요.';
 					return render();
 				}
-				// 값은 textContent·속성으로만
+				// 값은 textContent, 속성으로만
 				const photo = $<HTMLImageElement>('.sl-photo');
 				photo.hidden = !st.photo;
 				if (st.photo) photo.src = st.photo;
 				$('.sl-name').textContent = st.name;
-				$('.sl-sub').textContent = [st.crew, st.resort, st.board].filter(Boolean).join(' · ');
+				$('.sl-sub').textContent = [st.crew, st.resort, st.board].filter(Boolean).join(' | ');
 				const tier = $('.sl-tier');
 				tier.hidden = !st.tier?.name;
 				if (st.tier) {
@@ -624,7 +624,7 @@ const pick = {
 				syncMsg.textContent = '로그인돼 있어서 기록이 내 계정에 저장돼요. 어느 기기에서든 불러올 수 있어요.';
 				const local = readLocal();
 				moveBtn.hidden = !(local.visits.length + local.expenses.length);
-				moveBtn.textContent = `이 브라우저에 있던 기록(출격 ${local.visits.length}개 · 지출 ${local.expenses.length}개)을 내 계정으로 옮기기`;
+				moveBtn.textContent = `이 브라우저에 있던 기록(출격 ${local.visits.length}개 | 지출 ${local.expenses.length}개)을 내 계정으로 옮기기`;
 			} else if (online) syncMsg.textContent = '기록을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.';
 		</script>
 	</body>
@@ -883,7 +883,7 @@ const pick = {
 		display: grid;
 		gap: 8px;
 	}
-	/* 저장 위치 안내: 표 왼쪽 아래 작은 글씨, 로그인·옮기기는 글자 링크 */
+	/* 저장 위치 안내: 표 왼쪽 아래 작은 글씨, 로그인, 옮기기는 글자 링크 */
 	.sync {
 		display: flex;
 		flex-wrap: wrap;

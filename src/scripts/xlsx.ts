@@ -1,6 +1,6 @@
-// 아주 작은 엑셀(.xlsx) 만들기 — 의존성 없이 브라우저에서 (사용자 요구 2026-10-23: 조 편성 내려받기에 조장·운영진 색이 필요해서 CSV 말고 xlsx)
-// 시트 하나, 글자 칸만(inline string), 칸마다 굵게·글자색·바탕색. 압축 없는 zip(store)이라 파일은 조금 크지만 수백 칸이면 몇 KB
-export type Cell = { v: string; bold?: boolean; color?: string; fill?: string } | string | null; // color·fill = 'RRGGBB'
+// 아주 작은 엑셀(.xlsx) 만들기 — 의존성 없이 브라우저에서 (사용자 요구 2026-10-23: 조 편성 내려받기에 조장, 운영진 색이 필요해서 CSV 말고 xlsx)
+// 시트 하나, 글자 칸만(inline string), 칸마다 굵게, 글자색, 바탕색. 압축 없는 zip(store)이라 파일은 조금 크지만 수백 칸이면 몇 KB
+export type Cell = { v: string; bold?: boolean; color?: string; fill?: string } | string | null; // color, fill = 'RRGGBB'
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const col = (i: number) => (i >= 26 ? String.fromCharCode(64 + Math.floor(i / 26)) : '') + String.fromCharCode(65 + (i % 26));

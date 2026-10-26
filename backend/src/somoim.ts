@@ -1,5 +1,5 @@
 // 소모임 정모 — Apps Script somoim과 같은 응답 {ok, url, meetups: [{title, date, time, start, place, fee, count, cap}]}
-// 공개 모임 페이지(secret SOMOIM_URL)를 1시간에 한 번만 읽고(D1 cache), 읽을 때마다 meetups 테이블에 이력 저장. 참석자 얼굴·이름은 안 가져옴
+// 공개 모임 페이지(secret SOMOIM_URL)를 1시간에 한 번만 읽고(D1 cache), 읽을 때마다 meetups 테이블에 이력 저장. 참석자 얼굴, 이름은 안 가져옴
 import type { Ctx } from './index.ts';
 import { iso, later } from './lib.ts';
 

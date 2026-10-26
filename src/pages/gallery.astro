@@ -17,7 +17,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		<Meta title={`${club.name} — Gallery`} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<!-- API(Worker)·사진(드라이브) 서버에 미리 연결 -->
+		<!-- API(Worker), 사진(드라이브) 서버에 미리 연결 -->
 		<link rel="preconnect" href="https://api.freesnow.workers.dev" crossorigin />
 		<link rel="preconnect" href="https://lh3.googleusercontent.com" />
 		<link
@@ -93,7 +93,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			let photos: Photo[] = [];
 			let at = 0;
 
-			// 파일 이름·설명은 textContent·속성으로만 넣음 (HTML 주입 방지)
+			// 파일 이름, 설명은 textContent, 속성으로만 넣음 (HTML 주입 방지)
 			function render(list: Photo[] | null) {
 				photos = list ?? [];
 				msg.textContent = !list ? '사진을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' : photos.length ? '' : '아직 사진이 없어요.';
@@ -152,7 +152,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				fetchPhotos();
 			});
 
-			// 올리기: 로그인한 회원. 원본 그대로 + 브라우저가 만든 1800px·720px JPG (화면에 빠르게 보이게)
+			// 올리기: 로그인한 회원. 원본 그대로 + 브라우저가 만든 1800px, 720px JPG (화면에 빠르게 보이게)
 			const token = store.get();
 			const upBtn = document.querySelector<HTMLElement>('.up-btn')!;
 			const upMsg = document.querySelector<HTMLElement>('.up-msg')!;

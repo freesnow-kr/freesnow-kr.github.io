@@ -1,4 +1,4 @@
-// 운영진 메일 알림 (사용자 요구 2026-10-23): 강습 요청·가입 신청이 들어오면 회원 정보에 메일이 있는 활동 운영진(staff·admin)에게만.
+// 운영진 메일 알림 (사용자 요구 2026-10-23): 강습 요청, 가입 신청이 들어오면 회원 정보에 메일이 있는 활동 운영진(staff, admin)에게만.
 // 보내는 계정 = 사진 보관용으로 연결한 동호회 구글 계정의 Gmail. 권한은 scripts/google-auth.mjs가 drive.file + gmail.send로 받음
 import type { Env } from './index.ts';
 import { accessToken } from './photos.ts';
@@ -7,7 +7,7 @@ import { pushStaff } from './push.ts';
 export const EMAIL = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
 const ADMIN_URL = 'https://freesnow-kr.github.io/admin/';
 
-// 알림 받을 운영진: 활동 중 + 운영진·관리자 + 메일 있음
+// 알림 받을 운영진: 활동 중 + 운영진, 관리자 + 메일 있음
 export async function staffEmails(env: Env) {
 	const { results } = await env.DB.prepare("SELECT name, email FROM members WHERE status = 'active' AND role IN ('staff', 'admin') AND email IS NOT NULL AND email != '' ORDER BY sort_no, name").all<{ name: string; email: string }>();
 	return results;
@@ -48,8 +48,8 @@ const dayOf = (date: string) => {
 	return `${date}(${'일월화수목금토'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})`; // 2026-10-29(목)
 };
 
-// 운영진 알림 메일 틀 (사용자가 고른 시안 A: 검정 머리 띠 FREE SNOW + 큰 영문 제목 + 정보 표 + 주황 버튼). 강습 요청·가입 신청이 같이 씀
-// 메일 앱은 웹폰트·<style>을 잘 안 지켜서 인라인 스타일 + 기본 글꼴. rows = [이름표, HTML 값, 글자 값]
+// 운영진 알림 메일 틀 (사용자가 고른 시안 A: 검정 머리 띠 FREE SNOW + 큰 영문 제목 + 정보 표 + 주황 버튼). 강습 요청, 가입 신청이 같이 씀
+// 메일 앱은 웹폰트, <style>을 잘 안 지켜서 인라인 스타일 + 기본 글꼴. rows = [이름표, HTML 값, 글자 값]
 function staffMail(v: { heading: string; lead: string; leadText: string; rows: [string, string, string][]; button: string; footer: string; test?: boolean }) {
 	const font = "-apple-system,'Apple SD Gothic Neo','Malgun Gothic',Arial,sans-serif";
 	const row = ([k, val]: [string, string, string], last: boolean) => {
@@ -61,7 +61,7 @@ function staffMail(v: { heading: string; lead: string; leadText: string; rows: [
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #d9d6cf;font-family:${font};color:#0b0d12;">
 <tr><td style="background:#0b0d12;padding:18px 24px;color:#ffffff;font:900 18px Arial,sans-serif;letter-spacing:2px;">FREE SNOW</td></tr>
 <tr><td style="padding:28px 24px 8px;">
-<div style="font:700 11px Arial,sans-serif;letter-spacing:3px;color:#ff5a1f;">STAFF ONLY${v.test ? ' · TEST' : ''}</div>
+<div style="font:700 11px Arial,sans-serif;letter-spacing:3px;color:#ff5a1f;">STAFF ONLY${v.test ? ' | TEST' : ''}</div>
 <div style="margin-top:6px;font:900 34px/1.05 Arial,sans-serif;letter-spacing:-1px;">${v.heading}</div>
 <p style="margin:16px 0 0;font-size:15px;line-height:1.6;">${v.lead}</p>
 </td></tr>
@@ -100,7 +100,7 @@ export function lessonMail(v: { name: string; date: string; riders: string[]; pe
 	};
 }
 
-// 가입 신청 메일 (사용자 요구 2026-10-23). 연락처·생년월일은 안 넣음(메일은 오래·넓게 남아서 — 승인할 때 운영진 화면에서)
+// 가입 신청 메일 (사용자 요구 2026-10-23). 연락처, 생년월일은 안 넣음(메일은 오래, 넓게 남아서 — 승인할 때 운영진 화면에서)
 export function signupMail(v: { name: string; gender: string; region: string; at: Date; pending: number }) {
 	const k = new Date(v.at.getTime() + 9 * 3600e3);
 	const day = dayOf(k.toISOString().slice(0, 10));
@@ -119,7 +119,7 @@ export function signupMail(v: { name: string; gender: string; region: string; at
 				['가입 대기', `<b style="color:#ff5a1f;">${v.pending}건</b> ${gray('(이 신청 포함)')}`, `${v.pending}건`],
 			],
 			button: '승인하러 가기',
-			footer: '연락처·생년월일은 운영진 화면에서 확인해 주세요. 메일이 등록된 운영진에게만 보내요.',
+			footer: '자세한 내용은 운영진 화면에서 확인해 주세요. 메일이 등록된 운영진에게만 보내요.',
 		}),
 	};
 }

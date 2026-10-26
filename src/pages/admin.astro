@@ -75,10 +75,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<section class="panel" data-panel="members" hidden>
 						<div class="member-tools">
 							<input class="search" type="search" placeholder="이름·지역으로 찾기" />
-							<button class="btn-mini ink member-export" type="button">엑셀 다운로드</button>
 						</div>
 						<p class="hint">비밀번호 초기화(운영진 이상, 관리자 계정은 관리자만): 그 회원의 로그인이 모두 끊기고 72시간 동안 공용 초기화 비밀번호로만 들어올 수 있어요.</p>
-						<div class="scroll"><table><thead><tr><th>No</th><th>이름</th><th>로그인</th><th>비상 연락처</th><th>지역</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
+						<div class="scroll"><table><thead><tr><th>No</th><th>이름</th><th>비상 연락처</th><th>지역</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="room" hidden>
@@ -239,6 +238,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			const token = store.get();
 			const back = `${loginUrl}?next=${encodeURIComponent(location.pathname)}`;
 			const ROLE: Record<string, string> = { member: '회원', master: '마스터', staff: '운영진', admin: '관리자' };
+			// 홍길동 → 홍*동, 두 글자는 홍* (backend lib.ts maskName과 같은 규칙)
+			const maskName = (name: string) => {
+				const c = [...name];
+				return c.length <= 1 ? name : c[0] + '*'.repeat(Math.max(1, c.length - 2)) + (c.length > 2 ? c.at(-1) : '');
+			};
 			const STATUS: Record<string, string> = { active: '활동', suspended: '정지', withdrawn: '탈퇴' };
 			const phone = (d: string | null) => (d?.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : d ?? ''); // 비상 연락처 (선택)
 			const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '-');
@@ -335,7 +339,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const q = $<HTMLInputElement>('.search').value.trim().replace(/-/g, '');
 				const list = members.filter((m) => !q || [m.name, m.region, m.area].join(' ').includes(q));
 				const body = $('.member-rows');
-				if (!list.length) return empty(body, 11, '없어요.');
+				if (!list.length) return empty(body, 10, '없어요.');
 				body.replaceChildren(
 					...list.map((m, i) => {
 						const btns = document.createElement('span');
@@ -353,39 +357,20 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						// 상태 변경: 운영진 이상 (관리자 계정은 관리자만 — 서버도 확인)
 						if (m.role !== 'admin' || role === 'admin') btns.append(button('상태 변경', () => changeStatus(m)));
 						const pw = m.reset_pending ? '초기화 대기' : m.password_changed ? '설정함' : '첫 로그인 전';
-						// 로그인: 휴대폰 번호 등록 여부(번호는 안 보임). 비상 연락처는 '보기'를 눌러야 풀림(운영 기록)
+						// 이름은 홍*동으로 가려서 (사용자 요구 2026-10-26 — 수정 창엔 고칠 수 있게 그대로). 비상 연락처는 '보기'를 눌러야 풀림(운영 기록)
 						const em = m.emergency
 							? button('보기', async () => {
 									const r = await api('admin.memberPhone', { id: m.id });
 									if (r) alert(`${m.name} 님 비상 연락처: ${phone(r.phone)}`);
 								})
 							: '-';
-						const row = tr([String(i + 1), m.name, m.has_phone ? '휴대폰' : '-', em, m.region, m.area, ROLE[m.role], statusBadge(m.status), when(m.last_login), pw, btns]);
+						const row = tr([String(i + 1), maskName(m.name), em, m.region, m.area, ROLE[m.role], statusBadge(m.status), when(m.last_login), pw, btns]);
 						if (m.status !== 'active') row.className = 'off';
 						return row;
 					}),
 				);
 			}
 			$('.search').addEventListener('input', drawMembers);
-
-			// TODO(2026-10-23, 사용자): 엑셀 양식(열 구성·순서·서식)은 나중에 다시 정하기로 함 — 지금은 임시 양식 (xlsx로는 바꿈)
-			// 회원 명부 내려받기: 엑셀 .xlsx (사용자 요구 2026-10-23, 예전엔 CSV — 꾸밈 없이). 칸은 모두 글자라 수식으로 안 읽힘. 동의 기록(필수·선택 동의 시각, 처리방침 시행일)도
-			// 서버에 export: true로 다시 받아서 운영 기록을 남김 (개인정보)
-			$('.member-export').addEventListener('click', async () => {
-				const res = await api('admin.members', { export: true });
-				if (!res) return;
-				const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('sv-SE') : '');
-				const head = ['No', '로그인', '이름', '성별', '출생연도', '지역', '거주지', '비상 연락처', '메일', '권한', '상태', '가입일', '최근 로그인', '필수 동의', '선택 동의', '처리방침'];
-				const rows: Cell[][] = [
-					head,
-					...res.members.map((m: any, i: number) => [i + 1, m.has_phone ? '휴대폰' : '', m.name, m.gender, m.birth_year, m.region, m.area, phone(m.phone), m.email, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login), when(m.agreed_at), when(m.agreed_opt_at), m.policy].map((v) => (v == null ? '' : String(v)))),
-				];
-				const a = document.createElement('a');
-				a.href = URL.createObjectURL(xlsx(rows, { widths: [6, 10, 10, 6, 9, 12, 10, 15, 24, 10, 8, 12, 12, 17, 17, 11], sheet: '회원명부' }));
-				a.download = `프리스노우_회원명부_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
-				a.click();
-				setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-			});
 
 			// 상태는 표에 글자(배지)로, 바꾸기는 '상태 변경' 버튼 → 작은 창에서 고르기
 			const statusBadge = (st: string) => {
@@ -1284,10 +1269,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	.member-tools .search {
 		flex: 1;
-	}
-	.member-tools .member-export {
-		min-height: 44px;
-		padding: 0 16px;
 	}
 	.search {
 		max-width: 360px;

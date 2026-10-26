@@ -77,17 +77,14 @@ export async function signupDecide(c: Ctx) {
 export async function members(c: Ctx) {
 	const me = await need(c, 'staff');
 	const { results } = await c.env.DB.prepare(
-		`SELECT m.id, m.name, m.gender, m.birth_year, m.region, m.area, m.login_key IS NOT NULL AS has_phone, m.phone_enc, m.email, m.role, m.status, m.joined_at, m.agreed_at, m.agreed_opt_at, m.policy,
+		`SELECT m.id, m.name, m.gender, m.birth_year, m.region, m.area, m.phone_enc, m.email, m.role, m.status, m.joined_at, m.agreed_at, m.agreed_opt_at, m.policy,
 		        (SELECT max(at) FROM login_logs l WHERE l.member_id = m.id AND l.ok = 1) AS last_login,
 		        c.member_id IS NOT NULL AND c.hash IS NULL AS reset_pending, c.changed_at AS password_changed
 		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1
 		 ORDER BY m.sort_no, m.name`,
 	).all();
-	// 비상 연락처는 목록엔 '있음'만, {export: true} 명부 내려받기 때만 풀어서 — 개인정보라 누가 언제 받았는지 운영 기록
-	const exp = c.body.export === true;
-	if (exp) await log(c, me.id, 'members.export', null, { count: results.length }).run();
-	const list = await Promise.all(results.map(async ({ phone_enc, ...m }: any) => ({ ...m, emergency: !!phone_enc, ...(exp && { phone: await openPhone(c.env.PHONE_KEY, phone_enc) }) })));
-	return { ok: true, role: me.role, members: list };
+	// 비상 연락처는 '있음'만 (풀어 보는 건 memberPhone — 운영 기록). 명부 엑셀 내려받기는 없앰 (사용자 요구 2026-10-26, 명부는 따로 관리)
+	return { ok: true, role: me.role, members: results.map(({ phone_enc, ...m }: any) => ({ ...m, emergency: !!phone_enc })) };
 }
 
 const FIELDS = ['name', 'gender', 'birth_year', 'region', 'area', 'email'] as const;

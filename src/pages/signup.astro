@@ -221,6 +221,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		display: flex;
 		flex-wrap: wrap;
 		gap: 8px 20px;
+		min-width: 0; /* fieldset은 기본이 '내용보다 안 좁아짐'이라 휴대폰에서 폼이 화면 밖으로 밀렸음 (2026-10-26) */
 		margin: 0;
 		padding: 0;
 		border: 0;
@@ -242,17 +243,23 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-weight: 400;
 	}
 	.signup select {
+		width: 100%;
+		min-width: 0;
 		padding-right: 38px; /* 화살표 자리 (모양은 ride.css 공통) */
 	}
+	.signup input {
+		min-width: 0;
+	}
+	/* minmax(0, …): 가장 긴 선택지('제주특별자치도' 등)가 칸을 넓히지 않게 */
 	.area {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 8px;
 		width: 100%;
 	}
 	.birth {
 		display: grid;
-		grid-template-columns: 1.2fr 1fr 1fr;
+		grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
 		gap: 8px;
 		width: 100%;
 	}

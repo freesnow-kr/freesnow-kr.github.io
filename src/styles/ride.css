@@ -999,3 +999,562 @@ a {
 .btn-line-dark.is-loading:disabled {
 	opacity: 0.85;
 }
+
+/* 공용 선택 창 (src/scripts/picker.ts — 모든 페이지, 터치 기기의 select도 이 창으로) */
+.picker {
+	width: min(420px, 92vw);
+	max-height: min(70vh, 640px);
+	padding: 0;
+	border: 1.5px solid var(--black);
+	border-radius: 14px;
+}
+.picker::backdrop {
+	background: rgb(0 0 0 / 0.4);
+}
+.picker-box {
+	display: grid;
+	grid-template-rows: auto auto minmax(0, 1fr) auto;
+	gap: 10px;
+	max-height: min(70vh, 640px);
+	padding: 18px;
+}
+.picker-title {
+	font-size: 16px;
+	font-weight: 900;
+}
+.picker-find {
+	min-height: 44px;
+	padding: 0 12px;
+	border: 1.5px solid var(--black);
+	border-radius: 8px;
+	font: inherit;
+	font-size: 16px; /* 16px 미만이면 아이폰이 화면을 확대함 */
+}
+.picker-list {
+	margin: 0;
+	padding: 0;
+	overflow-y: auto;
+	list-style: none;
+	overscroll-behavior: contain;
+}
+.picker-list button {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	min-height: 46px;
+	padding: 0 6px;
+	border: 0;
+	border-bottom: 1px solid var(--line);
+	background: none;
+	color: var(--black);
+	font: 400 15px 'Noto Sans KR', sans-serif;
+	text-align: left;
+	cursor: pointer;
+}
+.picker-list button:active,
+.picker-list button:focus-visible {
+	background: var(--bone);
+}
+.picker-list button small {
+	color: #8a8d95;
+	font-size: 12px;
+}
+.picker-list .picker-group {
+	padding: 12px 6px 4px;
+	color: var(--accent);
+	font-size: 12px;
+	font-weight: 700;
+}
+.picker-list .picker-empty {
+	padding: 16px 6px;
+	color: #8a8d95;
+}
+.picker-close {
+	justify-self: end;
+	min-height: 40px;
+	padding: 0 18px;
+	border: 1.5px solid var(--black);
+	background: var(--white);
+	color: var(--black);
+	font: 700 14px 'Noto Sans KR', sans-serif;
+	cursor: pointer;
+}
+/* 휴대폰: 아래에서 올라오는 시트 */
+@media (max-width: 560px) {
+	.picker {
+		width: 100%;
+		max-width: 100%;
+		margin: auto 0 0;
+		border-radius: 16px 16px 0 0;
+		border-width: 0;
+	}
+	.picker-box {
+		padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
+	}
+}
+.lesson-notify {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 12px;
+	border-radius: 12px;
+	background: var(--bone);
+}
+.notify-who {
+	flex: 1;
+	font-size: 13px;
+	font-weight: 700;
+}
+/* 칸 안 안내 글씨는 작게 (사용자 요구) */
+.panel ::placeholder {
+	font-size: 13px;
+}
+.notify-msg {
+	color: #4a4d55;
+	font-size: 13px;
+}
+/* 강습 요청: 아직 연결 안 한 줄은 주황 */
+.panel tr.todo td:first-child {
+	box-shadow: inset 3px 0 0 var(--accent);
+}
+/* 조 편성 */
+.tm-top,
+.tm-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+.tm-top .tm-pick {
+	min-width: 260px;
+}
+.tm-dirty {
+	color: var(--accent);
+	font-size: 13px;
+	font-weight: 700;
+}
+/* 행사 이름 · 날짜 · [저장] 저장 안 됨 ……… [지우기] */
+.tm-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 12px;
+	padding: 12px;
+	border-radius: 12px;
+	background: var(--bone);
+}
+.tm-meta .tm-xlsx {
+	margin-left: auto;
+}
+.tm-meta label,
+.tm-row label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	font-weight: 700;
+}
+.tm-meta input,
+.tm-row input:not([type='checkbox']) {
+	min-height: var(--ctl);
+	padding: 0 12px;
+	border: 1.5px solid var(--black);
+	font: inherit;
+}
+.tm-row .tm-count {
+	width: 80px;
+}
+.tm-row .tm-find,
+.tm-row .tm-gname {
+	flex: 1;
+	min-width: 180px;
+}
+.panel .tm-row select {
+	min-width: 90px;
+}
+/* 시안 A: 왼쪽 명단 | 오른쪽 조 */
+.tm-split {
+	display: grid;
+	grid-template-columns: 280px minmax(0, 1fr);
+	gap: 20px;
+	align-items: start;
+}
+.tm-roster {
+	display: grid;
+	gap: 8px;
+	padding: 12px;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+}
+.tm-roster .tm-find {
+	width: 100%;
+	min-height: var(--ctl);
+	padding: 0 12px;
+	border: 1.5px solid var(--black);
+	font: inherit;
+}
+.tm-n {
+	flex: 1;
+	color: #4a4d55;
+	font-size: 12px;
+}
+.tm-members {
+	max-height: 440px;
+	margin: 0;
+	padding: 0;
+	overflow: auto;
+	list-style: none;
+}
+.tm-members label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 4px;
+	border-top: 1px solid var(--line);
+	font-size: 14px;
+	cursor: pointer;
+}
+.tm-members input {
+	accent-color: var(--black);
+}
+.tm-members i {
+	color: var(--accent);
+	font-size: 12px;
+	font-style: normal;
+}
+.tm-members small {
+	margin-left: auto;
+	color: #8a8d95;
+	font-size: 12px;
+}
+.tm-roster .tm-gname {
+	flex-basis: 100%;
+}
+.tm-guest select {
+	min-width: 0;
+}
+.panel .tm-dot {
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--line);
+}
+.panel .tm-dot.m {
+	background: #2f6df6;
+}
+.panel .tm-dot.f {
+	background: #e0245e;
+}
+.tm-board {
+	display: grid;
+	gap: 10px;
+}
+.tm-setbar {
+	padding: 10px 12px;
+	border-radius: 12px;
+	background: var(--bone);
+}
+.tm-setbar .tm-auto {
+	margin-left: auto;
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--black);
+}
+.tm-apart {
+	display: grid;
+	gap: 8px;
+	padding-top: 10px;
+	border-top: 1px solid var(--line);
+}
+.tm-apart-title {
+	font-size: 13px;
+	font-weight: 700;
+}
+.tm-apart .tm-pickbtn {
+	flex: 1;
+}
+.tm-apart-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.panel .tm-apart-list .tm-chip button {
+	border: 0;
+	background: none;
+	cursor: pointer;
+}
+.tm-teams .tm-clash {
+	margin: 0;
+	padding: 8px 12px;
+	background: #fdecea;
+	color: #c0261b;
+	font-size: 12px;
+	font-weight: 700;
+}
+.tm-guests {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.panel .tm-chip {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 5px 10px;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: var(--white);
+	font: 700 13px 'Noto Sans KR', sans-serif;
+}
+.panel .tm-chip.on {
+	border-color: var(--accent);
+	background: var(--accent);
+}
+.panel .tm-chip.guest button {
+	border: 0;
+	background: none;
+	cursor: pointer;
+}
+/* 줄 전체를 덮는 투명한 select — 누르면 옮기기·조장 메뉴 */
+/* 줄은 마우스로 끌기 (지라 보드처럼) — 마우스 화면에선 ⋮⋮ 손잡이 대신 줄 전체 */
+.tm-teams .tm-person {
+	user-select: none;
+}
+@media (hover: hover) {
+	.tm-teams .tm-person {
+		cursor: grab;
+	}
+	.tm-teams .tm-grip {
+		display: none;
+	}
+}
+/* 오른쪽 ⋯ 메뉴 (select를 작은 버튼 모양으로) */
+/* ⋯ 메뉴 버튼 (누르면 공용 선택 창). 휴대폰에서 누르기 쉽게 36px */
+.tm-teams .tm-menu {
+	flex: none;
+	width: 36px;
+	height: 32px;
+	margin: -6px -4px -6px 0;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: none;
+	color: #8a8d95;
+	font: 900 16px/1 'Noto Sans KR', sans-serif;
+	cursor: pointer;
+}
+.tm-teams .tm-menu:hover,
+.tm-teams .tm-menu:focus-visible {
+	border-color: var(--line);
+	color: var(--black);
+}
+.tm-teams {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 12px;
+}
+.tm-teams .tm-team {
+	border: 1px solid var(--line);
+	border-top: 6px solid var(--tc);
+	border-radius: 12px;
+	background: var(--white);
+}
+.tm-teams .tm-team-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 10px 12px 8px;
+	font-weight: 900;
+}
+.tm-teams .tm-team-head input {
+	width: 100%;
+	min-width: 0;
+	border: 0;
+	color: var(--tc);
+	font: 900 18px 'Noto Sans KR', sans-serif;
+}
+.tm-teams .tm-team-head small {
+	flex: none;
+	color: #4a4d55;
+	font-size: 12px;
+	font-weight: 700;
+}
+.tm-teams ol {
+	margin: 0;
+	padding: 0 0 6px;
+	list-style: none;
+}
+.tm-teams .tm-person {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	border-top: 1px solid var(--line);
+	font-size: 15px;
+}
+.tm-teams .tm-person b {
+	flex: 1;
+	font-weight: 700;
+}
+.tm-teams .tm-person small {
+	padding: 1px 6px;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	color: #4a4d55;
+	font-size: 11px;
+	font-weight: 700;
+}
+/* 끌어서 옮기기 손잡이: 줄을 덮은 메뉴(select) 위에 */
+.tm-teams .tm-grip {
+	position: relative;
+	z-index: 1;
+	margin: -8px -12px -8px 0;
+	padding: 8px 10px;
+	color: #b5b1a8;
+	letter-spacing: -3px;
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+}
+.tm-teams .tm-dragging {
+	opacity: 0.35;
+}
+.tm-teams .tm-drop {
+	outline: 2px dashed var(--tc);
+	outline-offset: 2px;
+}
+.tm-ghost {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 100;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	background: var(--white);
+	box-shadow: 0 10px 24px rgb(11 13 18 / 0.2);
+	font-size: 15px;
+	list-style: none;
+	pointer-events: none;
+}
+.tm-ghost .tm-menu,
+.tm-ghost .tm-grip {
+	display: none;
+}
+.tm-ghost small {
+	padding: 1px 6px;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	font-size: 11px;
+}
+.tm-ghost .tm-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+.tm-ghost .tm-dot.m {
+	background: #2f6df6;
+}
+.tm-ghost .tm-dot.f {
+	background: #e0245e;
+}
+.tm-teams .tm-person.leader {
+	background: color-mix(in srgb, var(--tc) 10%, var(--white));
+}
+.tm-teams .tm-person.leader small:first-of-type {
+	border-color: var(--tc);
+	background: var(--tc);
+	color: var(--white);
+}
+@media (hover: hover) {
+	.tm-teams .tm-person:hover {
+		background: var(--bone);
+	}
+}
+@media (max-width: 860px) {
+	.tm-split {
+		grid-template-columns: 1fr;
+	}
+	.tm-members {
+		max-height: 260px;
+	}
+}
+/* 시즌방 주주: 시즌 카드 3장 */
+.owner-cards {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 14px;
+}
+.owner-cards .owner-card {
+	display: grid;
+	gap: 10px;
+	align-content: start;
+	padding: 18px;
+	border: 1px solid var(--line);
+	border-radius: 16px;
+	background: var(--white);
+}
+.owner-cards .owner-card.now {
+	border: 2px solid var(--black);
+}
+.owner-cards h3 {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	font: 2rem var(--display);
+	font-weight: 400;
+}
+.owner-cards h3 small {
+	font: 700 12px 'Noto Sans KR', sans-serif;
+	color: #4a4d55;
+}
+.owner-cards .owner-count {
+	font-weight: 700;
+	color: var(--accent);
+}
+.owner-cards ul {
+	display: grid;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.owner-cards li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background: var(--bone);
+	font-weight: 700;
+	font-size: 14px;
+}
+.owner-cards li.empty {
+	background: none;
+	color: #8a8d95;
+	font-weight: 400;
+}
+.owner-cards .owner-x {
+	border: 0;
+	background: none;
+	color: #8a8d95;
+	cursor: pointer;
+}
+.picker-list button.on b::after {
+	content: '  ✓';
+	color: var(--accent);
+}
+/* 터치 기기: select를 눌러도 기본 휠 대신 공용 선택 창 (picker.ts가 누른 자리로 select를 찾음) */
+@media (hover: none) and (pointer: coarse) {
+	select:not([multiple]) {
+		pointer-events: none;
+	}
+}

@@ -87,10 +87,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			const want = new URLSearchParams(location.search).get('next') ?? '';
 			const next = want.startsWith(`${base}/`) && !want.startsWith('//') ? want : `${base}/`;
 			if (store.get()) location.replace(next);
-			// 기억한 아이디 채우기
-			const savedId = store.id();
-			if (savedId && !savedId.startsWith('fs_')) store.setId(''); // 예전에 기억한 휴대폰 번호는 지움
-			if (savedId?.startsWith('fs_')) { form.loginId.value = savedId; form.password.focus(); } // 휴대폰 번호를 아직 안 넣은 예전 회원(fs_ 아이디)만
+			if (store.id()) store.setId(''); // 예전에 기억한 아이디(휴대폰 번호·fs_)는 지움 — 아이디가 휴대폰 번호라 이 브라우저에 안 남김
 			// 회원 페이지에서 토큰 만료로 돌아온 경우
 			if (new URLSearchParams(location.search).has('expired')) error.textContent = '다시 로그인해 주세요.';
 

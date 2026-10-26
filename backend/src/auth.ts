@@ -2,7 +2,7 @@
 import type { Ctx } from './index.ts';
 import { photoUrl } from './members.ts';
 import { regionOf } from './region.ts';
-import { PBKDF2_ITER, ROOM_PRICES, seasonOf, seasonRange, hmac, iso, later, LOGIN_ID, maskIp, normLoginId, normPhone, pbkdf2, phoneKey, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
+import { PBKDF2_ITER, ROOM_PRICES, seasonOf, seasonRange, hmac, iso, later, maskIp, normPhone, pbkdf2, phoneKey, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
 
 const HOUR = 60 * 60 * 1000;
 // 세션은 30일, 쓰는 동안 하루 넘게 지났으면 다시 30일로 늘림 (사용자 요구 2026-10-23: 최대한 안 풀리게)
@@ -29,14 +29,14 @@ export class Reply {
 // 권한: member = master(마스터 — 명예, 할 수 있는 일은 회원과 같음) < staff(운영진) < admin(관리자)
 const RANK = { member: 0, master: 0, staff: 1, admin: 2 } as const;
 export type Role = keyof typeof RANK;
-export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; login_id: string; name: string; region: string; area: string; role: Role };
+export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; name: string; region: string; area: string; role: Role };
 
 // 세션 확인 + 회원 상태·권한은 매번 DB에서 (정지·권한 변경이 바로 반영). 토큰은 Authorization 헤더, 전환 기간엔 body.token도
 export async function need(c: Ctx, role: Role = 'member', allowMustChange = false): Promise<Me> {
 	const token = /^Bearer (\S+)$/.exec(c.req.headers.get('Authorization') || '')?.[1] || String(c.body.token || '');
 	if (!token) throw new Reply(EXPIRED);
 	const me = await c.env.DB.prepare(
-		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.login_id, m.name, m.region, m.area, m.role
+		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.name, m.region, m.area, m.role
 		 FROM sessions s JOIN members m ON m.id = s.member_id
 		 WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.is_active = 1 AND s.expires_at > ? AND m.status = 'active'`,
 	).bind(await sha256(token), iso(c.now)).first<Me>();
@@ -50,11 +50,10 @@ export async function need(c: Ctx, role: Role = 'member', allowMustChange = fals
 }
 
 // {loginId, password} → {ok, token, name, exp, mustChange}. 세션 30일
-// 아이디 = 010 뺀 휴대폰 번호(→ phone_key로 찾음). 번호를 아직 안 넣은 0017 회원은 fs_1234(또는 숫자 4자리)
+// 아이디 = 010 뺀 휴대폰 번호(→ login_key로 찾음)
 export async function login(c: Ctx) {
 	const db = c.env.DB;
-	const legacy = normLoginId(c.body.loginId);
-	const loginId = LOGIN_ID.test(legacy) ? legacy : normPhone(c.body.loginId);
+	const loginId = normPhone(c.body.loginId);
 	const pw = String(c.body.password ?? '');
 	if (!loginId || !pw || pw.length > 128) return FAIL;
 
@@ -81,8 +80,8 @@ export async function login(c: Ctx) {
 
 	const m = await db.prepare(
 		`SELECT m.id, m.name, m.status, c.hash, c.salt, c.iter, c.reset_until
-		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1 WHERE ${loginId.startsWith('fs_') ? 'm.login_id' : 'm.phone_key'} = ?`,
-	).bind(loginId.startsWith('fs_') ? loginId : await phoneKey(c.env.PHONE_KEY, loginId)).first<{ id: string; name: string; status: string; hash: string | null; salt: string | null; iter: number | null; reset_until: string | null }>();
+		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1 WHERE m.login_key = ?`,
+	).bind(await phoneKey(c.env.PHONE_KEY, loginId)).first<{ id: string; name: string; status: string; hash: string | null; salt: string | null; iter: number | null; reset_until: string | null }>();
 
 	// 어느 경우든 PBKDF2를 한 번 돌림 → 응답 시간으로 회원 여부를 알 수 없게
 	let how: 'password' | 'reset' | null = null;
@@ -128,7 +127,7 @@ export async function password(c: Ctx) {
 		const cred = await db.prepare('SELECT hash, salt, iter FROM member_credentials WHERE member_id = ? AND is_active = 1').bind(me.id).first<{ hash: string | null; salt: string; iter: number }>();
 		if (!cred?.hash || !safeEqual(await pbkdf2(String(c.body.current ?? ''), cred.salt, cred.iter), cred.hash)) return { ok: false, error: '지금 비밀번호가 맞지 않아요.' };
 	}
-	const bad = weakReason(next, me.login_id, c.env.RESET_PASSWORD);
+	const bad = weakReason(next, '', c.env.RESET_PASSWORD) // 번호는 해시뿐이라 비밀번호 변경 땐 번호 포함 검사는 못 함 (가입 때만);
 	if (bad) return { ok: false, error: bad };
 
 	const salt = randomB64(16);

@@ -43,6 +43,13 @@ body {
 	color: var(--black);
 	background: var(--bone);
 	-webkit-font-smoothing: antialiased;
+	/* 내용이 적어도 푸터는 화면 맨 아래 (main이 남는 높이를 채움) */
+	display: flex;
+	flex-direction: column;
+	min-height: 100svh;
+}
+main {
+	flex: 1 0 auto;
 }
 h1,
 h2,
@@ -1008,6 +1015,9 @@ a {
 	border: 1.5px solid var(--black);
 	border-radius: 14px;
 }
+.picker:focus {
+	outline: none;
+}
 .picker::backdrop {
 	background: rgb(0 0 0 / 0.4);
 }
@@ -1548,9 +1558,12 @@ a {
 	color: #8a8d95;
 	cursor: pointer;
 }
-.picker-list button.on b::after {
-	content: '  ✓';
+.picker-list button.on {
+	background: #fff1ea;
 	color: var(--accent);
+}
+.picker-list button.on b {
+	font-weight: 700;
 }
 /* 터치 기기: select를 눌러도 기본 휠 대신 공용 선택 창 (picker.ts가 누른 자리로 select를 찾음) */
 @media (hover: none) and (pointer: coarse) {

@@ -106,6 +106,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					return;
 				}
 				store.set(res.token);
+				// 브라우저가 저장을 막으면(Safari '모든 쿠키 차단' 등) 서버 로그인은 됐어도 다음 페이지에서 로그인 안 된 상태가 됨 → 조용히 넘어가지 말고 알림
+				if (store.get() !== res.token) {
+					busy(form, false, '');
+					error.textContent = '이 브라우저가 로그인 정보 저장을 막고 있어요. Safari라면 설정 → Safari → \'모든 쿠키 차단\'을 끄고, 개인정보 보호 브라우징이 아닌 창에서 다시 로그인해 주세요.';
+					return;
+				}
 				store.setId(String(data.get('phone')));
 				try { localStorage.setItem('fs-member-renewed', String(Date.now())); } catch {}
 				store.setName(res.name);

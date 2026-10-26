@@ -14,16 +14,20 @@ useDb([
 
 const login = (loginId: string, password: string) => post({ action: 'login', loginId, password });
 
-test('아이디로 로그인: fs_ 없이 숫자만·대문자로 적어도 됨, 내 정보엔 아이디', async () => {
-	const s = await login('2222', PASSWORD);
+test('아이디 = 010 뺀 휴대폰 번호(하이픈·010 있어도 됨), 번호를 아직 안 넣은 회원은 예전 fs_ 아이디, 내 정보엔 번호 없음', async () => {
+	const s = await login('1111-2222', PASSWORD);
 	assert.equal(s.ok, true);
 	assert.equal(s.mustChange, false);
 	assert.equal(s.name, '김보드');
-	assert.equal((await login('FS_2222', PASSWORD)).ok, true);
+	assert.equal((await login('010-1111-2222', PASSWORD)).ok, true);
+	assert.equal((await login('fs_2222', PASSWORD)).ok, true); // 예전 아이디 (0017)
+	assert.equal((await login('2222', PASSWORD)).ok, true);
 	const me = await post({ action: 'me' }, s.token);
-	assert.deepEqual(me.me, { name: '김보드', region: '경기북부', area: '구리', loginId: 'fs_2222', photo: '', role: 'member' });
+	assert.deepEqual(me.me, { name: '김보드', region: '경기북부', area: '구리', photo: '', role: 'member' });
 	assert.deepEqual({ ...me.season, season: 'x' }, { season: 'x', rides: 0, stays: 0, rests: 0, owner: false, pay: 0, visits: 0, spent: 0, photos: 0 });
-	assert.equal(JSON.stringify(me).includes('1996'), false); // 출생연도는 응답에 없음
+	assert.equal(/1996|1111|2222/.test(JSON.stringify(me)), false); // 출생연도·번호는 응답에 없음
+	const row = JSON.stringify(await env.DB.prepare("SELECT * FROM members WHERE id = 'm-kim'").first());
+	assert.equal(/11112222/.test(row), false); // DB엔 번호 그대로 없음 (HMAC)
 });
 
 test('비밀번호 변경: 지금 비밀번호 확인, 다른 기기 세션은 끊김', async () => {
@@ -85,11 +89,11 @@ test('초기화: 운영진 이상(관리자 계정은 관리자만), 그 회원 
 });
 
 test('로그아웃하면 그 세션 끝, 로그인 이력엔 비밀번호·토큰·아이디 원문이 없음', async () => {
-	const s = await login('fs_6666', PASSWORD);
+	const s = await login('5555-6666', PASSWORD);
 	assert.equal((await post({ action: 'logout' }, s.token)).ok, true);
 	assert.equal((await post({ action: 'me' }, s.token)).expired, true);
 	const dump = JSON.stringify((await env.DB.prepare('SELECT * FROM login_logs').all()).results);
-	for (const secret of [PASSWORD, RESET, 'fs_6666', s.token]) assert.equal(dump.includes(secret), false, secret);
+	for (const secret of [PASSWORD, RESET, 'fs_6666', '55556666', s.token]) assert.equal(dump.includes(secret), false, secret);
 	assert.doesNotMatch(dump, /203\.0\.113\.\d/); // IP 전체는 안 남김
 	assert.equal(dump.includes('203.0.113.x'), true); // IP는 앞부분만
 	const sessions = JSON.stringify((await env.DB.prepare('SELECT * FROM sessions').all()).results);

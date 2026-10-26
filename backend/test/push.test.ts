@@ -67,7 +67,7 @@ test('앱 알림: 구독 검사·해제, 운영진만 받음, 내용 복호화·
 		assert.equal((await post({ action: 'push.subscribe', subscription: memberDev.sub }, A)).ok, true);
 
 		// 가입 신청 → 운영진 기기에만
-		await post({ action: 'signup', loginId: '1212', password: 'snow-board-1', name: '새사람', gender: '여', agreeOpt: true, year: '1998', sido: '경기도', sigungu: '의정부시', agree: true, age14: true });
+		await post({ action: 'signup', phone: '5555-1212', password: 'snow-board-1', name: '새사람', gender: '여', agreeOpt: true, year: '1998', sido: '경기도', sigungu: '의정부시', agree: true, age14: true });
 		assert.deepEqual(sent.map((x) => x.url), ['https://push.test/staff']);
 		const msg = await decrypt(staffDev, sent[0].body);
 		assert.equal(msg.title, '[가입 신청] 새사람/98/의정부');

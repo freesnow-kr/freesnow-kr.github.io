@@ -5,20 +5,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getPlatformProxy } from 'wrangler';
 import worker from '../src/index.ts';
-import { PBKDF2_ITER, pbkdf2 } from '../src/lib.ts';
+import { PBKDF2_ITER, normPhone, pbkdf2, phoneKey } from '../src/lib.ts';
 
 export const RESET = 'reset-test-1234';
 export const PASSWORD = 'powder-day-26';
 export const ORIGIN = 'https://freesnow-kr.github.io';
 export const env: any = {};
 
-// 회원: [id, 숫자(끝 4자리 → 아이디 fs_1234), name, 출생연도(앞 4자리), role?, status?], seed = 그 뒤에 넣을 테스트 데이터. 비밀번호는 다 PASSWORD
+// 회원: [id, 휴대폰(→ phone_key, 끝 4자리는 예전 아이디 fs_1234), name, 출생연도(앞 4자리), role?, status?], seed = 그 뒤에 넣을 테스트 데이터. 비밀번호는 다 PASSWORD
 export function useDb(members: string[][], seed?: () => Promise<unknown>) {
 	const dir = mkdtempSync(join(tmpdir(), 'fs-api-'));
 	let proxy: Awaited<ReturnType<typeof getPlatformProxy>>;
 	before(async () => {
 		proxy = await getPlatformProxy({ configPath: new URL('../wrangler.jsonc', import.meta.url).pathname, persist: { path: dir } });
-		Object.assign(env, proxy.env, { RESET_PASSWORD: RESET, LOGIN_KEY_SECRET: 'test-key', SNOWLIVE_API: 'https://snowlive.example/api/', SOMOIM_URL: 'https://somoim.example/group', GALLERY_FOLDER_ID: 'folder1' });
+		Object.assign(env, proxy.env, { RESET_PASSWORD: RESET, LOGIN_KEY_SECRET: 'test-key', PHONE_KEY: 'test-phone-key', SNOWLIVE_API: 'https://snowlive.example/api/', SOMOIM_URL: 'https://somoim.example/group', GALLERY_FOLDER_ID: 'folder1' });
 		const sql = readdirSync(new URL('../migrations/', import.meta.url)).sort().map((f) => readFileSync(new URL(`../migrations/${f}`, import.meta.url), 'utf8')).join(';\n').replace(/--.*$/gm, '');
 		// ';'로 나누되 트리거(BEGIN … END;) 본문은 한 문장으로 다시 붙임
 		const stmts: string[] = [];
@@ -31,10 +31,11 @@ export function useDb(members: string[][], seed?: () => Promise<unknown>) {
 		const now = new Date().toISOString();
 		const salt = 'c2FsdHNhbHRzYWx0c2FsdA==';
 		const hash = await pbkdf2(PASSWORD, salt, PBKDF2_ITER);
+		const keys = await Promise.all(members.map(([, digits]) => (normPhone(digits) ? phoneKey(env.PHONE_KEY, normPhone(digits)) : null)));
 		const used = new Set<string>(); // 끝 4자리가 겹치면 9000번대로 (로그인 테스트는 겹치지 않는 번호를 씀)
 		if (members.length) await env.DB.batch(members.flatMap(([id, digits, name, year, role = 'member', status = 'active'], i) => [
-			env.DB.prepare('INSERT INTO members (id, login_id, name, birth_year, region, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-				.bind(id, `fs_${used.has(digits.slice(-4)) ? 9000 + i : (used.add(digits.slice(-4)), digits.slice(-4))}`, name, Number(year.slice(0, 4)) || null, '경기북부', '구리', role, status, now, now),
+			env.DB.prepare('INSERT INTO members (id, login_id, phone_key, name, birth_year, region, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+				.bind(id, `fs_${used.has(digits.slice(-4)) ? 9000 + i : (used.add(digits.slice(-4)), digits.slice(-4))}`, keys[i], name, Number(year.slice(0, 4)) || null, '경기북부', '구리', role, status, now, now),
 			env.DB.prepare('INSERT INTO member_credentials (member_id, hash, salt, iter, changed_at) VALUES (?, ?, ?, ?, ?)').bind(id, hash, salt, PBKDF2_ITER, now),
 		]));
 		await seed?.();

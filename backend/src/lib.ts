@@ -10,6 +10,14 @@ export const normLoginId = (v: unknown) => {
 };
 export const LOGIN_ID = /^fs_\d{4}$/;
 
+// 휴대폰 번호: 숫자만 01012345678. 010 뺀 8자리·010-1234-5678·+82 10…도 받음. 형식이 틀리면 ''
+export function normPhone(v: unknown): string {
+	let d = String(v ?? '').replace(/\D/g, '');
+	if (d.startsWith('8210') && d.length >= 12) d = '0' + d.slice(2);
+	if (d.length === 8) d = '010' + d;
+	return /^01[016789]\d{7,8}$/.test(d) ? d : '';
+}
+
 // 가입 동의 기록에 남기는 개인정보처리방침 시행일 — src/pages/privacy.astro의 시행일을 바꾸면 같이
 export const POLICY_VERSION = '2026-10-26';
 
@@ -78,4 +86,29 @@ export function safeEqual(a: string, b: string): boolean {
 	let diff = x.length ^ y.length;
 	for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
 	return diff === 0;
+}
+
+// 휴대폰 번호 보관 (사용자 결정 2026-10-26: 아이디 = 010 뺀 휴대폰 번호, 화면 어디에도 안 보이고 DB엔 번호 그대로 안 둠)
+// secret PHONE_KEY 하나에서 두 키를 만듦 — 잃으면 아무도 휴대폰으로 로그인 못 하고 비상 연락처도 못 풂 → 따로 백업
+//   phoneKey: 로그인·중복 가입 확인용 HMAC (되돌릴 수 없음). 번호는 1억 가지뿐이라 키 없는 해시는 금방 풀려서 꼭 비밀키로
+//   sealPhone/openPhone: 비상 연락처(선택 동의한 회원만)용 AES-GCM — 운영진 화면에서만 풂
+async function subKey(secret: string, label: string): Promise<ArrayBuffer> {
+	if (!secret) throw new Error('PHONE_KEY 가 비어 있어요.');
+	const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+	return crypto.subtle.sign('HMAC', key, enc.encode(label));
+}
+export async function phoneKey(secret: string, phone: string): Promise<string> {
+	const key = await crypto.subtle.importKey('raw', await subKey(secret, 'phone-id'), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+	return hex(await crypto.subtle.sign('HMAC', key, enc.encode(phone)));
+}
+const aesKey = async (secret: string) => crypto.subtle.importKey('raw', await subKey(secret, 'phone-enc'), 'AES-GCM', false, ['encrypt', 'decrypt']);
+export async function sealPhone(secret: string, phone: string): Promise<string> {
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await aesKey(secret), enc.encode(phone)));
+	return b64(new Uint8Array([...iv, ...ct]));
+}
+export async function openPhone(secret: string, sealed: string | null): Promise<string> {
+	if (!sealed) return '';
+	const all = unb64(sealed);
+	return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, await aesKey(secret), all.slice(12)));
 }

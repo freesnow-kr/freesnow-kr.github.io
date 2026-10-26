@@ -183,6 +183,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		display: grid;
 		gap: 14px;
 		max-width: 760px;
+		word-break: keep-all; /* 제목·댓글도 한글 낱말 중간에서 안 끊기게 */
+	}
+	/* 휴대폰: 글 양옆을 조금 더 띄움 (기본 20px → 24px) */
+	@media (max-width: 560px) {
+		.v {
+			padding-inline: 4px;
+		}
 	}
 	.v-cat {
 		font-size: 13px;
@@ -205,7 +212,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-size: 16px;
 		line-height: 1.8;
 		white-space: pre-wrap; /* 줄바꿈 그대로 */
-		overflow-wrap: anywhere;
+		word-break: keep-all; /* 한글 낱말 중간에서 안 끊기게 (휴대폰에서 오른쪽 끝이 빽빽해 보여서 — 사용자 요구 2026-10-26) */
+		overflow-wrap: anywhere; /* 아주 긴 주소 등은 그래도 줄바꿈 */
 	}
 	.v-photos {
 		display: grid;

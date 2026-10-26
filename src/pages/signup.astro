@@ -53,16 +53,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 					<!-- 아이디 = 010 뺀 휴대폰 번호 (사용자 결정 2026-10-26). 서버는 번호를 되돌릴 수 없는 값(HMAC)으로만 저장, 화면 어디에도 안 보임 -->
 					<label>
-						<span>휴대폰 번호 <small>(아이디로 써요)</small></span>
+						<span>휴대폰 번호 <small>(아이디로 사용해요)</small></span>
 						<span class="id-row">
 							<span class="id-pre" aria-hidden="true">010</span>
 							<input name="phone" type="tel" inputmode="numeric" autocomplete="username" maxlength="9" placeholder="1234-5678" required />
 						</span>
-						<small class="field-note">번호는 알아볼 수 없게 바꿔서 저장하고, 화면 어디에도 보이지 않아요.</small>
+						<small class="field-note">번호는 암호화되어서 저장되고, 화면 어디에도 보이지 않아요.</small>
 					</label>
 					<label class="choice">
 						<input name="emergency" type="checkbox" />
-						이 번호를 비상 연락처로도 써요 (선택) <small>— 스키장 사고 등 비상시 운영진만 봐요</small>
+						<span class="choice-text">이 번호를 비상 연락처로도 사용해요 (선택)<small>스키장 사고 등 비상시 운영진만 확인할 수 있어요</small></span>
 					</label>
 
 					<label>
@@ -86,8 +86,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					</fieldset>
 
 					<label>
-						<span>출생연도 <small>(선택)</small></span>
-						<input name="year" type="text" inputmode="numeric" maxlength="4" placeholder="예: 1996" />
+						출생연도
+						<!-- 필수, 고르기 (사용자 요구 2026-10-26). 올해-15년부터만 → 고를 수 있으면 생일 전이어도 만 14세 이상이라 '만 14세 이상' 체크를 따로 안 받음
+						     (빌드한 해 기준 — 해가 바뀌면 다시 배포. 서버도 같은 규칙) -->
+						<select name="year" required>
+							<option value="">선택</option>
+							{Array.from({ length: new Date().getFullYear() - 15 - 1940 + 1 }, (_, i) => new Date().getFullYear() - 15 - i).map((y) => <option value={y}>{y}년</option>)}
+						</select>
+						<small class="field-note">만 14세 이상만 가입할 수 있어요.</small>
 					</label>
 
 					<fieldset>
@@ -113,8 +119,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<details class="privacy">
 						<summary>개인정보 수집, 이용 안내</summary>
 						<ul>
-							<li><b>필수 항목</b> 휴대폰 번호(아이디 — 알아볼 수 없게 바꿔서 저장), 비밀번호, 이름, 성별 — 회원 로그인, 중복 가입 방지, 출격, 시즌방 명단, 정모 조 편성</li>
-							<li><b>선택 항목</b> 출생연도, 거주지, 휴대폰 번호의 비상 연락처 사용 — 가입 확인(오픈채팅 닉네임과 맞춰 보기), 회원 명부 지역별 정리, 비상시 연락(운영진만 봐요)</li>
+							<li><b>필수 항목</b> 휴대폰 번호(아이디 — 암호화되어서 저장), 비밀번호, 이름, 성별, 출생연도(만 14세 이상 확인) — 회원 로그인, 중복 가입 방지, 가입 확인(오픈채팅 닉네임과 맞춰 보기), 출격, 시즌방 명단, 정모 조 편성</li>
+							<li><b>선택 항목</b> 거주지, 휴대폰 번호의 비상 연락처 사용 — 회원 명부 지역별 정리, 비상시 연락(운영진만 봐요)</li>
 							<li><b>보유 기간</b> 탈퇴 또는 가입 거절 시 지체 없이 삭제</li>
 							<li>필수 항목에 동의하지 않으면 가입할 수 없어요. 선택 항목은 동의하지 않아도 가입할 수 있어요.</li>
 							<li>서버는 해외(Cloudflare 등)에 있어요. 자세한 건 처리방침을 봐 주세요.</li>
@@ -122,16 +128,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						</ul>
 					</details>
 					<label class="choice agree">
-						<input name="age14" type="checkbox" required />
-						만 14세 이상이에요 (필수)
-					</label>
-					<label class="choice agree">
 						<input name="agree" type="checkbox" required />
 						필수 항목 수집, 이용에 동의해요 (필수)
 					</label>
 					<label class="choice">
 						<input name="agreeOpt" type="checkbox" />
-						선택 항목(출생연도, 거주지, 비상 연락처 사용) 수집, 이용에 동의해요 (선택)
+						선택 항목(거주지, 비상 연락처 사용) 수집, 이용에 동의해요 (선택)
 					</label>
 
 					<p class="warn">가입 정보가 일치하지 않거나 허위 정보로 가입한 경우 예고 없이 탈퇴 처리돼요.</p>
@@ -161,7 +163,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			const form = document.querySelector<HTMLFormElement>('.signup')!;
 			const error = form.querySelector<HTMLElement>('.mem-error')!;
 			const done = document.querySelector<HTMLElement>('.done')!;
-			const thisYear = new Date().getFullYear();
 
 			// 서버도 같은 검사를 하지만, 먼저 화면에서 알려줌
 			// 시도 고르면 그 시도의 시군구 목록 채우기
@@ -179,10 +180,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (String(d.get('password')).length < 8) return '비밀번호는 8자 이상으로 정해 주세요.';
 				if (d.get('password') !== d.get('password2')) return '비밀번호 확인이 달라요.';
 				if (!String(d.get('name')).trim() || !d.get('gender')) return '이름과 성별을 적어 주세요.';
-				const y = String(d.get('year')).trim();
-				if (y && !(Number(y) >= 1930 && Number(y) <= thisYear)) return '출생연도를 확인해 주세요. (예: 1996)';
-				if ((y || d.get('sido') || d.get('emergency')) && !d.get('agreeOpt')) return '선택 항목을 적었다면 선택 항목 동의에 체크해 주세요. (안 적어도 가입돼요)';
-				if (!d.get('age14')) return '만 14세 이상만 가입할 수 있어요.';
+				if (!d.get('year')) return '출생연도를 골라 주세요.';
+				if ((d.get('sido') || d.get('emergency')) && !d.get('agreeOpt')) return '선택 항목을 적었다면 선택 항목 동의에 체크해 주세요. (안 적어도 가입돼요)';
 				if (!d.get('agree')) return '필수 항목 수집, 이용에 동의해 주세요.';
 				return '';
 			};
@@ -203,12 +202,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					name: d.get('name'),
 					gender: d.get('gender'),
 					agreeOpt: opt,
-					year: opt ? d.get('year') : '',
+					year: d.get('year'),
 					sido: opt ? d.get('sido') : '',
 					sigungu: opt ? d.get('sigungu') : '',
 					emergency: opt && d.get('emergency') === 'on',
 					website: d.get('website'),
-					age14: d.get('age14') === 'on',
 					agree: d.get('agree') === 'on',
 				}).catch(() => null);
 				busy(form, false, '');
@@ -311,6 +309,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-size: 16px !important;
 		font-weight: 400 !important;
 		cursor: pointer;
+	}
+	/* 체크박스 옆 두 줄 문구 (비상 연락처) — 둘째 줄은 작게 아래로 */
+	.choice-text {
+		display: grid;
+		gap: 2px;
+	}
+	.choice-text small {
+		font-size: 13px;
 	}
 	.choice input {
 		width: 18px;

@@ -9,25 +9,26 @@ const SIGNUP_PER_HOUR = 30; // 전체 신청 시간당 상한 (스팸 방지)
 const PHOTO_MAX = 400_000; // base64 글자 수 (브라우저가 256px JPG로 줄여서 보냄 ≈ 20~60KB)
 
 // 응답은 {ok} / {ok:false, error}뿐. 숨은 칸(website)이 채워지면 저장 없이 ok
-// 받는 것(사용자 결정 2026-10-26): 휴대폰 번호(= 아이디, 010 빼고), 비밀번호, 이름, 성별 필수, 출생연도, 시도, 시군구, 비상 연락처 사용 선택(선택 동의 한 번)
+// 받는 것(사용자 결정 2026-10-26): 휴대폰 번호(= 아이디, 010 빼고), 비밀번호, 이름, 성별, 출생연도 필수 / 시도, 시군구, 비상 연락처 사용 선택(선택 동의 한 번)
 // 휴대폰 번호는 HMAC(login_key)만 저장, 선택 동의하면 비상 연락처로 암호문(phone_enc)도. 비밀번호는 해시 → 승인하면 그대로 로그인 비밀번호 (admin.signupDecide)
 export async function signup(c: Ctx) {
 	const db = c.env.DB;
 	const b = c.body;
 	if (b.website) return { ok: true };
 	if (b.agree !== true) return { ok: false, error: '필수 항목 수집, 이용에 동의해 주세요.' };
-	if (b.age14 !== true) return { ok: false, error: '만 14세 이상만 가입할 수 있어요.' };
 	const text = (v: unknown, max: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 	const opt = b.agreeOpt === true; // 선택 동의를 안 했으면 선택 항목은 받지 않음
 	const name = text(b.name, 20), sido = opt ? text(b.sido, 20) : '', area = opt ? text(b.sigungu, 20) : '';
 	const gender = b.gender === '남' || b.gender === '여' ? b.gender : '';
 	const phone = normPhone(b.phone), pw = String(b.password ?? '');
-	const year = opt && b.year ? Number(String(b.year).replace(/\D/g, '')) : null;
+	const year = Number(String(b.year ?? '').replace(/\D/g, '')); // 필수 (사용자 요구 2026-10-26)
 	if (!phone) return { ok: false, error: '휴대폰 번호를 확인해 주세요. (010 빼고 8자리)' };
 	if (!name || !gender) return { ok: false, error: '이름과 성별을 적어 주세요.' };
 	const weak = weakReason(pw, phone, c.env.RESET_PASSWORD);
 	if (weak) return { ok: false, error: weak };
-	if (year !== null && !(year >= 1930 && year <= c.now.getFullYear())) return { ok: false, error: '출생연도를 확인해 주세요.' };
+	if (!(year >= 1930 && year <= c.now.getFullYear())) return { ok: false, error: '출생연도를 골라 주세요.' };
+	// 만 14세 이상: 올해-15년 이전 출생만 (생일 전이어도 14세 이상). 화면 고르기 칸도 같은 범위라 따로 체크받지 않음
+	if (year > c.now.getFullYear() - 15) return { ok: false, error: '만 14세 이상만 가입할 수 있어요.' };
 
 	const key = await phoneKey(c.env.PHONE_KEY, phone);
 	const n = await db.prepare(
@@ -46,7 +47,7 @@ export async function signup(c: Ctx) {
 		await pbkdf2(pw, salt, PBKDF2_ITER), salt, PBKDF2_ITER, iso(c.now), opt ? iso(c.now) : null, POLICY_VERSION).run();
 	if (!r.meta.changes) return DUP;
 	// 운영진 메일, 앱 알림: 이름/출생연도 두 자리/거주지 — 적은 것만 (번호는 안 넣음)
-	const who = [name, year ? String(year).slice(2) : '', area ? normArea(area) : ''].filter(Boolean).join('/');
+	const who = [name, String(year).slice(2), area ? normArea(area) : ''].filter(Boolean).join('/');
 	await signupRequested(c.env, { name, gender, region: [sido, area].filter(Boolean).join(' '), who, at: c.now });
 	return { ok: true };
 }

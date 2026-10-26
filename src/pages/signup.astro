@@ -111,9 +111,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 					<!-- 동의 문구를 바꾸면: backend lib.ts POLICY_VERSION + privacy.astro 시행일 + 새 version의 consent_terms 줄(migration) -->
 					<details class="privacy">
-						<summary>개인정보 수집·이용 안내</summary>
+						<summary>개인정보 수집, 이용 안내</summary>
 						<ul>
-							<li><b>필수 항목</b> 휴대폰 번호(아이디 — 알아볼 수 없게 바꿔서 저장), 비밀번호, 이름, 성별 — 회원 로그인, 중복 가입 방지, 출격·시즌방 명단, 정모 조 편성</li>
+							<li><b>필수 항목</b> 휴대폰 번호(아이디 — 알아볼 수 없게 바꿔서 저장), 비밀번호, 이름, 성별 — 회원 로그인, 중복 가입 방지, 출격, 시즌방 명단, 정모 조 편성</li>
 							<li><b>선택 항목</b> 출생연도, 거주지, 휴대폰 번호의 비상 연락처 사용 — 가입 확인(오픈채팅 닉네임과 맞춰 보기), 회원 명부 지역별 정리, 비상시 연락(운영진만 봐요)</li>
 							<li><b>보유 기간</b> 탈퇴 또는 가입 거절 시 지체 없이 삭제</li>
 							<li>필수 항목에 동의하지 않으면 가입할 수 없어요. 선택 항목은 동의하지 않아도 가입할 수 있어요.</li>
@@ -127,11 +127,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					</label>
 					<label class="choice agree">
 						<input name="agree" type="checkbox" required />
-						필수 항목 수집·이용에 동의해요 (필수)
+						필수 항목 수집, 이용에 동의해요 (필수)
 					</label>
 					<label class="choice">
 						<input name="agreeOpt" type="checkbox" />
-						선택 항목(출생연도·거주지·비상 연락처 사용) 수집·이용에 동의해요 (선택)
+						선택 항목(출생연도, 거주지, 비상 연락처 사용) 수집, 이용에 동의해요 (선택)
 					</label>
 
 					<p class="warn">가입 정보가 일치하지 않거나 허위 정보로 가입한 경우 예고 없이 탈퇴 처리돼요.</p>
@@ -183,7 +183,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (y && !(Number(y) >= 1930 && Number(y) <= thisYear)) return '출생연도를 확인해 주세요. (예: 1996)';
 				if ((y || d.get('sido') || d.get('emergency')) && !d.get('agreeOpt')) return '선택 항목을 적었다면 선택 항목 동의에 체크해 주세요. (안 적어도 가입돼요)';
 				if (!d.get('age14')) return '만 14세 이상만 가입할 수 있어요.';
-				if (!d.get('agree')) return '필수 항목 수집·이용에 동의해 주세요.';
+				if (!d.get('agree')) return '필수 항목 수집, 이용에 동의해 주세요.';
 				return '';
 			};
 

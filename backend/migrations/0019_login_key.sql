@@ -1,6 +1,6 @@
 -- 사용자 요구 2026-10-26:
 --   members.login_id 지움 — 0017의 fs_ 아이디는 휴대폰 번호 아이디로 넘어가는 동안만 쓰던 것 (실서버 10명 모두 HMAC으로 옮겨 비어 있음)
---   phone_key → login_key 로 이름 바꾸고 name 앞으로 (members·signup_requests 둘 다). login_logs.login_key(로그인 시도 기록용 HMAC, 다른 키)와는 다른 값
+--   phone_key → login_key 로 이름 바꾸고 name 앞으로 (members, signup_requests 둘 다). login_logs.login_key(로그인 시도 기록용 HMAC, 다른 키)와는 다른 값
 -- UNIQUE 열이라 DROP COLUMN이 안 되고 열 순서도 바꿔야 해서 0018과 같이 테이블을 새로 만들어 옮김
 PRAGMA defer_foreign_keys = true;
 CREATE TABLE members_new (
@@ -10,8 +10,8 @@ CREATE TABLE members_new (
   name TEXT NOT NULL,
   gender TEXT CHECK (gender IN ('남', '여') OR gender IS NULL),
   birth_year INTEGER,                         -- 선택
-  region TEXT NOT NULL DEFAULT '',            -- 선택 (경기북부·서울 …)
-  area TEXT NOT NULL DEFAULT '',              -- 선택 (구리·노원구 …)
+  region TEXT NOT NULL DEFAULT '',            -- 선택 (경기북부, 서울 …)
+  area TEXT NOT NULL DEFAULT '',              -- 선택 (구리, 노원구 …)
   phone_enc TEXT,                             -- 선택: 비상 연락처(같은 번호) 암호문, 운영진만 풂
   email TEXT,                                 -- 운영진 알림용, 운영진이 입력
   role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'master', 'staff', 'admin')),
@@ -19,7 +19,7 @@ CREATE TABLE members_new (
   joined_at TEXT,
   approved_at TEXT,
   agreed_at TEXT,                             -- 필수 항목 동의 + 만 14세 이상 확인 시각 (0017 전 회원은 NULL)
-  agreed_opt_at TEXT,                         -- 선택 항목(출생연도·거주지·비상 연락처) 동의 시각, 안 했으면 NULL
+  agreed_opt_at TEXT,                         -- 선택 항목(출생연도, 거주지, 비상 연락처) 동의 시각, 안 했으면 NULL
   policy TEXT,                                -- 동의할 때의 개인정보처리방침 시행일
   created_at TEXT,
   updated_at TEXT
@@ -47,7 +47,7 @@ CREATE TABLE signup_requests_new (
   sido TEXT NOT NULL DEFAULT '',
   area TEXT NOT NULL DEFAULT '',
   phone_enc TEXT,                             -- 선택: 비상 연락처 암호문
-  pw_hash TEXT NOT NULL,                      -- PBKDF2 (member_credentials와 같은 방식), 승인·거절하면 비움
+  pw_hash TEXT NOT NULL,                      -- PBKDF2 (member_credentials와 같은 방식), 승인, 거절하면 비움
   pw_salt TEXT NOT NULL,
   pw_iter INTEGER NOT NULL,
   agreed_at TEXT NOT NULL,                    -- 필수 항목 동의 + 만 14세 이상 확인 시각

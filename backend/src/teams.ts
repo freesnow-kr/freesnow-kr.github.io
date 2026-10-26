@@ -1,4 +1,4 @@
-// 조 편성 (운영진 이상): 행사별로 참가자·팀을 저장(선택). 편성 계산은 화면(브라우저)이 하고 서버는 저장만
+// 조 편성 (운영진 이상): 행사별로 참가자, 팀을 저장(선택). 편성 계산은 화면(브라우저)이 하고 서버는 저장만
 import type { Ctx } from './index.ts';
 import { need, Reply } from './auth.ts';
 import { randomToken } from './lib.ts';
@@ -6,7 +6,7 @@ import { randomToken } from './lib.ts';
 const bad = (error: string) => new Reply({ ok: false, error });
 const DATA_MAX = 200_000; // 참가자 수백 명 + 게임 기록 넉넉히
 
-// 최근 행사 목록 (참가자·팀 수만)
+// 최근 행사 목록 (참가자, 팀 수만)
 export async function list(c: Ctx) {
 	await need(c, 'staff');
 	const { results } = await c.env.DB.prepare('SELECT id, title, date, data, updated_at FROM team_events WHERE is_active = 1 ORDER BY date DESC, updated_at DESC LIMIT 50').all<any>();

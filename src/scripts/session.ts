@@ -12,7 +12,7 @@ export const postDate = (iso: string) => (new Date().toDateString() === new Date
 export const loginUrl = `${base}/login/`;
 export const membersUrl = `${base}/members/`;
 
-// 토큰은 이 브라우저 편의용. 만료·위조는 서버(Worker 세션)가 판정
+// 토큰은 이 브라우저 편의용. 만료, 위조는 서버(Worker 세션)가 판정
 const KEY = 'fs-member-token';
 const NAME = 'fs-member-name'; // 화면 표시용 (권한 판단엔 안 씀)
 const PHOTO = 'fs-member-photo'; // 헤더 내 메뉴 동그라미 사진 (/members에서 받아 둠)
@@ -20,7 +20,7 @@ const ID = 'fs-member-id'; // '로그인 상태 유지' 때 아이디 기억 (�
 export const store = {
 	get: () => { try { return localStorage.getItem(KEY); } catch { return null; } },
 	set: (v: string) => { try { localStorage.setItem(KEY, v); } catch {} },
-	clear: () => { try { localStorage.removeItem(KEY); localStorage.removeItem(NAME); localStorage.removeItem(PHOTO); localStorage.removeItem('fs-chatrank'); localStorage.removeItem('fs-gallery'); } catch {} }, // 채팅 랭킹(회원 전용)·갤러리(내 사진 표시) 저장본도
+	clear: () => { try { localStorage.removeItem(KEY); localStorage.removeItem(NAME); localStorage.removeItem(PHOTO); localStorage.removeItem('fs-chatrank'); localStorage.removeItem('fs-gallery'); } catch {} }, // 채팅 랭킹(회원 전용), 갤러리(내 사진 표시) 저장본도
 	name: () => { try { return localStorage.getItem(NAME); } catch { return null; } },
 	setName: (v: string) => { try { localStorage.setItem(NAME, v); } catch {} },
 	photo: () => { try { return localStorage.getItem(PHOTO); } catch { return null; } },
@@ -54,10 +54,10 @@ export const app = {
 	inApp: () => /KAKAOTALK|NAVER\(|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent), // 카톡 등 앱 안 브라우저 → 설치 안 됨
 };
 
-// text/plain POST → CORS 사전요청 없이 호출 (Content-Type·Authorization 헤더 붙이지 말 것 — 토큰은 body.token)
+// text/plain POST → CORS 사전요청 없이 호출 (Content-Type, Authorization 헤더 붙이지 말 것 — 토큰은 body.token)
 export const call = async (body: { action: string; [k: string]: unknown }) => {
 	const res = await (await fetch(club.api, { method: 'POST', body: JSON.stringify(body) })).json();
-	// 새 비밀번호를 정하기 전 세션(첫 전환·초기화)이면 어느 페이지든 비밀번호 화면으로
+	// 새 비밀번호를 정하기 전 세션(첫 전환, 초기화)이면 어느 페이지든 비밀번호 화면으로
 	if (res?.mustChange && body.action !== 'login' && !location.pathname.startsWith(passwordUrl)) { // login은 토큰 저장 후 login.astro가 보냄
 		location.href = `${passwordUrl}?first`;
 		return new Promise(() => {}); // 페이지가 오류 안내(alert 등)를 띄우지 않게 응답을 돌려주지 않음
@@ -79,7 +79,7 @@ export const photoSrc = (photo: string, w: number) => (/^(https:|data:image\/)/.
 
 // 갤러리 사진 목록: 이 브라우저에 저장해 두고 다시 열 때 바로 보여 줌
 // 저장본이 10분 지났으면 보여 주는 동시에 뒤에서 새로 받아 둠 → 새 사진은 그다음 방문에 (서버도 5분 캐시)
-// 회원이 올린 사진(R2·보관한 드라이브)은 thumb·large 주소가 오고, 예전 드라이브 폴더 사진은 id만 (driveImg로)
+// 회원이 올린 사진(R2, 보관한 드라이브)은 thumb, large 주소가 오고, 예전 드라이브 폴더 사진은 id만 (driveImg로)
 export type Photo = { id: string; caption: string; thumb?: string; large?: string; mine?: boolean };
 export const thumbOf = (p: Photo) => p.thumb ?? driveImg(p.id, 720);
 export const largeOf = (p: Photo) => p.large ?? driveImg(p.id, 1800);
@@ -100,7 +100,7 @@ export const galleryPhotos = async (): Promise<Photo[] | null> => {
 	return saved.photos;
 };
 
-// 제출 중 표시: 버튼 글자·스피너, 폼 잠금(inert라 입력칸의 disabled 상태는 그대로 둠)
+// 제출 중 표시: 버튼 글자, 스피너, 폼 잠금(inert라 입력칸의 disabled 상태는 그대로 둠)
 export const busy = (form: HTMLFormElement, on: boolean, label: string) => {
 	const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
 	btn.dataset.label ??= btn.textContent!.trim();
@@ -136,7 +136,7 @@ if (nav) {
 	addEventListener('scroll', onScroll, { passive: true });
 	onScroll();
 
-	// 모바일 ☰ 메뉴: 열고 닫기 (메뉴 고르기·Esc·데스크톱 폭이 되면 닫힘)
+	// 모바일 ☰ 메뉴: 열고 닫기 (메뉴 고르기, Esc, 데스크톱 폭이 되면 닫힘)
 	const menuBtn = nav.querySelector<HTMLButtonElement>('.nav-menu');
 	if (menuBtn) {
 		const setOpen = (open: boolean) => {

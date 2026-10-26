@@ -1,5 +1,5 @@
 // 서비스 워커 — 홈 화면에 앱으로 설치(PWA) + 앱 알림(웹 푸시) (사용자 요구 2026-10-26)
-// 화면·데이터는 아무것도 저장하지 않음: 늘 서버에서 새로 (예전 화면이 남는 문제 없게)
+// 화면, 데이터는 아무것도 저장하지 않음: 늘 서버에서 새로 (예전 화면이 남는 문제 없게)
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 

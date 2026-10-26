@@ -7,7 +7,7 @@
 	--accent: #ff5a1f;
 	--display: 'Anton', 'Noto Sans KR', Impact, sans-serif;
 	/* 내용 칼럼: 넓은 화면에선 가운데 --col 폭, 좁은 화면에선 기본 좌우 여백 (사용자 요구 2026-10-23: 내용 덩어리 가운데)
-	   좁은 폼 페이지는 :global(body) { --col: 420px } 처럼 칼럼을 줄여 제목·내용 왼쪽 끝을 맞춤 */
+	   좁은 폼 페이지는 :global(body) { --col: 420px } 처럼 칼럼을 줄여 제목, 내용 왼쪽 끝을 맞춤 */
 	--col: 1120px;
 }
 /* --gutter는 body에서 계산 (페이지가 body의 --col을 바꾸면 그 값으로 — :root에서 계산하면 1120으로 굳음) */
@@ -921,7 +921,7 @@ a {
 	text-underline-offset: 6px;
 }
 
-/* 로그인·회원 페이지 공통 */
+/* 로그인, 회원 페이지 공통 */
 .mem-intro {
 	background: var(--black);
 	color: var(--white);
@@ -1145,7 +1145,7 @@ a {
 	font-size: 13px;
 	font-weight: 700;
 }
-/* 행사 이름 · 날짜 · [저장] 저장 안 됨 ……… [지우기] */
+/* 행사 이름 | 날짜 | [저장] 저장 안 됨 ……… [지우기] */
 .tm-meta {
 	display: flex;
 	flex-wrap: wrap;
@@ -1329,7 +1329,7 @@ a {
 	background: none;
 	cursor: pointer;
 }
-/* 줄 전체를 덮는 투명한 select — 누르면 옮기기·조장 메뉴 */
+/* 줄 전체를 덮는 투명한 select — 누르면 옮기기, 조장 메뉴 */
 /* 줄은 마우스로 끌기 (지라 보드처럼) — 마우스 화면에선 ⋮⋮ 손잡이 대신 줄 전체 */
 .tm-teams .tm-person {
 	user-select: none;

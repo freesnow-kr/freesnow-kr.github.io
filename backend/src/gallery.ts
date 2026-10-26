@@ -1,4 +1,4 @@
-// 갤러리 (공개): 회원이 올린 사진(photos 테이블, R2·보관한 드라이브) 먼저 + 예전 드라이브 폴더(GALLERY_FOLDER_ID, '링크가 있는 모든 사용자' 공유)의 사진 [{id, caption}] 최신순, D1 cache 5분
+// 갤러리 (공개): 회원이 올린 사진(photos 테이블, R2, 보관한 드라이브) 먼저 + 예전 드라이브 폴더(GALLERY_FOLDER_ID, '링크가 있는 모든 사용자' 공유)의 사진 [{id, caption}] 최신순, D1 cache 5분
 // GOOGLE_API_KEY가 있으면 Drive API(만든 날짜 최신순), 없으면 공개 폴더 보기 페이지에서 읽음(이름순 — 비공식)
 // 채팅 랭킹: 운영진이 /admin에서 카톡 CSV를 고르면 브라우저가 집계해서 올린 결과를 저장해 두고 회원에게 줌 (Worker가 큰 CSV를 세지 않게)
 import type { Ctx } from './index.ts';

@@ -1,4 +1,4 @@
-// SHRED LOG 출격·지출·시즌권 — Apps Script shredLog와 같은 규칙·응답 (AGENTS.md 'SHRED LOG')
+// SHRED LOG 출격, 지출, 시즌권 — Apps Script shredLog와 같은 규칙, 응답 (AGENTS.md 'SHRED LOG')
 // {op?: 'add'|'delete'} → 본인 기록 전체 {visits, expenses, pass}. 다른 회원 줄은 읽지도 지우지도 않음 (WHERE member_id)
 import type { Ctx } from './index.ts';
 import { need } from './auth.ts';
@@ -25,8 +25,8 @@ export async function shredLog(c: Ctx) {
 		const visits: any[] = Array.isArray(b.visits) ? b.visits : [];
 		const expenses: any[] = Array.isArray(b.expenses) ? b.expenses : [];
 		const pass: Record<string, any> = b.pass && typeof b.pass === 'object' ? b.pass : {};
-		if (visits.some((v) => !v || !isId(v.id) || !isYmd(v.date) || !clean(v.resort, 40))) return { ok: false, error: '출격 기록(날짜·스키장)을 확인해 주세요.' };
-		if (expenses.some((e) => !e || !isId(e.id) || !isYmd(e.date) || !clean(e.cat, 40) || !(Number(e.amount) > 0) || !won(e.amount) || (e.visit && !isId(e.visit)))) return { ok: false, error: '지출 기록(날짜·금액)을 확인해 주세요.' };
+		if (visits.some((v) => !v || !isId(v.id) || !isYmd(v.date) || !clean(v.resort, 40))) return { ok: false, error: '출격 기록(날짜, 스키장)을 확인해 주세요.' };
+		if (expenses.some((e) => !e || !isId(e.id) || !isYmd(e.date) || !clean(e.cat, 40) || !(Number(e.amount) > 0) || !won(e.amount) || (e.visit && !isId(e.visit)))) return { ok: false, error: '지출 기록(날짜, 금액)을 확인해 주세요.' };
 		if (Object.keys(pass).some((s) => !/^\d{2}-\d{2}$/.test(s) || !won(pass[s]?.price || 0) || !won(pass[s]?.day || 0))) return { ok: false, error: '시즌권 가격을 확인해 주세요.' };
 
 		const n = await db.prepare('SELECT (SELECT count(*) FROM ride_logs WHERE member_id = ?1 AND is_active = 1) + (SELECT count(*) FROM expense_logs WHERE member_id = ?1 AND is_active = 1) AS n').bind(me.id).first<{ n: number }>();
@@ -45,7 +45,7 @@ export async function shredLog(c: Ctx) {
 				db.prepare('INSERT INTO expense_logs (member_id, id, date, cat, amount, memo, visit_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING')
 					.bind(me.id, String(e.id), e.date, clean(e.cat, 40), Number(e.amount), clean(e.memo, 100), e.visit ? String(e.visit) : null, now),
 			),
-			// 시즌권: 회원·시즌당 한 줄 (있으면 고침)
+			// 시즌권: 회원, 시즌당 한 줄 (있으면 고침)
 			...Object.keys(pass).map((s) =>
 				db.prepare(
 					`INSERT INTO season_passes (member_id, season, price, day_price, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)

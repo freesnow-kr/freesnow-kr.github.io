@@ -1,5 +1,5 @@
-// 시즌방 숙박 체크 — Apps Script seasonRoom과 같은 규칙·응답 (AGENTS.md '시즌방 숙박 체크')
-// 회원·날짜당 한 줄(PRIMARY KEY), 취소해도 줄은 남기고 kind = '취소'. 방 구분·정원 없음, 지난 날짜도 자유롭게. 시즌 = 7/1 ~ 6/30
+// 시즌방 숙박 체크 — Apps Script seasonRoom과 같은 규칙, 응답 (AGENTS.md '시즌방 숙박 체크')
+// 회원, 날짜당 한 줄(PRIMARY KEY), 취소해도 줄은 남기고 kind = '취소'. 방 구분, 정원 없음, 지난 날짜도 자유롭게. 시즌 = 7/1 ~ 6/30
 import type { Ctx } from './index.ts';
 import { need } from './auth.ts';
 import { ROOM_PRICES as PRICES, iso } from './lib.ts';
@@ -7,8 +7,8 @@ import { lessonRequested } from './notify.ts';
 
 
 // {season: '26-27', op?: 'add'|'remove', date?: '2026-12-13', kind?: '숙박'|'휴식'|'출격'|'강습'} → {ok, season, prices, nights: [{date, name, kind, me, owner}], rides: [{date, name, me}], lessons: ['2026-12-13']}
-// kind '출격'이면 출격 체크(ride_checks, 시즌방과 따로·정산 없음). 응답엔 취소 빼고, 회원에게 이름만 (연락처 X)
-// kind '강습'이면 강습 요청(lesson_requests) — 내가 출격한 날만. lessons는 내 요청 날짜만(다른 회원 요청·연결한 회원은 안 보냄 — 운영진만 /admin에서)
+// kind '출격'이면 출격 체크(ride_checks, 시즌방과 따로, 정산 없음). 응답엔 취소 빼고, 회원에게 이름만 (연락처 X)
+// kind '강습'이면 강습 요청(lesson_requests) — 내가 출격한 날만. lessons는 내 요청 날짜만(다른 회원 요청, 연결한 회원은 안 보냄 — 운영진만 /admin에서)
 export async function seasonRoom(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c);

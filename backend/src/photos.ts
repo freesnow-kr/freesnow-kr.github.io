@@ -1,6 +1,6 @@
 // R2 버킷 freesnow-photos 폴더: gallery/{orig|large|thumb}/{id} (갤러리), profile/{회원ID}/{무작위}.jpg (프로필 사진, members.ts)
-// 갤러리 사진: 회원이 올린 원본을 R2에 (사용자 요구 2026-10-23). 이번·지난 시즌만 R2, 더 오래된 시즌은 드라이브로 보관
-// 올리기: POST /photos (multipart: token, orig, large, thumb, taken) — 브라우저가 1800px·720px JPG를 만들어 같이 보냄
+// 갤러리 사진: 회원이 올린 원본을 R2에 (사용자 요구 2026-10-23). 이번, 지난 시즌만 R2, 더 오래된 시즌은 드라이브로 보관
+// 올리기: POST /photos (multipart: token, orig, large, thumb, taken) — 브라우저가 1800px, 720px JPG를 만들어 같이 보냄
 // 보기: GET /photo/{id}/{thumb|large|orig} — R2에 있으면 바로(브라우저 1년 캐시), 드라이브로 옮겼으면 드라이브 주소로
 import type { Ctx, Env } from './index.ts';
 import { need, Reply } from './auth.ts';
@@ -8,7 +8,7 @@ import { iso, randomToken, seasonOf } from './lib.ts';
 export { seasonOf };
 
 const ORIG_MAX = 30 * 1024 * 1024; // 원본 한 장 30MB
-const SMALL_MAX = 4 * 1024 * 1024; // 1800px·720px JPG
+const SMALL_MAX = 4 * 1024 * 1024; // 1800px, 720px JPG
 const PER_DAY = 300; // 회원 한 명이 하루에 올릴 수 있는 장 수
 const ORIG_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const SIZES = ['thumb', 'large', 'orig'] as const;
@@ -28,7 +28,7 @@ export async function upload(req: Request, env: Env, now: Date) {
 	const me = await need(ctx);
 	const orig = form.get('orig'), large = form.get('large'), thumb = form.get('thumb');
 	if (!(orig instanceof File) || !(large instanceof File) || !(thumb instanceof File)) throw new Reply({ ok: false, error: '사진을 확인해 주세요.' });
-	if (!ORIG_TYPES.includes(orig.type) || orig.size > ORIG_MAX) return { ok: false, error: 'JPG·PNG·WEBP·HEIC 사진만, 한 장 30MB까지 올릴 수 있어요.' };
+	if (!ORIG_TYPES.includes(orig.type) || orig.size > ORIG_MAX) return { ok: false, error: 'JPG, PNG, WEBP, HEIC 사진만, 한 장 30MB까지 올릴 수 있어요.' };
 	if (large.type !== 'image/jpeg' || thumb.type !== 'image/jpeg' || large.size > SMALL_MAX || thumb.size > SMALL_MAX) return { ok: false, error: '사진을 확인해 주세요.' };
 	const n = await env.DB.prepare('SELECT count(*) AS n FROM photos WHERE uploaded_by = ? AND created_at > ? AND is_active = 1').bind(me.id, iso(new Date(now.getTime() - 864e5))).first<{ n: number }>();
 	if (n!.n >= PER_DAY) return { ok: false, error: '오늘은 더 올릴 수 없어요. 내일 다시 올려 주세요.' };
@@ -122,7 +122,7 @@ async function archive(env: Env, season: string) {
 		const obj = await env.PHOTOS.get(`gallery/orig/${p.id}`);
 		if (!obj) continue;
 		const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' }[p.content_type as string] ?? 'jpg';
-		// 이어 올리기(resumable): 메타데이터로 주소를 받고 그 주소에 원본을 그대로 흘려보냄 (Worker 메모리·CPU 적게)
+		// 이어 올리기(resumable): 메타데이터로 주소를 받고 그 주소에 원본을 그대로 흘려보냄 (Worker 메모리, CPU 적게)
 		const init = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
 			method: 'POST',
 			headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Upload-Content-Type': p.content_type, 'X-Upload-Content-Length': String(obj.size) },

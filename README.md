@@ -1,6 +1,6 @@
 # Free Snow
 
-스키·스노우보드 동호회 Free Snow 웹사이트. Astro 정적 사이트 → GitHub Pages.
+스키, 스노우보드 동호회 Free Snow 웹사이트. Astro 정적 사이트 → GitHub Pages.
 
 - 공개 주소: https://freesnow-kr.github.io/
 - 저장소: https://github.com/freesnow-kr/freesnow-kr.github.io
@@ -22,7 +22,7 @@
 
 ```sh
 npm install
-cp .env.example .env   # 링크·API 주소 채우기 (배포 값은 GitHub 저장소 Secrets)
+cp .env.example .env   # 링크, API 주소 채우기 (배포 값은 GitHub 저장소 Secrets)
 npm run dev     # http://localhost:4321/
 npm run build   # dist/ 생성
 ```
@@ -33,16 +33,16 @@ npm run build   # dist/ 생성
 - **오픈채팅 링크, FAQ** → `src/data/club.ts` (모든 페이지 공통)
 - **갤러리 사진** → 드라이브 폴더에 올리기만 하면 됨(최대 5분 뒤 반영). 폴더 바꾸려면 Worker secret `GALLERY_FOLDER_ID` (`cd backend && npx wrangler secret put GALLERY_FOLDER_ID`)
 - **스키장 웹캠 목록** → `src/pages/webcam.astro` 맨 위 `regions`
-- **가입 거주지 목록(시도·시군구)** → 법정동 CSV를 `data/`에 두고 `node scripts/make-regions.mjs data/파일.csv` (→ `src/data/regions.json`)
+- **가입 거주지 목록(시도, 시군구)** → 법정동 CSV를 `data/`에 두고 `node scripts/make-regions.mjs data/파일.csv` (→ `src/data/regions.json`)
 - **메인 영상** → `public/hero.mp4`, `public/hero.jpg` 교체 (`scripts/make-hero.swift`로 변환)
 
 ## 배포
 
-`main` 브랜치에 push하면 GitHub Actions(`.github/workflows/deploy.yml`)가 자동으로 빌드·배포해요.
+`main` 브랜치에 push하면 GitHub Actions(`.github/workflows/deploy.yml`)가 자동으로 빌드, 배포해요.
 
-## 회원·서버 (Cloudflare Worker)
+## 회원, 서버 (Cloudflare Worker)
 
-API 서버는 `backend/`(Cloudflare Worker + D1, `https://api.freesnow.workers.dev`)예요. 회원명부·기록은 D1에 있고, 운영은 **`/admin/`(운영진 화면)**에서 해요.
+API 서버는 `backend/`(Cloudflare Worker + D1, `https://api.freesnow.workers.dev`)예요. 회원명부, 기록은 D1에 있고, 운영은 **`/admin/`(운영진 화면)**에서 해요.
 
 - **로그인:** 아이디 = 010 뺀 번호. 처음 한 번은 생년월일 8자리로 로그인 → 새 비밀번호를 정해요. 로그인은 30일, 쓰는 동안 자동 연장.
 - **가입:** `/signup` 신청 → `/admin` '가입 신청'에서 승인하면 회원이 돼요.

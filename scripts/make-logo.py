@@ -1,4 +1,4 @@
-# 헤더 로고·앱 아이콘 만들기: python3 -I scripts/make-logo.py public/freesnow_logo3.jpeg public
+# 헤더 로고, 앱 아이콘 만들기: python3 -I scripts/make-logo.py public/freesnow_logo3.jpeg public
 # freesnow_logo3.jpeg(검정 로고 + 흰 바탕) → 여백 자르고, 밝기를 투명도로 바꾼 흰 로고
 #   logo-white.png             헤더 로고 (높이 120px, 투명 바탕)
 #   icon-192.png, icon-512.png 앱 아이콘 (검정 바탕 + 흰 로고, manifest.webmanifest)

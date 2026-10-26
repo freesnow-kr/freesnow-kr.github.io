@@ -1,4 +1,4 @@
-// 로그인·세션·비밀번호·초기화·잠금·CORS
+// 로그인, 세션, 비밀번호, 초기화, 잠금, CORS
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../src/index.ts';
@@ -14,7 +14,7 @@ useDb([
 
 const login = (loginId: string, password: string) => post({ action: 'login', loginId, password });
 
-test('아이디 = 010 뺀 휴대폰 번호(하이픈·010 있어도 됨), 내 정보엔 번호 없음', async () => {
+test('아이디 = 010 뺀 휴대폰 번호(하이픈, 010 있어도 됨), 내 정보엔 번호 없음', async () => {
 	const s = await login('1111-2222', PASSWORD);
 	assert.equal(s.ok, true);
 	assert.equal(s.mustChange, false);
@@ -24,7 +24,7 @@ test('아이디 = 010 뺀 휴대폰 번호(하이픈·010 있어도 됨), 내 �
 	const me = await post({ action: 'me' }, s.token);
 	assert.deepEqual(me.me, { name: '김보드', region: '경기북부', area: '구리', photo: '', role: 'member' });
 	assert.deepEqual({ ...me.season, season: 'x' }, { season: 'x', rides: 0, stays: 0, rests: 0, owner: false, pay: 0, visits: 0, spent: 0, photos: 0 });
-	assert.equal(/1996|1111|2222/.test(JSON.stringify(me)), false); // 출생연도·번호는 응답에 없음
+	assert.equal(/1996|1111|2222/.test(JSON.stringify(me)), false); // 출생연도, 번호는 응답에 없음
 	const row = JSON.stringify(await env.DB.prepare("SELECT * FROM members WHERE id = 'm-kim'").first());
 	assert.equal(/11112222/.test(row), false); // DB엔 번호 그대로 없음 (HMAC)
 });
@@ -86,7 +86,7 @@ test('초기화: 운영진 이상(관리자 계정은 관리자만), 그 회원 
 	assert.equal(log.results[0].actor_id, 'm-staff');
 });
 
-test('로그아웃하면 그 세션 끝, 로그인 이력엔 비밀번호·토큰·아이디 원문이 없음', async () => {
+test('로그아웃하면 그 세션 끝, 로그인 이력엔 비밀번호, 토큰, 아이디 원문이 없음', async () => {
 	const s = await login('5555-6666', PASSWORD);
 	assert.equal((await post({ action: 'logout' }, s.token)).ok, true);
 	assert.equal((await post({ action: 'me' }, s.token)).expired, true);
@@ -122,7 +122,7 @@ test('CORS: 허용한 출처만, 이상한 요청은 같은 오류', async () =>
 	assert.equal(big.status, 413);
 });
 
-test('지역 이름: 구분이 지역이면 그대로, 운영진·마스터면 거주지로 시도 찾기, 경기는 북부·남부', async () => {
+test('지역 이름: 구분이 지역이면 그대로, 운영진, 마스터면 거주지로 시도 찾기, 경기는 북부, 남부', async () => {
 	const { regionOf } = await import('../src/region.ts');
 	assert.equal(regionOf('운영진', '구리'), '경기북부');
 	assert.equal(regionOf('운영진', '수원'), '경기남부');

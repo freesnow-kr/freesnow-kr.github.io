@@ -113,8 +113,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						</div>
 						<div class="dlg-body">
 							<ul>
-								<li>휴대폰 번호·이름·성별·출생연도·거주지·비상 연락처·프로필 사진, SHRED LOG·스노우라이브 기록은 <b>바로 지워지고 되돌릴 수 없어요.</b></li>
-								<li>게시글·댓글·갤러리 사진, 출격·시즌방 기록(정산)은 남고 '탈퇴 회원'으로 보여요. 지우고 싶은 글·사진은 탈퇴 전에 지워 주세요.</li>
+								<li>휴대폰 번호, 이름, 성별, 출생연도, 거주지, 비상 연락처, 프로필 사진, SHRED LOG, 스노우라이브 기록은 <b>바로 지워지고 되돌릴 수 없어요.</b></li>
+								<li>게시글, 댓글, 갤러리 사진, 출격, 시즌방 기록(정산)은 남고 '탈퇴 회원'으로 보여요. 지우고 싶은 글, 사진은 탈퇴 전에 지워 주세요.</li>
 								<li>다시 함께하려면 가입 신청부터 다시 해야 해요.</li>
 							</ul>
 							<label>비밀번호 확인 <input name="password" type="password" autocomplete="current-password" required /></label>
@@ -154,7 +154,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					store.setName(res.me.name);
 					store.setPhoto(res.me.photo ? photoSrc(res.me.photo, 96) : ''); // 헤더 내 메뉴 동그라미
 					dash.querySelector('.me-name')!.textContent = res.me.name;
-					// 칩: 권한(ADMIN/STAFF/MASTER/MEMBER — 마스터는 주황) · 지역
+					// 칩: 권한(ADMIN/STAFF/MASTER/MEMBER — 마스터는 주황) | 지역
 					// 지역('경기북부', '서울') + 거주지 → '경기북부 구리'. 지역을 모르면 거주지만
 					const region = [res.me.region, res.me.area].filter(Boolean).join(' ');
 					const chips: [string, string][] = [
@@ -171,7 +171,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					);
 					showSeason(res.season);
 					setupStays(res.season?.season);
-					// 운영진·관리자에게만 링크 (권한은 서버가 따로 확인)
+					// 운영진, 관리자에게만 링크 (권한은 서버가 따로 확인)
 					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'admin'].includes(res.me.role);
 					if (['staff', 'admin'].includes(res.me.role)) setupPush();
 					setupAvatar(res.me.name, res.me.photo || '');
@@ -190,7 +190,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					el.append(u);
 				};
 				put('rides', String(s.rides), '일');
-				put('stays', String(s.stays), s.rests ? `박 · 휴식 ${s.rests}` : '박'); // 휴식(4시간)은 숫자 옆에 작게
+				put('stays', String(s.stays), s.rests ? `박 | 휴식 ${s.rests}` : '박'); // 휴식(4시간)은 숫자 옆에 작게
 				put('visits', String(s.visits), '일');
 				put('photos', String(s.photos), '장');
 			}
@@ -227,8 +227,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							: [row(['이 시즌엔 이용 기록이 없어요.', '', ''])]),
 					);
 					const stays = mine.filter((n) => n.kind !== '휴식').length;
-					dlg.querySelector('.stay-sum')!.textContent = `${stays}박 · 휴식 ${mine.length - stays}회`;
-					dlg.querySelector('.stay-won')!.textContent = owner ? '주주 · 0원' : `${mine.reduce((t, n) => t + fee(n.kind), 0).toLocaleString()}원`;
+					dlg.querySelector('.stay-sum')!.textContent = `${stays}박 | 휴식 ${mine.length - stays}회`;
+					dlg.querySelector('.stay-won')!.textContent = owner ? '주주 | 0원' : `${mine.reduce((t, n) => t + fee(n.kind), 0).toLocaleString()}원`;
 				}
 				const row = (cells: string[]) => {
 					const tr = document.createElement('tr');
@@ -303,7 +303,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					msg.textContent = done;
 				};
 				show(photo);
-				// 사진 메뉴: 사진을 누르면 열림, 바깥 클릭·Esc·고르면 닫힘
+				// 사진 메뉴: 사진을 누르면 열림, 바깥 클릭, Esc, 고르면 닫힘
 				const btn = dash.querySelector<HTMLButtonElement>('.avatar')!;
 				const menu = dash.querySelector<HTMLElement>('.photo-menu')!;
 				const open = (on: boolean) => {
@@ -321,7 +321,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					if (!f) return;
 					const pics = await toJpeg(f).catch(() => null);
 					if (!pics) {
-						msg.textContent = '이 사진은 열 수 없어요. 다른 사진(JPG·PNG)으로 해 주세요.';
+						msg.textContent = '이 사진은 열 수 없어요. 다른 사진(JPG, PNG)으로 해 주세요.';
 						return;
 					}
 					send(pics, '사진 올리는 중…', '프로필 사진을 바꿨어요.');
@@ -364,11 +364,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				});
 			}
 
-			// 앱 알림 (운영진만, 사용자 요구 2026-10-26): 강습 요청·가입 신청을 휴대폰 알림으로. 기기마다 켜야 함
+			// 앱 알림 (운영진만, 사용자 요구 2026-10-26): 강습 요청, 가입 신청을 휴대폰 알림으로. 기기마다 켜야 함
 			async function setupPush() {
 				const row = dash.querySelector<HTMLButtonElement>('.push-row')!;
 				const label = row.querySelector('.push-state')!;
-				const TEXT: Record<string, string> = { on: '켜짐 · 강습 요청·가입 신청', off: '꺼짐 · 눌러서 켜기', denied: '휴대폰 설정에서 막혀 있어요', install: '아이폰은 앱으로 설치한 뒤 켤 수 있어요', unsupported: '이 브라우저는 알림을 못 받아요' };
+				const TEXT: Record<string, string> = { on: '켜짐 | 강습 요청, 가입 신청', off: '꺼짐 | 눌러서 켜기', denied: '휴대폰 설정에서 막혀 있어요', install: '아이폰은 앱으로 설치한 뒤 켤 수 있어요', unsupported: '이 브라우저는 알림을 못 받아요' };
 				let state = await pushState().catch(() => 'unsupported');
 				const show = () => (label.textContent = TEXT[state]);
 				row.hidden = false;
@@ -568,7 +568,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	.strip dt,
 	.strip dd {
-		white-space: nowrap; /* 좁아도 '8박 · 휴식 3'·'자세히 ›'가 줄바꿈으로 깨지지 않게 */
+		white-space: nowrap; /* 좁아도 '8박 | 휴식 3', '자세히 ›'가 줄바꿈으로 깨지지 않게 */
 	}
 	.strip dd {
 		margin: 6px 0 0;

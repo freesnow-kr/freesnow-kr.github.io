@@ -1,6 +1,6 @@
 // 앱 알림(웹 푸시, 사용자 요구 2026-10-26) — 라이브러리 없이 표준대로: VAPID 서명(RFC 8292, ES256) + 내용 암호화(RFC 8291, aes128gcm)
 // 서명 키는 Worker secret VAPID_JWK (P-256 개인키 JWK, scripts/vapid.mjs가 만들어 넣음). 공개키는 거기서 꺼내 push.key로 줌
-// 받는 사람: 운영진 알림은 활동 중인 운영진·관리자의 켜진 구독 전부(기기마다). 404·410(만료·해제)은 끔
+// 받는 사람: 운영진 알림은 활동 중인 운영진, 관리자의 켜진 구독 전부(기기마다). 404, 410(만료, 해제)은 끔
 import type { Ctx, Env } from './index.ts';
 import { need, Reply } from './auth.ts';
 
@@ -38,7 +38,7 @@ async function vapid(env: Env, endpoint: string) {
 	return `vapid t=${head}.${body}.${b64u(sig)}, k=${publicKey(env)}`;
 }
 
-// 내용 암호화 (RFC 8291): 일회용 ECDH 키 + 기기 공개키 → 공유 비밀, auth로 섞어 CEK·nonce, AES-128-GCM 한 덩어리
+// 내용 암호화 (RFC 8291): 일회용 ECDH 키 + 기기 공개키 → 공유 비밀, auth로 섞어 CEK, nonce, AES-128-GCM 한 덩어리
 export async function encrypt(payload: string, p256dh: string, auth: string) {
 	const ua = unb64u(p256dh);
 	const as = (await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'])) as CryptoKeyPair;
@@ -58,7 +58,7 @@ export async function encrypt(payload: string, p256dh: string, auth: string) {
 }
 
 type Sub = { endpoint: string; p256dh: string; auth: string };
-// 여러 기기로. 404·410이면 그 구독을 끔. 실패해도 던지지 않음(알림 때문에 요청이 실패하면 안 돼서) → 보낸 수
+// 여러 기기로. 404, 410이면 그 구독을 끔. 실패해도 던지지 않음(알림 때문에 요청이 실패하면 안 돼서) → 보낸 수
 export async function sendPush(env: Env, subs: Sub[], msg: PushMsg) {
 	if (!env.VAPID_JWK || !subs.length) return { sent: 0, failed: 0 };
 	const payload = JSON.stringify(msg);
@@ -84,7 +84,7 @@ export async function sendPush(env: Env, subs: Sub[], msg: PushMsg) {
 	return { sent, failed };
 }
 
-// 운영진 알림: 활동 중인 운영진·관리자의 켜진 구독 전부
+// 운영진 알림: 활동 중인 운영진, 관리자의 켜진 구독 전부
 export async function pushStaff(env: Env, msg: PushMsg) {
 	const { results } = await env.DB.prepare(
 		`SELECT p.endpoint, p.p256dh, p.auth FROM push_subscriptions p JOIN members m ON m.id = p.member_id
@@ -129,7 +129,7 @@ export async function test(c: Ctx) {
 	const me = await need(c);
 	if (!c.env.VAPID_JWK) throw bad('앱 알림이 아직 준비되지 않았어요. (backend/scripts/vapid.mjs)');
 	const { results } = await c.env.DB.prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE member_id = ? AND is_active = 1').bind(me.id).all<Sub>();
-	const r = await sendPush(c.env, results, { title: '앱 알림이 켜졌어요', body: '강습 요청·가입 신청이 들어오면 여기로 알려 드려요.', url: '/admin/', tag: 'test' });
+	const r = await sendPush(c.env, results, { title: '앱 알림이 켜졌어요', body: '강습 요청, 가입 신청이 들어오면 여기로 알려 드려요.', url: '/admin/', tag: 'test' });
 	if (!r.sent) throw bad('알림을 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.');
 	return { ok: true, ...r };
 }

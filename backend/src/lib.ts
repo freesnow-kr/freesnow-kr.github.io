@@ -2,7 +2,7 @@
 
 // 010-1234-5678 / 01012345678 / 12345678(010 생략 아이디) / 1012345678(시트가 앞 0을 지움) / +82 10… → 01012345678
 
-// 휴대폰 번호: 숫자만 01012345678. 010 뺀 8자리·010-1234-5678·+82 10…도 받음. 형식이 틀리면 ''
+// 휴대폰 번호: 숫자만 01012345678. 010 뺀 8자리, 010-1234-5678, +82 10…도 받음. 형식이 틀리면 ''
 export function normPhone(v: unknown): string {
 	let d = String(v ?? '').replace(/\D/g, '');
 	if (d.startsWith('8210') && d.length >= 12) d = '0' + d.slice(2);
@@ -14,7 +14,7 @@ export function normPhone(v: unknown): string {
 // 그 판의 동의 문구는 DB consent_terms(version = 이 값, 0020)에 보관 — 가입 화면 문구를 바꾸면 새 version 줄을 더하는 migration도 (테스트가 확인)
 export const POLICY_VERSION = '2026-10-26';
 
-// 채팅 랭킹 이름 가리기 (사용자 요구 2026-10-26): 닉네임 '홍길동/90/고양' → 홍*동 (나이·지역은 뺌), 두 글자는 홍*
+// 채팅 랭킹 이름 가리기 (사용자 요구 2026-10-26): 닉네임 '홍길동/90/고양' → 홍*동 (나이, 지역은 뺌), 두 글자는 홍*
 export function maskName(nick: string): string {
 	const c = [...nick.split('/')[0].trim()];
 	return c.length <= 1 ? c.join('') : c[0] + '*'.repeat(Math.max(1, c.length - 2)) + (c.length > 2 ? c.at(-1) : '');
@@ -33,7 +33,7 @@ export function seasonOf(d: Date) {
 	const s = (k.getUTCMonth() >= 6 ? k.getUTCFullYear() : k.getUTCFullYear() - 1) % 100;
 	return `${String(s).padStart(2, '0')}-${String((s + 1) % 100).padStart(2, '0')}`;
 }
-// 시즌 첫날·끝날 ('26-27' → '2026-07-01', '2027-06-30')
+// 시즌 첫날, 끝날 ('26-27' → '2026-07-01', '2027-06-30')
 export const seasonRange = (season: string) => [`20${season.slice(0, 2)}-07-01`, `20${season.slice(3)}-06-30`] as const;
 
 // 시즌방 정산: 숙박 1박 / 4시간 휴식, 시즌방 주주는 빠짐
@@ -53,7 +53,7 @@ const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 export const randomB64 = (n: number) => b64(crypto.getRandomValues(new Uint8Array(n)));
-// 세션 토큰: 주소·헤더에 그대로 쓰게 URL-safe
+// 세션 토큰: 주소, 헤더에 그대로 쓰게 URL-safe
 export const randomToken = () => randomB64(32).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 export const sha256 = async (s: string) => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
@@ -73,7 +73,7 @@ export async function pbkdf2(password: string, salt: string, iter: number): Prom
 	return b64(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: unb64(salt), iterations: iter }, key, 256));
 }
 
-// 길이가 달라도 같은 시간 (비밀번호·초기화 비밀번호 비교)
+// 길이가 달라도 같은 시간 (비밀번호, 초기화 비밀번호 비교)
 export function safeEqual(a: string, b: string): boolean {
 	const x = enc.encode(a), y = enc.encode(b);
 	let diff = x.length ^ y.length;
@@ -83,7 +83,7 @@ export function safeEqual(a: string, b: string): boolean {
 
 // 휴대폰 번호 보관 (사용자 결정 2026-10-26: 아이디 = 010 뺀 휴대폰 번호, 화면 어디에도 안 보이고 DB엔 번호 그대로 안 둠)
 // secret PHONE_KEY 하나에서 두 키를 만듦 — 잃으면 아무도 휴대폰으로 로그인 못 하고 비상 연락처도 못 풂 → 따로 백업
-//   phoneKey: 로그인·중복 가입 확인용 HMAC (되돌릴 수 없음). 번호는 1억 가지뿐이라 키 없는 해시는 금방 풀려서 꼭 비밀키로
+//   phoneKey: 로그인, 중복 가입 확인용 HMAC (되돌릴 수 없음). 번호는 1억 가지뿐이라 키 없는 해시는 금방 풀려서 꼭 비밀키로
 //   sealPhone/openPhone: 비상 연락처(선택 동의한 회원만)용 AES-GCM — 운영진 화면에서만 풂
 async function subKey(secret: string, label: string): Promise<ArrayBuffer> {
 	if (!secret) throw new Error('PHONE_KEY 가 비어 있어요.');

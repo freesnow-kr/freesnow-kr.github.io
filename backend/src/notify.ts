@@ -2,6 +2,7 @@
 // 보내는 계정 = 사진 보관용으로 연결한 동호회 구글 계정의 Gmail. 권한은 scripts/google-auth.mjs가 drive.file + gmail.send로 받음
 import type { Env } from './index.ts';
 import { accessToken } from './photos.ts';
+import { pushStaff } from './push.ts';
 
 export const EMAIL = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
 const ADMIN_URL = 'https://freesnow-kr.github.io/admin/';
@@ -123,14 +124,16 @@ export function signupMail(v: { name: string; gender: string; region: string; at
 	};
 }
 
-// 가입 신청 알림. 실패해도 신청은 저장된 채로(로그만)
+// 가입 신청 알림 (메일 + 앱 알림). 실패해도 신청은 저장된 채로(로그만)
 export async function signupRequested(env: Env, v: { name: string; gender: string; region: string; at: Date }) {
 	try {
-		const to = (await staffEmails(env)).map((r) => r.email);
-		if (!to.length) return;
 		const { n } = (await env.DB.prepare("SELECT count(*) AS n FROM signup_requests WHERE status = 'pending' AND is_active = 1").first<{ n: number }>())!;
+		const to = (await staffEmails(env)).map((r) => r.email);
 		const mail = signupMail({ ...v, pending: n });
-		await sendMail(env, to, mail.subject, mail.text, mail.html);
+		await Promise.all([
+			to.length && sendMail(env, to, mail.subject, mail.text, mail.html).catch((e) => console.error('signup mail', e)),
+			pushStaff(env, { title: `가입 신청 · ${v.name}`, body: `${v.region} · 가입 대기 ${n}건`, url: '/admin/', tag: 'signup' }),
+		]);
 	} catch (e) {
 		console.error('signup notify', e);
 	}
@@ -142,17 +145,20 @@ export async function pendingLessons(env: Env, now = new Date()) {
 	return (await env.DB.prepare('SELECT count(*) AS n FROM lesson_requests WHERE is_active = 1 AND teacher_id IS NULL AND date >= ?').bind(today).first<{ n: number }>())!.n;
 }
 
-// 강습 요청 알림. 실패해도 요청 자체는 저장된 채로(로그만)
+// 강습 요청 알림 (메일 + 앱 알림). 실패해도 요청 자체는 저장된 채로(로그만)
 export async function lessonRequested(env: Env, memberId: string, name: string, date: string) {
 	try {
 		const to = (await staffEmails(env)).map((r) => r.email);
-		if (!to.length) return;
 		const { results } = await env.DB.prepare(
 			`SELECT m.name FROM ride_checks r JOIN members m ON m.id = r.member_id
 			 WHERE r.date = ? AND r.status = '출격' AND r.is_active = 1 AND r.member_id != ? ORDER BY m.name`,
 		).bind(date, memberId).all<{ name: string }>();
-		const mail = lessonMail({ name, date, riders: results.map((r) => r.name), pending: await pendingLessons(env) });
-		await sendMail(env, to, mail.subject, mail.text, mail.html);
+		const pending = await pendingLessons(env);
+		const mail = lessonMail({ name, date, riders: results.map((r) => r.name), pending });
+		await Promise.all([
+			to.length && sendMail(env, to, mail.subject, mail.text, mail.html).catch((e) => console.error('lesson mail', e)),
+			pushStaff(env, { title: `강습 요청 · ${name}`, body: `${dayOf(date)} 출격 · 연결 대기 ${pending}건`, url: '/admin/', tag: 'lesson' }),
+		]);
 	} catch (e) {
 		console.error('lesson notify', e);
 	}

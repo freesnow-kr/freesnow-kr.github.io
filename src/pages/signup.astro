@@ -49,22 +49,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				{!club.api && <p class="mem-msg">회원가입 준비 중이에요.</p>}
 
 				<form class="signup" hidden={!club.api} novalidate>
-					<h2>회원가입</h2>
-
+					<!-- 화면은 사용자가 고른 시안 A (2026-10-26): 주황 번호 묶음 01 로그인 정보, 02 기본 정보, 03 선택 정보, 04 동의 -->
+					<h2 class="sec"><i>01</i> 로그인 정보</h2>
 					<!-- 아이디 = 010 뺀 휴대폰 번호 (사용자 결정 2026-10-26). 서버는 번호를 되돌릴 수 없는 값(HMAC)으로만 저장, 화면 어디에도 안 보임 -->
 					<label>
-						<span>휴대폰 번호 <small>(아이디로 사용해요)</small></span>
-						<span class="id-row">
-							<span class="id-pre" aria-hidden="true">010</span>
-							<input name="phone" type="tel" inputmode="numeric" autocomplete="username" maxlength="9" placeholder="1234-5678" required />
+						휴대폰 번호
+						<span class="box">
+							<span class="pre" aria-hidden="true">010</span>
+							<input name="phone" type="tel" inputmode="numeric" autocomplete="username" maxlength="9" placeholder="1234 5678" required />
 						</span>
-						<small class="field-note">번호는 암호화되어서 저장되고, 화면 어디에도 보이지 않아요.</small>
+						<small class="hint">아이디로 사용해요. 암호화되어서 저장되고 화면에 보이지 않아요.</small>
 					</label>
-					<label class="choice">
-						<input name="emergency" type="checkbox" />
-						<span class="choice-text">이 번호를 비상 연락처로도 사용해요 (선택)<small>스키장 사고 등 비상시 운영진만 확인할 수 있어요</small></span>
-					</label>
-
 					<label>
 						비밀번호
 						<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="8자 이상" required />
@@ -74,29 +69,31 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<input name="password2" type="password" autocomplete="new-password" maxlength="128" required />
 					</label>
 
+					<h2 class="sec"><i>02</i> 기본 정보</h2>
 					<label>
 						이름
 						<input name="name" type="text" autocomplete="name" maxlength="20" required />
 					</label>
-
 					<fieldset>
 						<legend>성별</legend>
-						<label class="choice"><input type="radio" name="gender" value="남" required /> 남</label>
-						<label class="choice"><input type="radio" name="gender" value="여" /> 여</label>
+						<div class="seg">
+							<label><input type="radio" name="gender" value="남" required /><span>남</span></label>
+							<label><input type="radio" name="gender" value="여" /><span>여</span></label>
+						</div>
 					</fieldset>
-
 					<label>
 						출생연도
 						<!-- 필수, 고르기 (사용자 요구 2026-10-26). 동호회는 19세 이상만 — 연 나이 기준, 올해 19세가 되는 해(올해-19년생)부터. 고를 수 있으면 되니까 나이 체크를 따로 안 받음
-						     목록·안내는 브라우저가 오늘 날짜로 채움(아래 script) → 해가 바뀌면 다시 배포 안 해도 1년씩 올라감. 서버도 같은 규칙 -->
+						     목록, 안내는 브라우저가 오늘 날짜로 채움(아래 script) → 해가 바뀌면 다시 배포 안 해도 1년씩 올라감. 서버도 같은 규칙 -->
 						<select name="year" required>
 							<option value="">선택</option>
 						</select>
-						<small class="field-note year-note">19세 이상만 가입할 수 있어요.</small>
+						<small class="hint year-note">19세 이상만 가입할 수 있어요.</small>
 					</label>
 
+					<h2 class="sec"><i>03</i> 선택 정보 <span class="tag">선택</span></h2>
 					<fieldset>
-						<legend><span>거주지 <small>(선택)</small></span></legend>
+						<legend>거주지</legend>
 						<div class="area">
 							<select name="sido" aria-label="시도">
 								<option value="">시도</option>
@@ -107,6 +104,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							</select>
 						</div>
 					</fieldset>
+					<label class="check">
+						<input name="emergency" type="checkbox" />
+						<span>휴대폰 번호를 비상 연락처로도 사용해요<small>스키장 사고 등 비상시 운영진만 확인할 수 있어요</small></span>
+					</label>
 
 					<!-- 봇 방지: 사람에겐 안 보이는 칸 -->
 					<label class="hp" aria-hidden="true">
@@ -114,28 +115,31 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<input name="website" type="text" tabindex="-1" autocomplete="off" />
 					</label>
 
+					<h2 class="sec"><i>04</i> 동의</h2>
 					<!-- 동의 문구를 바꾸면: backend lib.ts POLICY_VERSION + privacy.astro 시행일 + 새 version의 consent_terms 줄(migration) -->
-					<details class="privacy">
-						<summary>개인정보 수집, 이용 안내</summary>
-						<ul>
-							<li><b>필수 항목</b> 휴대폰 번호(아이디 — 암호화되어서 저장), 비밀번호, 이름, 성별, 출생연도(19세 이상 확인) — 회원 로그인, 중복 가입 방지, 가입 확인(오픈채팅 닉네임과 맞춰 보기), 출격, 시즌방 명단, 정모 조 편성</li>
-							<li><b>선택 항목</b> 거주지, 휴대폰 번호의 비상 연락처 사용 — 회원 명부 지역별 정리, 비상시 연락(운영진만 봐요)</li>
-							<li><b>보유 기간</b> 탈퇴 또는 가입 거절 시 지체 없이 삭제</li>
-							<li>필수 항목에 동의하지 않으면 가입할 수 없어요. 선택 항목은 동의하지 않아도 가입할 수 있어요.</li>
-							<li>서버는 해외(Cloudflare 등)에 있어요. 자세한 건 처리방침을 봐 주세요.</li>
-							<li><a href={`${base}/privacy/`} target="_blank">개인정보처리방침 전체 보기 ↗</a></li>
-						</ul>
-					</details>
-					<label class="choice agree">
-						<input name="agree" type="checkbox" required />
-						필수 항목 수집, 이용에 동의해요 (필수)
-					</label>
-					<label class="choice">
-						<input name="agreeOpt" type="checkbox" />
-						선택 항목(거주지, 비상 연락처 사용) 수집, 이용에 동의해요 (선택)
-					</label>
+					<div class="consent">
+						<label class="check strong">
+							<input name="agree" type="checkbox" required />
+							<span>필수 항목 수집, 이용 동의</span>
+						</label>
+						<label class="check">
+							<input name="agreeOpt" type="checkbox" />
+							<span>선택 항목(거주지, 비상 연락처 사용) 수집, 이용 동의 (선택)</span>
+						</label>
+						<details class="privacy">
+							<summary>자세히 보기</summary>
+							<ul>
+								<li><b>필수 항목</b> 휴대폰 번호(아이디 — 암호화되어서 저장), 비밀번호, 이름, 성별, 출생연도(19세 이상 확인) — 회원 로그인, 중복 가입 방지, 가입 확인(오픈채팅 닉네임과 맞춰 보기), 출격, 시즌방 명단, 정모 조 편성</li>
+								<li><b>선택 항목</b> 거주지, 휴대폰 번호의 비상 연락처 사용 — 회원 명부 지역별 정리, 비상시 연락(운영진만 봐요)</li>
+								<li><b>보유 기간</b> 탈퇴 또는 가입 거절 시 지체 없이 삭제</li>
+								<li>필수 항목에 동의하지 않으면 가입할 수 없어요. 선택 항목은 동의하지 않아도 가입할 수 있어요.</li>
+								<li>서버는 해외(Cloudflare 등)에 있어요. 자세한 건 처리방침을 봐 주세요.</li>
+								<li><a href={`${base}/privacy/`} target="_blank">개인정보처리방침 전체 보기 ↗</a></li>
+							</ul>
+						</details>
+					</div>
 
-					<p class="warn">가입 정보가 일치하지 않거나 허위 정보로 가입한 경우 예고 없이 탈퇴 처리돼요.</p>
+					<p class="note">가입 정보가 일치하지 않거나 허위 정보로 가입한 경우 예고 없이 탈퇴 처리돼요.</p>
 					<button class="btn btn-ink" type="submit">가입 신청</button>
 					<p class="mem-error" role="alert"></p>
 				</form>
@@ -230,46 +234,76 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.signup,
 	.done {
 		display: grid;
-		gap: 20px;
+		gap: 14px;
 		max-width: 480px;
 	}
-	.signup h2,
+	.done {
+		gap: 20px;
+	}
 	.done h2 {
 		font-size: clamp(1.6rem, 3vw, 2.2rem);
 		font-weight: 900;
 		letter-spacing: -0.03em;
 	}
+	/* 묶음 제목: 주황 번호 + 아래 검정 줄 (시안 A) */
+	.sec {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		margin-top: 18px;
+		padding-bottom: 8px;
+		border-bottom: 1.5px solid var(--black);
+		font-size: 15px;
+		font-weight: 900;
+	}
+	.sec:first-child {
+		margin-top: 0;
+	}
+	.sec i {
+		color: var(--accent);
+		font: 16px var(--display);
+		font-style: normal;
+	}
+	.tag {
+		padding: 1px 8px;
+		border-radius: 99px;
+		background: #e4e1da;
+		color: #555;
+		font-size: 11px;
+		font-weight: 700;
+	}
 	.signup label,
 	.signup legend {
 		display: grid;
-		gap: 8px;
-		font-size: 14px;
+		gap: 6px;
+		font-size: 13px;
 		font-weight: 700;
 	}
 	.signup fieldset {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px 20px;
+		display: grid;
+		gap: 6px;
 		min-width: 0; /* fieldset은 기본이 '내용보다 안 좁아짐'이라 휴대폰에서 폼이 화면 밖으로 밀렸음 (2026-10-26) */
 		margin: 0;
 		padding: 0;
 		border: 0;
 	}
 	.signup legend {
-		margin-bottom: 8px;
+		padding: 0;
+		margin-bottom: 6px;
 	}
 	.signup input[type='text'],
 	.signup input[type='password'],
 	.signup input[type='tel'],
-	.signup select {
-		min-height: 52px;
-		padding: 0 16px;
+	.signup select,
+	.box {
+		min-height: 50px;
+		padding: 0 14px;
 		border: 1.5px solid var(--black);
 		border-radius: 0;
 		background-color: var(--white);
 		color: var(--black);
 		font: inherit;
-		font-size: 17px;
+		font-size: 16px;
 		font-weight: 400;
 	}
 	.signup select {
@@ -280,6 +314,65 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.signup input {
 		min-width: 0;
 	}
+	/* 휴대폰 번호: 칸 안 왼쪽에 회색 '010' */
+	.box {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.box .pre {
+		color: var(--gray);
+		font-weight: 500;
+	}
+	.box input[type='tel'] {
+		flex: 1;
+		min-height: 46px;
+		padding: 0;
+		border: 0;
+		outline: none;
+	}
+	.box:focus-within {
+		outline: 2px solid var(--accent);
+		outline-offset: 3px;
+	}
+	.hint {
+		color: var(--gray);
+		font-size: 12px;
+		font-weight: 400;
+	}
+	/* 성별: 검정, 흰색 두 칸 (고른 쪽이 검정) */
+	.seg {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+	}
+	.seg label {
+		display: block;
+		cursor: pointer;
+	}
+	.seg label + label {
+		border-left: 1.5px solid var(--black);
+	}
+	.seg input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+	.seg span {
+		display: grid;
+		place-items: center;
+		height: 46px;
+		font-size: 15px;
+	}
+	.seg input:checked + span {
+		background: var(--black);
+		color: var(--white);
+	}
+	.seg input:focus-visible + span {
+		outline: 2px solid var(--accent);
+		outline-offset: -4px;
+	}
 	/* minmax(0, …): 가장 긴 선택지('제주특별자치도' 등)가 칸을 넓히지 않게 */
 	.area {
 		display: grid;
@@ -287,75 +380,74 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		gap: 8px;
 		width: 100%;
 	}
-	.field-note {
-		font-size: 13px;
-	}
-	.signup small {
-		color: var(--gray);
-		font-weight: 400;
-	}
-	/* 휴대폰 번호: 고정 '010' + 8자리 */
-	.id-row {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr);
-		align-items: center;
-		gap: 8px;
-		width: 100%;
-	}
-	.id-pre {
-		font-size: 17px;
-		font-weight: 700;
-	}
-	.choice {
+	/* 체크박스: 칠하지 않고 흰 칸에 체크 표시만 (사용자 요구 2026-10-26) */
+	.check {
 		display: flex !important;
-		align-items: center;
-		gap: 8px !important;
-		font-size: 16px !important;
+		align-items: flex-start;
+		gap: 10px !important;
+		font-size: 14px !important;
 		font-weight: 400 !important;
 		cursor: pointer;
 	}
-	/* 체크박스 옆 두 줄 문구 (비상 연락처) — 둘째 줄은 작게 아래로 */
-	.choice-text {
+	.check.strong {
+		font-weight: 700 !important;
+	}
+	.check span {
 		display: grid;
 		gap: 2px;
 	}
-	.choice-text small {
-		font-size: 13px;
+	.check small {
+		color: var(--gray);
+		font-size: 12px;
 	}
-	.choice input {
-		width: 18px;
-		height: 18px;
-		accent-color: var(--black);
+	.check input {
+		flex: none;
+		appearance: none;
+		width: 20px;
+		height: 20px;
+		margin: 1px 0 0;
+		border: 1.5px solid var(--black);
+		background: var(--white) center / 14px no-repeat;
+		cursor: pointer;
 	}
-	.agree {
-		font-weight: 700 !important;
+	.check input:checked {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 7.5 5.5 11 12 3.5' fill='none' stroke='%230b0d12' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	}
+	.check input:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 	.hp {
 		position: absolute;
 		left: -9999px;
 	}
+	/* 동의: 흰 상자 하나에 필수, 선택 체크 + 자세히 보기 */
+	.consent {
+		display: grid;
+		gap: 12px;
+		padding: 14px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+	}
 	.privacy {
-		border: 1px solid var(--line);
-		padding: 14px 16px;
-		font-size: 14px;
+		font-size: 13px;
 		color: #4a4d55;
 	}
 	.privacy summary {
+		color: var(--gray);
+		font-size: 12px;
 		cursor: pointer;
-		font-weight: 700;
-		color: var(--black);
-	}
-	/* 허위 가입 안내 (사용자 요구 2026-10-26) */
-	.warn {
-		color: #c4320a;
-		font-size: 14px;
-		font-weight: 700;
 	}
 	.privacy ul {
 		margin: 10px 0 0;
 		padding-left: 18px;
 		display: grid;
 		gap: 4px;
+	}
+	/* 허위 가입 안내 (사용자 요구 2026-10-26) — 차분한 회색 */
+	.note {
+		color: #4a4d55;
+		font-size: 12px;
 	}
 	.mem-error {
 		color: #c4320a;

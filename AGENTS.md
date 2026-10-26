@@ -76,7 +76,7 @@
 
 - **내용 칼럼 가운데**(사용자 요구 2026-10-23, 글자 정렬은 그대로 왼쪽): `ride.css`의 `--col`(기본 1120px)과 `body`의 `--gutter`(= 넓은 화면에선 `(100% - --col)/2`, 좁으면 기본 여백) — 검정 제목 띠(`.mem-intro`, 웹캠 `.cam-intro`)와 본문(`.mem-body`, 메인 THE SEASON, manifesto, FAQ, 웹캠 목록)의 좌우 여백에 씀. **모든 페이지가 같은 칼럼**(사용자 요구: 페이지마다 제목 위치가 달라 보이면 안 됨) — 좁은 내용(로그인 폼, 마이페이지 등)은 칼럼 왼쪽에서 시작. 페이지별로 `--col`을 바꾸는 방법도 있지만 쓰지 않기로 함. 헤더, 메인 히어로, 사진 띠, 푸터는 화면 전체. **`--gutter`는 body에서 계산해야 함**(:root에서 하면 1120으로 굳어 페이지별 `--col`이 안 먹음 — 실제로 겪음).
 - `src/styles/ride.css`: `/`, `/webcam`, `/members` 공통 전역 CSS (토큰, 고정 헤더, 버튼, 푸터). **셀렉트박스 모양(직접 그린 화살표, 오른쪽 14px 안쪽)도 여기 `select` 공통** — 페이지 스타일에선 select에 `background` 단축 속성 쓰지 말고(화살표 지워짐) `background-color`, 오른쪽 여백 34px 이상. 각 페이지는 `import '../styles/ride.css'` + 페이지 전용 `<style>`.
-- 회원가입(`signup.astro`) 휴대폰 깨짐(2026-10-26 고침): `fieldset`은 기본이 '내용보다 안 좁아짐'이라 `min-width: 0`, 월, 일, 시도, 시군구 칸은 `minmax(0, 1fr)` + select `width: 100%`.
+- 회원가입(`signup.astro`) 화면은 사용자가 시안 5개 중 고른 **A**(2026-10-26): 주황 번호 묶음 `01 로그인 정보 / 02 기본 정보 / 03 선택 정보(선택 배지) / 04 동의`(아래 검정 줄), 휴대폰 칸 안 왼쪽에 회색 `010`, 성별은 검정, 흰색 두 칸(고른 쪽 검정), 동의는 흰 상자 하나(필수, 선택 체크 + '자세히 보기'), 허위 가입 안내는 회색. **체크박스는 칠하지 않고 흰 칸에 검정 체크 표시**(사용자 요구, `.check input` appearance none + SVG). 휴대폰 깨짐(2026-10-26 고침): `fieldset`은 기본이 '내용보다 안 좁아짐'이라 `min-width: 0`, 월, 일, 시도, 시군구 칸은 `minmax(0, 1fr)` + select `width: 100%`.
 - `src/data/regions.json`: 가입 거주지 선택 목록(시도 → 시군구). `node scripts/make-regions.mjs data/list_20260630.csv`로 법정동 CSV에서 생성(원본 CSV는 `data/`, gitignore). 시도는 서울, 경기 먼저 그다음 가나다, 시군구는 가나다, 시 아래 일반구(수원시장안구 등) 제외.
 - `src/data/club.ts`: **공통 데이터** — `club.joinUrl`(카카오 오픈채팅), `club.somoimUrl`, `club.membersApi`(Apps Script URL), `trips`(시즌 일정), `faqs`. 여러 페이지가 import하므로 문구는 여기서 수정.
 - **링크, ID는 코드에 넣지 않음**(사용자 요구, 2026-10-22):

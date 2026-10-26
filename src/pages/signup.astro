@@ -51,6 +51,26 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				<form class="signup" hidden={!club.api} novalidate>
 					<h2>회원가입</h2>
 
+					<!-- 아이디는 fs_ + 숫자 4자리 (사용자 요구 2026-10-26: 모두 같은 모양, 겹치면 다른 숫자) -->
+					<fieldset>
+						<legend>아이디</legend>
+						<div class="id-row">
+							<span class="id-pre" aria-hidden="true">fs_</span>
+							<input name="loginId" type="text" inputmode="numeric" maxlength="4" autocomplete="username" aria-label="아이디 숫자 4자리" placeholder="숫자 4자리" required />
+							<button class="btn btn-line-dark id-check" type="button">중복 확인</button>
+						</div>
+						<p class="id-msg" role="status">fs_ 뒤에 쓸 숫자 4자리를 정해 주세요.</p>
+					</fieldset>
+
+					<label>
+						비밀번호
+						<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="8자 이상" required />
+					</label>
+					<label>
+						비밀번호 확인
+						<input name="password2" type="password" autocomplete="new-password" maxlength="128" required />
+					</label>
+
 					<label>
 						이름
 						<input name="name" type="text" autocomplete="name" maxlength="20" required />
@@ -62,38 +82,23 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<label class="choice"><input type="radio" name="gender" value="여" /> 여</label>
 					</fieldset>
 
-					<fieldset>
-						<legend>생년월일</legend>
-						<div class="birth">
-							<input name="year" type="text" inputmode="numeric" maxlength="4" aria-label="출생연도" placeholder="연도" required />
-							<select name="month" aria-label="월" required>
-								<option value="">월</option>
-								{Array.from({ length: 12 }, (_, i) => <option value={i + 1}>{i + 1}월</option>)}
-							</select>
-							<select name="day" aria-label="일" required>
-								<option value="">일</option>
-								{Array.from({ length: 31 }, (_, i) => <option value={i + 1}>{i + 1}일</option>)}
-							</select>
-						</div>
-					</fieldset>
+					<label>
+						<span>출생연도 <small>(선택)</small></span>
+						<input name="year" type="text" inputmode="numeric" maxlength="4" placeholder="예: 1996" />
+					</label>
 
 					<fieldset>
-						<legend>거주지</legend>
+						<legend><span>거주지 <small>(선택)</small></span></legend>
 						<div class="area">
-							<select name="sido" aria-label="시도" required>
+							<select name="sido" aria-label="시도">
 								<option value="">시도</option>
 								{Object.keys(regions).map((sido) => <option value={sido}>{sido}</option>)}
 							</select>
-							<select name="sigungu" aria-label="시군구" required disabled>
+							<select name="sigungu" aria-label="시군구" disabled>
 								<option value="">시군구</option>
 							</select>
 						</div>
 					</fieldset>
-
-					<label>
-						연락처
-						<input name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="010-0000-0000" required />
-					</label>
 
 					<!-- 봇 방지: 사람에겐 안 보이는 칸 -->
 					<label class="hp" aria-hidden="true">
@@ -104,16 +109,25 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<details class="privacy">
 						<summary>개인정보 수집·이용 안내</summary>
 						<ul>
-							<li><b>수집 항목</b> 이름, 성별, 생년월일, 거주지, 연락처</li>
-							<li><b>이용 목적</b> 가입 확인, 회원 로그인, 정모·비상 연락</li>
+							<li><b>필수 항목</b> 아이디, 비밀번호, 이름, 성별 — 가입 확인, 회원 로그인, 출격·시즌방 명단, 정모 조 편성</li>
+							<li><b>선택 항목</b> 출생연도, 거주지 — 가입 확인(오픈채팅 닉네임과 맞춰 보기), 회원 명부 지역별 정리</li>
 							<li><b>보유 기간</b> 탈퇴 또는 가입 거절 시 지체 없이 삭제</li>
-							<li>동의하지 않을 수 있지만, 동의하지 않으면 가입할 수 없어요.</li>
+							<li>필수 항목에 동의하지 않으면 가입할 수 없어요. 선택 항목은 동의하지 않아도 가입할 수 있어요.</li>
+							<li>서버는 해외(Cloudflare 등)에 있어요. 자세한 건 처리방침을 봐 주세요.</li>
 							<li><a href={`${base}/privacy/`} target="_blank">개인정보처리방침 전체 보기 ↗</a></li>
 						</ul>
 					</details>
 					<label class="choice agree">
+						<input name="age14" type="checkbox" required />
+						만 14세 이상이에요 (필수)
+					</label>
+					<label class="choice agree">
 						<input name="agree" type="checkbox" required />
-						개인정보 수집·이용에 동의해요 (필수)
+						필수 항목 수집·이용에 동의해요 (필수)
+					</label>
+					<label class="choice">
+						<input name="agreeOpt" type="checkbox" />
+						선택 항목(출생연도·거주지) 수집·이용에 동의해요 (선택)
 					</label>
 
 					<button class="btn btn-ink" type="submit">가입 신청</button>
@@ -122,7 +136,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 				<div class="done" hidden>
 					<h2>신청이 접수됐어요</h2>
-					<p>운영진이 확인한 뒤 연락처로 안내해 드릴게요.</p>
+					<p>운영진이 확인하면 정한 아이디(<b class="done-id"></b>)와 비밀번호로 로그인할 수 있어요. 아이디를 잊지 않게 적어 두세요.</p>
 					<a class="btn btn-line-dark" href={`${base}/`}>메인으로</a>
 				</div>
 			</section>
@@ -154,12 +168,36 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (list.length === 1) sigungu.value = list[0]; // 세종처럼 하나뿐이면 자동 선택
 			});
 
+			// 아이디 중복 확인 (가입 신청 때 서버가 다시 확인)
+			const idInput = form.loginId as HTMLInputElement;
+			const idMsg = form.querySelector<HTMLElement>('.id-msg')!;
+			let checkedId = '';
+			idInput.addEventListener('input', () => {
+				idInput.value = idInput.value.replace(/\D/g, '').slice(0, 4);
+				checkedId = '';
+				idMsg.className = 'id-msg';
+				idMsg.textContent = 'fs_ 뒤에 쓸 숫자 4자리를 정해 주세요.';
+			});
+			form.querySelector('.id-check')!.addEventListener('click', async () => {
+				if (!/^\d{4}$/.test(idInput.value)) return void ((idMsg.className = 'id-msg bad'), (idMsg.textContent = '숫자 4자리를 적어 주세요.'));
+				const r = await call({ action: 'signup.checkId', loginId: idInput.value }).catch(() => null);
+				if (!r?.ok) return void ((idMsg.className = 'id-msg bad'), (idMsg.textContent = r?.error ?? '서버에 연결하지 못했어요.'));
+				checkedId = r.available ? idInput.value : '';
+				idMsg.className = `id-msg ${r.available ? 'good' : 'bad'}`;
+				idMsg.textContent = r.available ? `${r.loginId} 은(는) 쓸 수 있어요.` : `${r.loginId} 은(는) 이미 누가 쓰고 있어요. 다른 숫자로 정해 주세요.`;
+			});
+
 			const check = (d: FormData) => {
-				if (!String(d.get('name')).trim() || !d.get('gender') || !d.get('sido') || !d.get('sigungu')) return '빈 칸을 모두 채워 주세요.';
-				const y = Number(d.get('year'));
-				if (!(y >= 1930 && y <= thisYear) || !d.get('month') || !d.get('day')) return '생년월일을 확인해 주세요.';
-				if (!/^01[016789]\d{7,8}$/.test(String(d.get('phone')).replace(/\D/g, ''))) return '연락처를 확인해 주세요.';
-				if (!d.get('agree')) return '개인정보 수집·이용에 동의해 주세요.';
+				if (!/^\d{4}$/.test(String(d.get('loginId')))) return '아이디 숫자 4자리를 적어 주세요.';
+				if (checkedId !== d.get('loginId')) return '아이디 중복 확인을 해 주세요.';
+				if (String(d.get('password')).length < 8) return '비밀번호는 8자 이상으로 정해 주세요.';
+				if (d.get('password') !== d.get('password2')) return '비밀번호 확인이 달라요.';
+				if (!String(d.get('name')).trim() || !d.get('gender')) return '이름과 성별을 적어 주세요.';
+				const y = String(d.get('year')).trim();
+				if (y && !(Number(y) >= 1930 && Number(y) <= thisYear)) return '출생연도를 확인해 주세요. (예: 1996)';
+				if ((y || d.get('sido')) && !d.get('agreeOpt')) return '출생연도·거주지를 적었다면 선택 항목 동의에 체크해 주세요. (안 적어도 가입돼요)';
+				if (!d.get('age14')) return '만 14세 이상만 가입할 수 있어요.';
+				if (!d.get('agree')) return '필수 항목 수집·이용에 동의해 주세요.';
 				return '';
 			};
 
@@ -171,17 +209,19 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (msg) return;
 
 				busy(form, true, '신청 중…');
+				const opt = d.get('agreeOpt') === 'on'; // 선택 동의를 안 했으면 선택 항목은 안 보냄
 				const res = await call({
 					action: 'signup',
+					loginId: d.get('loginId'),
+					password: d.get('password'),
 					name: d.get('name'),
 					gender: d.get('gender'),
-					year: d.get('year'),
-					month: d.get('month'),
-					day: d.get('day'),
-					sido: d.get('sido'),
-					sigungu: d.get('sigungu'),
-					phone: d.get('phone'),
+					agreeOpt: opt,
+					year: opt ? d.get('year') : '',
+					sido: opt ? d.get('sido') : '',
+					sigungu: opt ? d.get('sigungu') : '',
 					website: d.get('website'),
+					age14: d.get('age14') === 'on',
 					agree: d.get('agree') === 'on',
 				}).catch(() => null);
 				busy(form, false, '');
@@ -189,6 +229,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					error.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
 					return;
 				}
+				done.querySelector('.done-id')!.textContent = `fs_${d.get('loginId')}`;
 				form.hidden = true;
 				done.hidden = false;
 				scrollTo({ top: 0 });
@@ -230,7 +271,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		margin-bottom: 8px;
 	}
 	.signup input[type='text'],
-	.signup input[type='tel'],
+	.signup input[type='password'],
 	.signup select {
 		min-height: 52px;
 		padding: 0 16px;
@@ -257,11 +298,39 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		gap: 8px;
 		width: 100%;
 	}
-	.birth {
+	.signup small {
+		color: var(--gray);
+		font-weight: 400;
+	}
+	/* 아이디: 고정 'fs_' + 숫자 4자리 + 중복 확인 */
+	.id-row {
 		display: grid;
-		grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
 		gap: 8px;
 		width: 100%;
+	}
+	.id-pre {
+		font-size: 17px;
+		font-weight: 700;
+	}
+	.id-check {
+		min-height: 52px;
+		padding: 0 16px;
+		letter-spacing: 0.04em;
+	}
+	.id-msg {
+		width: 100%;
+		color: var(--gray);
+		font-size: 13px;
+	}
+	.id-msg.good {
+		color: #1a7f37;
+		font-weight: 700;
+	}
+	.id-msg.bad {
+		color: #c4320a;
+		font-weight: 700;
 	}
 	.choice {
 		display: flex !important;

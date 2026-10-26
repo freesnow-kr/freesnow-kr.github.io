@@ -113,7 +113,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						</div>
 						<div class="dlg-body">
 							<ul>
-								<li>이름·연락처·생년월일·거주지·프로필 사진, SHRED LOG·스노우라이브 기록은 <b>바로 지워지고 되돌릴 수 없어요.</b></li>
+								<li>아이디·이름·성별·출생연도·거주지·프로필 사진, SHRED LOG·스노우라이브 기록은 <b>바로 지워지고 되돌릴 수 없어요.</b></li>
 								<li>게시글·댓글·갤러리 사진, 출격·시즌방 기록(정산)은 남고 '탈퇴 회원'으로 보여요. 지우고 싶은 글·사진은 탈퇴 전에 지워 주세요.</li>
 								<li>다시 함께하려면 가입 신청부터 다시 해야 해요.</li>
 							</ul>
@@ -154,13 +154,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					store.setName(res.me.name);
 					store.setPhoto(res.me.photo ? photoSrc(res.me.photo, 96) : ''); // 헤더 내 메뉴 동그라미
 					dash.querySelector('.me-name')!.textContent = res.me.name;
-					// 칩: 권한(ADMIN/STAFF/MASTER/MEMBER — 마스터는 주황) · 지역 · 연락처
+					// 칩: 권한(ADMIN/STAFF/MASTER/MEMBER — 마스터는 주황) · 지역 · 아이디
 					// 지역('경기북부', '서울') + 거주지 → '경기북부 구리'. 지역을 모르면 거주지만
 					const region = [res.me.region, res.me.area].filter(Boolean).join(' ');
 					const chips: [string, string][] = [
 						[{ admin: 'ADMIN', staff: 'STAFF', master: 'MASTER' }[res.me.role as string] ?? 'MEMBER', res.me.role === 'master' ? 'honor' : 'role'],
 						[region, ''],
-						[res.me.phone, ''],
+						[res.me.loginId, ''],
 					];
 					dash.querySelector('.me-chips')!.replaceChildren(
 						...chips.filter(([t]) => t).map(([t, cls]) => {

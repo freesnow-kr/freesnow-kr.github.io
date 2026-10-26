@@ -51,11 +51,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<h2>회원 로그인</h2>
 					<label>
 						아이디
-						<input name="phone" type="text" inputmode="numeric" autocomplete="username" placeholder="ex) 010 제외" required />
+						<input name="loginId" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="fs_1234" required />
 					</label>
 					<label>
 						비밀번호
-						<input name="birth" type="password" autocomplete="current-password" required />
+						<input name="password" type="password" autocomplete="current-password" required />
 					</label>
 					<button class="btn btn-ink" type="submit">로그인</button>
 					<p class="mem-error" role="alert"></p>
@@ -89,7 +89,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			if (store.get()) location.replace(next);
 			// 기억한 아이디 채우기
 			const savedId = store.id();
-			if (savedId) { form.phone.value = savedId; form.birth.focus(); }
+			if (savedId?.startsWith('fs_')) { form.loginId.value = savedId; form.password.focus(); } // 예전 아이디(휴대폰 번호)는 안 채움
 			// 회원 페이지에서 토큰 만료로 돌아온 경우
 			if (new URLSearchParams(location.search).has('expired')) error.textContent = '다시 로그인해 주세요.';
 
@@ -99,7 +99,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				busy(form, true, '로그인 중…');
 				const data = new FormData(form);
 				// 로그인은 항상 30일 + 쓰는 동안 자동 연장 (session.ts). 아이디도 늘 기억
-				const res = await call({ action: 'login', phone: data.get('phone'), birth: data.get('birth') }).catch(() => null);
+				const res = await call({ action: 'login', loginId: data.get('loginId'), password: data.get('password') }).catch(() => null);
 				if (!res?.ok) {
 					busy(form, false, '');
 					error.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
@@ -112,10 +112,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					error.textContent = '이 브라우저가 로그인 정보 저장을 막고 있어요. Safari라면 설정 → Safari → \'모든 쿠키 차단\'을 끄고, 개인정보 보호 브라우징이 아닌 창에서 다시 로그인해 주세요.';
 					return;
 				}
-				store.setId(String(data.get('phone')));
+				const id = String(data.get('loginId')).trim().toLowerCase().replace(/^(?:fs_?)?(\d{4})$/, 'fs_$1'); // 서버와 같은 규칙 (1234 → fs_1234)
+				store.setId(id);
 				try { localStorage.setItem('fs-member-renewed', String(Date.now())); } catch {}
 				store.setName(res.name);
-				// 첫 전환(생년월일로 로그인)·초기화 비밀번호로 들어왔으면 새 비밀번호부터
+				// 초기화 비밀번호로 들어왔으면 새 비밀번호부터
 				location.href = res.mustChange ? `${passwordUrl}?first&next=${encodeURIComponent(next)}` : next;
 			});
 		</script>

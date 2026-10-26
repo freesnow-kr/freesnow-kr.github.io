@@ -14,6 +14,12 @@ export function normPhone(v: unknown): string {
 // 그 판의 동의 문구는 DB consent_terms(version = 이 값, 0020)에 보관 — 가입 화면 문구를 바꾸면 새 version 줄을 더하는 migration도 (테스트가 확인)
 export const POLICY_VERSION = '2026-10-26';
 
+// 출격, 시즌방 명단 이름: 성 빼고 이름만 (사용자 요구 2026-10-26) — 홍길동 → 길동, 김철 → 철, 네 글자 이상(남궁민수)은 끝 두 글자
+export function givenName(name: string): string {
+	const c = [...name.trim()];
+	return c.length >= 4 ? c.slice(-2).join('') : c.length >= 2 ? c.slice(1).join('') : c.join('');
+}
+
 // 채팅 랭킹 이름 가리기 (사용자 요구 2026-10-26): 닉네임 '홍길동/90/고양' → 홍*동 (나이, 지역은 뺌), 두 글자는 홍*
 export function maskName(nick: string): string {
 	const c = [...nick.split('/')[0].trim()];

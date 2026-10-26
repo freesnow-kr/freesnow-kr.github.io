@@ -1,5 +1,6 @@
 // 에디토리얼 페이지 공통: 헤더 동작 + 회원 로그인 상태
 import { club } from '../data/club';
+import './picker'; // 공용 선택 창 (터치 기기의 select도 이 창으로 — 모든 페이지)
 
 // 끝 슬래시 없이: 루트 주소면 '', 하위 경로면 '/free-snow' 같은 값 → 링크는 항상 `${base}/...`
 export const base = import.meta.env.BASE_URL.replace(/\/$/, '');

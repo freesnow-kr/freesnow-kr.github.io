@@ -68,17 +68,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					</div>
 
 					<section class="panel" data-panel="signups">
-						<p class="hint">승인하면 회원이 되고, 아이디(010 뺀 번호) + 생년월일 8자리로 처음 한 번 로그인해서 새 비밀번호를 정해요.</p>
-						<div class="scroll"><table><thead><tr><th>No</th><th>신청일</th><th>이름</th><th>성별</th><th>생년월일</th><th>지역</th><th>연락처</th><th></th></tr></thead><tbody class="signup-rows"></tbody></table></div>
+						<p class="hint">승인하면 회원이 되고, 신청할 때 정한 아이디·비밀번호로 바로 로그인해요. 휴대폰 번호는 안 받으니 이름·출생연도·지역을 오픈채팅과 맞춰 보고 승인해 주세요.</p>
+						<div class="scroll"><table><thead><tr><th>No</th><th>신청일</th><th>아이디</th><th>이름</th><th>성별</th><th>출생연도</th><th>지역</th><th></th></tr></thead><tbody class="signup-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="members" hidden>
 						<div class="member-tools">
-							<input class="search" type="search" placeholder="이름·연락처·지역으로 찾기" />
+							<input class="search" type="search" placeholder="이름·아이디·지역으로 찾기" />
 							<button class="btn-mini ink member-export" type="button">엑셀 다운로드</button>
 						</div>
 						<p class="hint">비밀번호 초기화(운영진 이상, 관리자 계정은 관리자만): 그 회원의 로그인이 모두 끊기고 72시간 동안 공용 초기화 비밀번호로만 들어올 수 있어요.</p>
-						<div class="scroll"><table><thead><tr><th>No</th><th>이름</th><th>연락처</th><th>지역</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
+						<div class="scroll"><table><thead><tr><th>No</th><th>이름</th><th>아이디</th><th>지역</th><th>거주지</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>비밀번호</th><th></th></tr></thead><tbody class="member-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="room" hidden>
@@ -171,7 +171,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							<button class="btn-mini notify-test" type="button">시험 메일</button>
 							<span class="notify-msg" role="status"></span>
 						</div>
-						<div class="scroll"><table><thead><tr><th>날짜</th><th>요청한 회원</th><th>연락처</th><th>지역</th><th>연결할 회원</th></tr></thead><tbody class="lesson-rows"></tbody></table></div>
+						<div class="scroll"><table><thead><tr><th>날짜</th><th>요청한 회원</th><th>아이디</th><th>지역</th><th>연결할 회원</th></tr></thead><tbody class="lesson-rows"></tbody></table></div>
 					</section>
 
 					<section class="panel" data-panel="logins" hidden>
@@ -200,13 +200,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				<dialog class="edit">
 					<form method="dialog" class="edit-form">
 						<h2>회원 정보 수정</h2>
+						<label>아이디 <input name="login_id" placeholder="fs_1234" required /></label>
 						<label>이름 <input name="name" required /></label>
-						<label>연락처 <input name="phone" inputmode="numeric" required /></label>
 						<label>성별 <select name="gender"><option value="">-</option><option>남</option><option>여</option></select></label>
-						<label>생년월일 <input name="birth" placeholder="1996-02-12" /></label>
-						<label>지역 <input name="region" placeholder="경기북부, 서울 …" /></label>
+						<label>출생연도 <input name="birth_year" inputmode="numeric" placeholder="1996 (선택 동의한 회원만)" /></label>
+						<label>지역 <input name="region" placeholder="경기북부, 서울 … (선택 동의한 회원만)" /></label>
 						<label>거주지 <input name="area" /></label>
-						<label>비공개 연락처 <input name="private_contact" /></label>
 						<label>메일 <input name="email" type="email" placeholder="운영진은 강습 요청 알림을 받아요" /></label>
 						<fieldset class="admin-only">
 							<label>권한 <select name="role"><option value="member">회원</option><option value="master">마스터 (명예)</option><option value="staff">운영진</option><option value="admin">관리자</option></select></label>
@@ -241,7 +240,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			const ROLE: Record<string, string> = { member: '회원', master: '마스터', staff: '운영진', admin: '관리자' };
 			const STATUS: Record<string, string> = { active: '활동', suspended: '정지', withdrawn: '탈퇴' };
 			const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '-');
-			const phone = (d: string) => (d?.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : d ?? '');
 			let role = 'staff';
 
 			// 서버 호출: 만료면 로그인으로, 실패면 알림 후 null
@@ -317,7 +315,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						const btns = document.createElement('span');
 						btns.className = 'btns';
 						btns.append(button('승인', () => decide(true), 'btn-mini ink'), button('거절', () => decide(false)));
-						return tr([String(i + 1), when(s.created_at), s.name, s.gender ?? '', s.birth ?? '', `${s.sido} ${s.area}`, phone(s.phone), btns]);
+						const name = s.same_name ? `${s.name} (같은 이름 ${s.same_name})` : s.name; // 휴대폰이 없어서 같은 사람인지는 운영진이 확인
+						return tr([String(i + 1), when(s.created_at), s.login_id, name, s.gender ?? '', s.birth_year ? String(s.birth_year) : '-', [s.sido, s.area].filter(Boolean).join(' ') || '-', btns]);
 					}),
 				);
 			}
@@ -332,7 +331,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			}
 			function drawMembers() {
 				const q = $<HTMLInputElement>('.search').value.trim().replace(/-/g, '');
-				const list = members.filter((m) => !q || [m.name, m.phone, m.region, m.area].join(' ').includes(q));
+				const list = members.filter((m) => !q || [m.name, m.login_id, m.region, m.area].join(' ').includes(q));
 				const body = $('.member-rows');
 				if (!list.length) return empty(body, 10, '없어요.');
 				body.replaceChildren(
@@ -352,7 +351,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						// 상태 변경: 운영진 이상 (관리자 계정은 관리자만 — 서버도 확인)
 						if (m.role !== 'admin' || role === 'admin') btns.append(button('상태 변경', () => changeStatus(m)));
 						const pw = m.reset_pending ? '초기화 대기' : m.password_changed ? '설정함' : '첫 로그인 전';
-						const row = tr([String(i + 1), m.name, phone(m.phone), m.region, m.area, ROLE[m.role], statusBadge(m.status), when(m.last_login), pw, btns]);
+						const row = tr([String(i + 1), m.name, m.login_id ?? '-', m.region, m.area, ROLE[m.role], statusBadge(m.status), when(m.last_login), pw, btns]);
 						if (m.status !== 'active') row.className = 'off';
 						return row;
 					}),
@@ -361,19 +360,19 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			$('.search').addEventListener('input', drawMembers);
 
 			// TODO(2026-10-23, 사용자): 엑셀 양식(열 구성·순서·서식)은 나중에 다시 정하기로 함 — 지금은 임시 양식 (xlsx로는 바꿈)
-			// 회원 명부 내려받기: 엑셀 .xlsx (사용자 요구 2026-10-23, 예전엔 CSV — 내용은 그대로, 꾸밈 없이). 칸은 모두 글자라 수식으로 안 읽힘, 연락처 앞 0 유지.
+			// 회원 명부 내려받기: 엑셀 .xlsx (사용자 요구 2026-10-23, 예전엔 CSV — 꾸밈 없이). 칸은 모두 글자라 수식으로 안 읽힘. 동의 기록(필수·선택 동의 시각, 처리방침 시행일)도
 			// 서버에 export: true로 다시 받아서 운영 기록을 남김 (개인정보)
 			$('.member-export').addEventListener('click', async () => {
 				const res = await api('admin.members', { export: true });
 				if (!res) return;
 				const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('sv-SE') : '');
-				const head = ['No', '이름', '연락처', '성별', '생년월일', '지역', '거주지', '비공개연락처', '메일', '권한', '상태', '가입일', '최근 로그인'];
+				const head = ['No', '아이디', '이름', '성별', '출생연도', '지역', '거주지', '메일', '권한', '상태', '가입일', '최근 로그인', '필수 동의', '선택 동의', '처리방침'];
 				const rows: Cell[][] = [
 					head,
-					...res.members.map((m: any, i: number) => [i + 1, m.name, phone(m.phone), m.gender, m.birth, m.region, m.area, m.private_contact, m.email, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login)].map((v) => (v == null ? '' : String(v)))),
+					...res.members.map((m: any, i: number) => [i + 1, m.login_id, m.name, m.gender, m.birth_year, m.region, m.area, m.email, ROLE[m.role], STATUS[m.status], day(m.joined_at), day(m.last_login), when(m.agreed_at), when(m.agreed_opt_at), m.policy].map((v) => (v == null ? '' : String(v)))),
 				];
 				const a = document.createElement('a');
-				a.href = URL.createObjectURL(xlsx(rows, { widths: [6, 10, 15, 6, 12, 12, 10, 15, 24, 10, 8, 12, 12], sheet: '회원명부' }));
+				a.href = URL.createObjectURL(xlsx(rows, { widths: [6, 10, 10, 6, 9, 12, 10, 24, 10, 8, 12, 12, 17, 17, 11], sheet: '회원명부' }));
 				a.download = `프리스노우_회원명부_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
 				a.click();
 				setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -413,7 +412,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			let editing: any = null;
 			function edit(m: any) {
 				editing = m;
-				for (const k of ['name', 'phone', 'gender', 'birth', 'region', 'area', 'private_contact', 'email', 'role']) (form.elements.namedItem(k) as HTMLInputElement).value = m[k] ?? '';
+				for (const k of ['login_id', 'name', 'gender', 'birth_year', 'region', 'area', 'email', 'role']) (form.elements.namedItem(k) as HTMLInputElement).value = m[k] ?? '';
 				$('.edit-error').textContent = '';
 				dialog.showModal();
 			}
@@ -1032,7 +1031,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						label: `${l.name} 강습 연결할 회원`,
 						onPick: (id) => loadLessons({ memberId: l.member_id, date: l.date, teacherId: id }),
 					});
-					const row = tr([l.date.replace(/-/g, '.'), l.name, phone(l.phone), [l.region, l.area].filter(Boolean).join(' '), cell]);
+					const row = tr([l.date.replace(/-/g, '.'), l.name, l.login_id ?? '-', [l.region, l.area].filter(Boolean).join(' ') || '-', cell]);
 					if (!l.teacher_id) row.className = 'todo';
 					return row;
 				}));
@@ -1049,7 +1048,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (!res) return;
 				const body = $('.login-rows');
 				if (!res.logins.length) return empty(body, 5, '아직 기록이 없어요.');
-				const REASON: Record<string, string> = { password: '성공', birth: '성공(첫 로그인)', reset: '성공(초기화)', wrong: '비밀번호 틀림', unknown: '없는 아이디', locked: '잠김', suspended: '정지된 계정', withdrawn: '탈퇴한 계정' };
+				const REASON: Record<string, string> = { password: '성공', birth: '성공(첫 로그인, 예전)', reset: '성공(초기화)', wrong: '비밀번호 틀림', unknown: '없는 아이디', locked: '잠김', suspended: '정지된 계정', withdrawn: '탈퇴한 계정' };
 				body.replaceChildren(...res.logins.map((l: any) => {
 					const row = tr([when(l.at), l.name ?? '-', REASON[l.reason] ?? l.reason ?? '', l.ip_masked ?? '', (l.ua ?? '').slice(0, 60)]);
 					if (!l.ok) row.className = 'off';

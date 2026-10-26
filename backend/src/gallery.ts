@@ -3,7 +3,7 @@
 // 채팅 랭킹: 운영진이 /admin에서 카톡 CSV를 고르면 브라우저가 집계해서 올린 결과를 저장해 두고 회원에게 줌 (Worker가 큰 CSV를 세지 않게)
 import type { Ctx } from './index.ts';
 import { need } from './auth.ts';
-import { iso, later } from './lib.ts';
+import { iso, later, maskRanks } from './lib.ts';
 import { listPhotos } from './photos.ts';
 
 const CACHE_MS = 5 * 60 * 1000;
@@ -69,5 +69,5 @@ export function caption(name: string) {
 export async function chatRank(c: Ctx) {
 	await need(c);
 	const row = await c.env.DB.prepare("SELECT value FROM cache WHERE key = 'chatrank'").first<{ value: string }>();
-	return row ? { ok: true, ...JSON.parse(row.value) } : { ok: false, error: '랭킹을 준비 중이에요.' };
+	return row ? { ok: true, ...maskRanks(JSON.parse(row.value)) } : { ok: false, error: '랭킹을 준비 중이에요.' }; // 예전에 올린 집계도 가려서
 }

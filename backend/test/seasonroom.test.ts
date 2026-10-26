@@ -113,7 +113,7 @@ test('강습 요청: 출격한 날만, 본인 요청만 보임, 출격 취소하
 	await env.DB.prepare("INSERT INTO lesson_requests (member_id, date) VALUES ('m-b', ?)").bind(future).run();
 	assert.equal((await post({ action: 'admin.lessons' }, A)).ok, false); // 회원은 못 봄
 	let list = await post({ action: 'admin.lessons' }, S);
-	assert.deepEqual(list.lessons.map((l: any) => [l.date, l.name, l.phone]), [[day, '회원A', '01060000001'], [future, '회원B', '01060000002']].sort().reverse()); // 둘 다 연결 전 → 날짜 최신순
+	assert.deepEqual(list.lessons.map((l: any) => [l.date, l.name, l.login_id]), [[day, '회원A', 'fs_0001'], [future, '회원B', 'fs_0002']].sort().reverse()); // 둘 다 연결 전 → 날짜 최신순
 	assert.deepEqual(list.lessons.find((l: any) => l.member_id === 'm-a').riders, ['m-b']); // 그날 출격하는 다른 회원
 	// 연결: 운영진만, 활동 회원만, 본인 X. 연결해도 요청한 회원 응답엔 안 나옴(운영진만 봄)
 	assert.equal((await post({ action: 'admin.lessons', memberId: 'm-a', date: day, teacherId: 'm-b' }, A)).ok, false);

@@ -5,12 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getPlatformProxy } from 'wrangler';
 import worker from '../src/index.ts';
+import { PBKDF2_ITER, pbkdf2 } from '../src/lib.ts';
 
 export const RESET = 'reset-test-1234';
+export const PASSWORD = 'powder-day-26';
 export const ORIGIN = 'https://freesnow-kr.github.io';
 export const env: any = {};
 
-// 회원: [id, phone, name, birth, role?, status?], seed = 그 뒤에 넣을 테스트 데이터
+// 회원: [id, 숫자(끝 4자리 → 아이디 fs_1234), name, 출생연도(앞 4자리), role?, status?], seed = 그 뒤에 넣을 테스트 데이터. 비밀번호는 다 PASSWORD
 export function useDb(members: string[][], seed?: () => Promise<unknown>) {
 	const dir = mkdtempSync(join(tmpdir(), 'fs-api-'));
 	let proxy: Awaited<ReturnType<typeof getPlatformProxy>>;
@@ -27,9 +29,14 @@ export function useDb(members: string[][], seed?: () => Promise<unknown>) {
 		}
 		for (const x of stmts) await env.DB.prepare(x).run(); // 한 문장씩: 로컬 D1은 0010(테이블 다시 만들기)을 batch로 못 함 (빈 DB라 외래키 문제 없음)
 		const now = new Date().toISOString();
-		if (members.length) await env.DB.batch(members.map(([id, phone, name, birth, role = 'member', status = 'active']) =>
-			env.DB.prepare('INSERT INTO members (id, phone, name, birth, region, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-				.bind(id, phone, name, birth, '경기북부', '구리', role, status, now, now)));
+		const salt = 'c2FsdHNhbHRzYWx0c2FsdA==';
+		const hash = await pbkdf2(PASSWORD, salt, PBKDF2_ITER);
+		const used = new Set<string>(); // 끝 4자리가 겹치면 9000번대로 (로그인 테스트는 겹치지 않는 번호를 씀)
+		if (members.length) await env.DB.batch(members.flatMap(([id, digits, name, year, role = 'member', status = 'active'], i) => [
+			env.DB.prepare('INSERT INTO members (id, login_id, name, birth_year, region, area, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+				.bind(id, `fs_${used.has(digits.slice(-4)) ? 9000 + i : (used.add(digits.slice(-4)), digits.slice(-4))}`, name, Number(year.slice(0, 4)) || null, '경기북부', '구리', role, status, now, now),
+			env.DB.prepare('INSERT INTO member_credentials (member_id, hash, salt, iter, changed_at) VALUES (?, ?, ?, ?, ?)').bind(id, hash, salt, PBKDF2_ITER, now),
+		]));
 		await seed?.();
 	});
 	after(async () => {

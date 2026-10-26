@@ -114,7 +114,7 @@ export function signupMail(v: { name: string; gender: string; region: string; at
 			rows: [
 				['이름', `<b>${esc(v.name)}</b>`, v.name],
 				['성별', esc(v.gender), v.gender],
-				['지역', esc(v.region), v.region],
+				['지역', esc(v.region || '-'), v.region || '-'],
 				['신청 시각', when, when],
 				['가입 대기', `<b style="color:#ff5a1f;">${v.pending}건</b> ${gray('(이 신청 포함)')}`, `${v.pending}건`],
 			],

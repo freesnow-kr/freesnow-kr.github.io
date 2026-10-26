@@ -5,7 +5,7 @@ import { seasonRoom } from './seasonroom.ts';
 import { shredLog } from './shredlog.ts';
 import { snowlive } from './snowlive.ts';
 import { somoim } from './somoim.ts';
-import { avatar, serveProfile, signup, withdraw } from './members.ts';
+import { avatar, checkId, serveProfile, signup, withdraw } from './members.ts';
 import { chatRank, gallery } from './gallery.ts';
 import * as admin from './admin.ts';
 import * as push from './push.ts';
@@ -44,6 +44,7 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	snowlive,
 	somoim,
 	signup,
+	'signup.checkId': checkId,
 	avatar,
 	withdraw,
 	gallery,

@@ -1,16 +1,28 @@
 // 공통 도구: 전화번호, 시각, 암호 (WebCrypto만 — 외부 라이브러리 없음)
 
 // 010-1234-5678 / 01012345678 / 12345678(010 생략 아이디) / 1012345678(시트가 앞 0을 지움) / +82 10… → 01012345678
-// Apps Script normPhone과 같은 규칙 (시트 데이터 이전 때 같은 사람으로 묶여야 함)
-export function normPhone(v: unknown): string {
-	let d = String(v ?? '').replace(/\D/g, '');
-	if (d.startsWith('8210') && d.length >= 12) d = '0' + d.slice(2);
-	if (d.length === 10 && d.startsWith('10')) d = '0' + d;
-	if (d.length === 8) d = '010' + d;
-	return d;
-}
+// 로그인 아이디: fs_ + 숫자 4자리 (사용자 요구 2026-10-26: 휴대폰 번호 대신, 모두 같은 모양으로 — 숫자는 회원이 고르고 겹치면 다른 숫자)
+// '1234'·'fs1234'·'FS_1234'로 적어도 fs_1234
+export const normLoginId = (v: unknown) => {
+	const s = String(v ?? '').trim().toLowerCase();
+	const m = /^(?:fs_?)?(\d{4})$/.exec(s);
+	return m ? `fs_${m[1]}` : s;
+};
+export const LOGIN_ID = /^fs_\d{4}$/;
 
-export const formatPhone = (d: string) => (d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : d);
+// 가입 동의 기록에 남기는 개인정보처리방침 시행일 — src/pages/privacy.astro의 시행일을 바꾸면 같이
+export const POLICY_VERSION = '2026-10-26';
+
+// 채팅 랭킹 이름 가리기 (사용자 요구 2026-10-26): 닉네임 '홍길동/90/고양' → 홍*동 (나이·지역은 뺌), 두 글자는 홍*
+export function maskName(nick: string): string {
+	const c = [...nick.split('/')[0].trim()];
+	return c.length <= 1 ? c.join('') : c[0] + '*'.repeat(Math.max(1, c.length - 2)) + (c.length > 2 ? c.at(-1) : '');
+}
+// 집계 {ranks, months:[{ranks}]}의 이름을 모두 가림 (이미 가린 이름은 그대로)
+export const maskRanks = <T extends { ranks: { name: string }[]; months: { ranks: { name: string }[] }[] }>(v: T): T => {
+	const m = (r: { name: string }[]) => r.map((x) => ({ ...x, name: maskName(x.name) }));
+	return { ...v, ranks: m(v.ranks), months: v.months.map((x) => ({ ...x, ranks: m(x.ranks) })) };
+};
 
 export const iso = (d: Date) => d.toISOString();
 

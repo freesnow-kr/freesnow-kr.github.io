@@ -2,7 +2,7 @@
 import type { Ctx } from './index.ts';
 import { photoUrl } from './members.ts';
 import { regionOf } from './region.ts';
-import { PBKDF2_ITER, ROOM_PRICES, seasonOf, seasonRange, formatPhone, hmac, iso, later, maskIp, normPhone, pbkdf2, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
+import { PBKDF2_ITER, ROOM_PRICES, seasonOf, seasonRange, hmac, iso, later, maskIp, normLoginId, pbkdf2, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
 
 const HOUR = 60 * 60 * 1000;
 // 세션은 30일, 쓰는 동안 하루 넘게 지났으면 다시 30일로 늘림 (사용자 요구 2026-10-23: 최대한 안 풀리게)
@@ -29,14 +29,14 @@ export class Reply {
 // 권한: member = master(마스터 — 명예, 할 수 있는 일은 회원과 같음) < staff(운영진) < admin(관리자)
 const RANK = { member: 0, master: 0, staff: 1, admin: 2 } as const;
 export type Role = keyof typeof RANK;
-export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; name: string; phone: string; region: string; area: string; role: Role; birth: string | null };
+export type Me = { token_hash: string; must_change: number; expires_at: string; id: string; login_id: string; name: string; region: string; area: string; role: Role };
 
 // 세션 확인 + 회원 상태·권한은 매번 DB에서 (정지·권한 변경이 바로 반영). 토큰은 Authorization 헤더, 전환 기간엔 body.token도
 export async function need(c: Ctx, role: Role = 'member', allowMustChange = false): Promise<Me> {
 	const token = /^Bearer (\S+)$/.exec(c.req.headers.get('Authorization') || '')?.[1] || String(c.body.token || '');
 	if (!token) throw new Reply(EXPIRED);
 	const me = await c.env.DB.prepare(
-		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.name, m.phone, m.region, m.area, m.role, m.birth
+		`SELECT s.token_hash, s.must_change, s.expires_at, m.id, m.login_id, m.name, m.region, m.area, m.role
 		 FROM sessions s JOIN members m ON m.id = s.member_id
 		 WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.is_active = 1 AND s.expires_at > ? AND m.status = 'active'`,
 	).bind(await sha256(token), iso(c.now)).first<Me>();
@@ -49,14 +49,14 @@ export async function need(c: Ctx, role: Role = 'member', allowMustChange = fals
 	return me;
 }
 
-// {phone, password} → {ok, token, name, exp, mustChange}. 세션 30일. 예전 화면이 보내는 birth도 비밀번호로 받음
+// {loginId, password} → {ok, token, name, exp, mustChange}. 세션 30일
 export async function login(c: Ctx) {
 	const db = c.env.DB;
-	const phone = normPhone(c.body.phone);
-	const pw = String(c.body.password ?? c.body.birth ?? '');
-	if (phone.length < 10 || !pw || pw.length > 128) return FAIL;
+	const loginId = normLoginId(c.body.loginId);
+	const pw = String(c.body.password ?? '');
+	if (!loginId || loginId.length > 40 || !pw || pw.length > 128) return FAIL;
 
-	const key = await hmac(c.env.LOGIN_KEY_SECRET, phone);
+	const key = await hmac(c.env.LOGIN_KEY_SECRET, loginId);
 	const ip = c.req.headers.get('CF-Connecting-IP') || '';
 	const ipHash = ip ? await hmac(c.env.LOGIN_KEY_SECRET, 'ip:' + ip) : '';
 	const ua = (c.req.headers.get('User-Agent') || '').slice(0, 200);
@@ -78,23 +78,18 @@ export async function login(c: Ctx) {
 	}
 
 	const m = await db.prepare(
-		`SELECT m.id, m.name, m.birth, m.status, c.member_id AS cred, c.hash, c.salt, c.iter, c.reset_until
-		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1 WHERE m.phone = ?`,
-	).bind(phone).first<{ id: string; name: string; birth: string | null; status: string; cred: string | null; hash: string | null; salt: string | null; iter: number | null; reset_until: string | null }>();
+		`SELECT m.id, m.name, m.status, c.hash, c.salt, c.iter, c.reset_until
+		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1 WHERE m.login_id = ?`,
+	).bind(loginId).first<{ id: string; name: string; status: string; hash: string | null; salt: string | null; iter: number | null; reset_until: string | null }>();
 
 	// 어느 경우든 PBKDF2를 한 번 돌림 → 응답 시간으로 회원 여부를 알 수 없게
-	let how: 'password' | 'reset' | 'birth' | null = null;
+	let how: 'password' | 'reset' | null = null;
 	if (m?.hash) {
 		if (safeEqual(await pbkdf2(pw, m.salt!, m.iter!), m.hash)) how = 'password';
 	} else {
 		await pbkdf2(pw, DUMMY_SALT, PBKDF2_ITER);
-		const birth = (m?.birth || '').replace(/\D/g, '');
-		if (m?.cred) {
-			// 초기화됨: 기한 안에만 공용 초기화 비밀번호
-			if (m.reset_until && m.reset_until > iso(c.now) && c.env.RESET_PASSWORD && safeEqual(pw, c.env.RESET_PASSWORD)) how = 'reset';
-		} else if (m && birth.length === 8 && safeEqual(pw.replace(/\D/g, ''), birth)) {
-			how = 'birth'; // 첫 전환: 생년월일로 한 번만 → 바로 새 비밀번호
-		}
+		// 초기화됨: 기한 안에만 공용 초기화 비밀번호
+		if (m?.reset_until && m.reset_until > iso(c.now) && c.env.RESET_PASSWORD && safeEqual(pw, c.env.RESET_PASSWORD)) how = 'reset';
 	}
 	if (!m || !how) {
 		await log(false, m ? 'wrong' : 'unknown', m?.id ?? null).run();
@@ -131,7 +126,7 @@ export async function password(c: Ctx) {
 		const cred = await db.prepare('SELECT hash, salt, iter FROM member_credentials WHERE member_id = ? AND is_active = 1').bind(me.id).first<{ hash: string | null; salt: string; iter: number }>();
 		if (!cred?.hash || !safeEqual(await pbkdf2(String(c.body.current ?? ''), cred.salt, cred.iter), cred.hash)) return { ok: false, error: '지금 비밀번호가 맞지 않아요.' };
 	}
-	const bad = weakReason(next, me, c.env.RESET_PASSWORD);
+	const bad = weakReason(next, me.login_id, c.env.RESET_PASSWORD);
 	if (bad) return { ok: false, error: bad };
 
 	const salt = randomB64(16);
@@ -147,12 +142,10 @@ export async function password(c: Ctx) {
 	return { ok: true };
 }
 
-function weakReason(pw: string, me: Me, resetPassword: string): string {
+export function weakReason(pw: string, loginId: string, resetPassword: string): string {
 	if (pw.length < 8) return '비밀번호는 8자 이상으로 정해 주세요.';
 	if (pw.length > 128) return '비밀번호가 너무 길어요.';
-	const digits = pw.replace(/\D/g, '');
-	const birth = (me.birth || '').replace(/\D/g, '');
-	if ((birth && digits.includes(birth)) || digits.includes(me.phone.slice(3))) return '생년월일이나 전화번호가 들어간 비밀번호는 쓸 수 없어요.';
+	if (loginId && pw.toLowerCase().includes(loginId)) return '아이디가 들어간 비밀번호는 쓸 수 없어요.';
 	if (resetPassword && pw === resetPassword) return '초기화 비밀번호는 새 비밀번호로 쓸 수 없어요.';
 	return '';
 }
@@ -163,7 +156,7 @@ export async function renew(c: Ctx) {
 	return { ok: true };
 }
 
-// 본인 정보만. 생년월일·성별·비공개연락처는 절대 안 보냄 (Apps Script me와 같은 모양 + role)
+// 본인 정보만 (성별·출생연도는 안 보냄)
 export async function me(c: Ctx) {
 	const me = await need(c);
 	const season = seasonOf(c.now);
@@ -182,7 +175,7 @@ export async function me(c: Ctx) {
 	const pay = s!.owner ? 0 : s!.stays * ROOM_PRICES.숙박 + s!.rests * ROOM_PRICES.휴식;
 	return {
 		ok: true,
-		me: { name: me.name, region: me.region || regionOf('', me.area), area: me.area, phone: formatPhone(me.phone), photo: photoUrl(c, s!.photo), role: me.role },
+		me: { name: me.name, region: me.region || regionOf('', me.area), area: me.area, loginId: me.login_id, photo: photoUrl(c, s!.photo), role: me.role },
 		season: { season, rides: s!.rides, stays: s!.stays, rests: s!.rests, owner: !!s!.owner, pay, visits: s!.visits, spent: s!.spent, photos: s!.photos },
 	};
 }

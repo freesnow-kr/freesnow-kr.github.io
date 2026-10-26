@@ -51,7 +51,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<h2>회원 로그인</h2>
 					<label>
 						아이디
-						<input name="loginId" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="fs_1234" required />
+						<input name="loginId" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" inputmode="numeric" placeholder="010 빼고 휴대폰 번호" required />
 					</label>
 					<label>
 						비밀번호
@@ -89,7 +89,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			if (store.get()) location.replace(next);
 			// 기억한 아이디 채우기
 			const savedId = store.id();
-			if (savedId?.startsWith('fs_')) { form.loginId.value = savedId; form.password.focus(); } // 예전 아이디(휴대폰 번호)는 안 채움
+			if (savedId && !savedId.startsWith('fs_')) store.setId(''); // 예전에 기억한 휴대폰 번호는 지움
+			if (savedId?.startsWith('fs_')) { form.loginId.value = savedId; form.password.focus(); } // 휴대폰 번호를 아직 안 넣은 예전 회원(fs_ 아이디)만
 			// 회원 페이지에서 토큰 만료로 돌아온 경우
 			if (new URLSearchParams(location.search).has('expired')) error.textContent = '다시 로그인해 주세요.';
 
@@ -112,8 +113,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					error.textContent = '이 브라우저가 로그인 정보 저장을 막고 있어요. Safari라면 설정 → Safari → \'모든 쿠키 차단\'을 끄고, 개인정보 보호 브라우징이 아닌 창에서 다시 로그인해 주세요.';
 					return;
 				}
-				const id = String(data.get('loginId')).trim().toLowerCase().replace(/^(?:fs_?)?(\d{4})$/, 'fs_$1'); // 서버와 같은 규칙 (1234 → fs_1234)
-				store.setId(id);
+				store.setId(''); // 아이디가 휴대폰 번호라 이 브라우저에도 남기지 않음 (브라우저 비밀번호 저장은 됨)
 				try { localStorage.setItem('fs-member-renewed', String(Date.now())); } catch {}
 				store.setName(res.name);
 				// 초기화 비밀번호로 들어왔으면 새 비밀번호부터

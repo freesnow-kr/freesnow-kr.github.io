@@ -5,7 +5,7 @@ import { seasonRoom } from './seasonroom.ts';
 import { shredLog } from './shredlog.ts';
 import { snowlive } from './snowlive.ts';
 import { somoim } from './somoim.ts';
-import { avatar, checkId, serveProfile, signup, withdraw } from './members.ts';
+import { avatar, serveProfile, signup, withdraw } from './members.ts';
 import { chatRank, gallery } from './gallery.ts';
 import * as admin from './admin.ts';
 import * as push from './push.ts';
@@ -18,6 +18,7 @@ export type Env = {
 	ALLOWED_ORIGINS: string; // 쉼표로 구분
 	RESET_PASSWORD: string; // secret
 	LOGIN_KEY_SECRET: string; // secret (로그인 이력의 아이디·IP HMAC)
+	PHONE_KEY: string; // secret (휴대폰 번호 HMAC·비상 연락처 암호화 — lib.ts phoneKey, 잃으면 복구 불가, 백업)
 	SNOWLIVE_API: string; // secret (비공식 주소라 저장소에 안 둠)
 	SOMOIM_URL: string; // secret (소모임 공개 모임 페이지)
 	GALLERY_FOLDER_ID: string; // secret (갤러리 드라이브 폴더)
@@ -44,7 +45,6 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	snowlive,
 	somoim,
 	signup,
-	'signup.checkId': checkId,
 	avatar,
 	withdraw,
 	gallery,
@@ -58,6 +58,7 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	'admin.signupDecide': admin.signupDecide,
 	'admin.members': admin.members,
 	'admin.memberUpdate': admin.memberUpdate,
+	'admin.memberPhone': admin.memberPhone,
 	'admin.memberStatus': admin.memberStatus,
 	'admin.logins': admin.logins,
 	'admin.audit': admin.audit,

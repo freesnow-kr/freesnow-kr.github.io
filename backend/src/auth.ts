@@ -2,7 +2,7 @@
 import type { Ctx } from './index.ts';
 import { photoUrl } from './members.ts';
 import { regionOf } from './region.ts';
-import { PBKDF2_ITER, ROOM_PRICES, seasonOf, seasonRange, hmac, iso, later, maskIp, normLoginId, pbkdf2, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
+import { PBKDF2_ITER, ROOM_PRICES, seasonOf, seasonRange, hmac, iso, later, LOGIN_ID, maskIp, normLoginId, normPhone, pbkdf2, phoneKey, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
 
 const HOUR = 60 * 60 * 1000;
 // 세션은 30일, 쓰는 동안 하루 넘게 지났으면 다시 30일로 늘림 (사용자 요구 2026-10-23: 최대한 안 풀리게)
@@ -50,11 +50,13 @@ export async function need(c: Ctx, role: Role = 'member', allowMustChange = fals
 }
 
 // {loginId, password} → {ok, token, name, exp, mustChange}. 세션 30일
+// 아이디 = 010 뺀 휴대폰 번호(→ phone_key로 찾음). 번호를 아직 안 넣은 0017 회원은 fs_1234(또는 숫자 4자리)
 export async function login(c: Ctx) {
 	const db = c.env.DB;
-	const loginId = normLoginId(c.body.loginId);
+	const legacy = normLoginId(c.body.loginId);
+	const loginId = LOGIN_ID.test(legacy) ? legacy : normPhone(c.body.loginId);
 	const pw = String(c.body.password ?? '');
-	if (!loginId || loginId.length > 40 || !pw || pw.length > 128) return FAIL;
+	if (!loginId || !pw || pw.length > 128) return FAIL;
 
 	const key = await hmac(c.env.LOGIN_KEY_SECRET, loginId);
 	const ip = c.req.headers.get('CF-Connecting-IP') || '';
@@ -79,8 +81,8 @@ export async function login(c: Ctx) {
 
 	const m = await db.prepare(
 		`SELECT m.id, m.name, m.status, c.hash, c.salt, c.iter, c.reset_until
-		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1 WHERE m.login_id = ?`,
-	).bind(loginId).first<{ id: string; name: string; status: string; hash: string | null; salt: string | null; iter: number | null; reset_until: string | null }>();
+		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1 WHERE ${loginId.startsWith('fs_') ? 'm.login_id' : 'm.phone_key'} = ?`,
+	).bind(loginId.startsWith('fs_') ? loginId : await phoneKey(c.env.PHONE_KEY, loginId)).first<{ id: string; name: string; status: string; hash: string | null; salt: string | null; iter: number | null; reset_until: string | null }>();
 
 	// 어느 경우든 PBKDF2를 한 번 돌림 → 응답 시간으로 회원 여부를 알 수 없게
 	let how: 'password' | 'reset' | null = null;
@@ -145,7 +147,7 @@ export async function password(c: Ctx) {
 export function weakReason(pw: string, loginId: string, resetPassword: string): string {
 	if (pw.length < 8) return '비밀번호는 8자 이상으로 정해 주세요.';
 	if (pw.length > 128) return '비밀번호가 너무 길어요.';
-	if (loginId && pw.toLowerCase().includes(loginId)) return '아이디가 들어간 비밀번호는 쓸 수 없어요.';
+	if (loginId && pw.toLowerCase().includes(loginId.replace(/^010/, ''))) return '아이디(휴대폰 번호)가 들어간 비밀번호는 쓸 수 없어요.';
 	if (resetPassword && pw === resetPassword) return '초기화 비밀번호는 새 비밀번호로 쓸 수 없어요.';
 	return '';
 }
@@ -175,7 +177,7 @@ export async function me(c: Ctx) {
 	const pay = s!.owner ? 0 : s!.stays * ROOM_PRICES.숙박 + s!.rests * ROOM_PRICES.휴식;
 	return {
 		ok: true,
-		me: { name: me.name, region: me.region || regionOf('', me.area), area: me.area, loginId: me.login_id, photo: photoUrl(c, s!.photo), role: me.role },
+		me: { name: me.name, region: me.region || regionOf('', me.area), area: me.area, photo: photoUrl(c, s!.photo), role: me.role },
 		season: { season, rides: s!.rides, stays: s!.stays, rests: s!.rests, owner: !!s!.owner, pay, visits: s!.visits, spent: s!.spent, photos: s!.photos },
 	};
 }

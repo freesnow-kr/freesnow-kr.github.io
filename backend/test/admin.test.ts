@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../src/index.ts';
-import { ORIGIN, env, post, sessionFor, useDb } from './setup.ts';
+import { ORIGIN, PASSWORD, env, post, sessionFor, useDb } from './setup.ts';
 
 let M: string, S: string, B: string;
 useDb(
@@ -17,50 +17,51 @@ useDb(
 		B = await sessionFor('m-boss');
 	},
 );
-const form = { action: 'signup', loginId: '4455', password: 'snow-board-1', name: '새회원', gender: '여', agreeOpt: true, year: '1998', sido: '경기도', sigungu: '의정부시', agree: true, age14: true };
+const form = { action: 'signup', phone: '4444-5555', password: 'snow-board-1', name: '새회원', gender: '여', agreeOpt: true, year: '1998', sido: '경기도', sigungu: '의정부시', emergency: true, agree: true, age14: true };
 
-test('가입 신청: 형식 검사, 아이디 중복 거부, 숨은 칸이면 저장 안 함, 응답엔 아무 데이터 없음', async () => {
+test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저장 안 함, 응답엔 아무 데이터 없음, 번호는 HMAC·암호문으로만', async () => {
 	assert.match((await post({ ...form, agree: false })).error, /동의/);
 	assert.match((await post({ ...form, age14: false })).error, /14세/);
 	assert.match((await post({ ...form, gender: '' })).error, /성별/);
-	assert.match((await post({ ...form, loginId: 'abc' })).error, /fs_/);
+	assert.match((await post({ ...form, phone: '1234' })).error, /휴대폰/);
 	assert.match((await post({ ...form, password: 'short' })).error, /8자/);
-	assert.match((await post({ ...form, password: 'my-fs_4455!' })).error, /아이디/);
+	assert.match((await post({ ...form, password: 'pw44445555' })).error, /휴대폰/);
 	assert.match((await post({ ...form, year: '1800' })).error, /출생연도/);
-	assert.match((await post({ ...form, loginId: 'fs_0000' })).error, /이미/); // 회원 아이디
-	assert.equal((await post({ action: 'signup.checkId', loginId: '0000' })).available, false);
-	assert.deepEqual((await post({ action: 'signup.checkId', loginId: 'FS4455' })), { status: 200, cors: ORIGIN, ok: true, loginId: 'fs_4455', available: true });
+	assert.match((await post({ ...form, phone: '010-1111-0000' })).error, /이미/); // 회원 번호
 	const { status, cors, ...r } = await post(form);
 	assert.deepEqual(r, { ok: true });
-	assert.equal((await post({ action: 'signup.checkId', loginId: 'fs_4455' })).available, false); // 대기 중 신청도
-	assert.match((await post(form)).error, /이미/);
-	assert.equal((await post({ ...form, loginId: '4456', agreeOpt: false })).ok, true); // 선택 동의 안 하면 출생연도·지역은 안 받음
-	await post({ ...form, loginId: '9999', website: 'spam' });
+	assert.match((await post(form)).error, /이미/); // 대기 중 신청도
+	assert.equal((await post({ ...form, phone: '4444-5556', agreeOpt: false })).ok, true); // 선택 동의 안 하면 출생연도·지역·비상 연락처는 안 받음
+	await post({ ...form, phone: '9999-9999', website: 'spam' });
 	assert.equal((await env.DB.prepare('SELECT count(*) AS n FROM signup_requests').first()).n, 2);
-	const row = JSON.stringify(await env.DB.prepare("SELECT * FROM signup_requests WHERE login_id = 'fs_4455'").first());
-	assert.equal(row.includes('snow-board-1'), false); // 비밀번호는 해시로만
+	const rows = JSON.stringify((await env.DB.prepare('SELECT * FROM signup_requests').all()).results);
+	assert.equal(/snow-board-1|44445555/.test(rows), false); // 비밀번호·번호 원문 없음
 	// 동의 기록: 시각·선택 동의·처리방침 시행일
-	const consent = await env.DB.prepare("SELECT login_id, agreed_at IS NOT NULL AS req, agreed_opt_at IS NOT NULL AS opt, policy, birth_year, sido FROM signup_requests ORDER BY id").all();
-	assert.deepEqual(consent.results.map((x: any) => [x.login_id, x.req, x.opt, x.policy, x.birth_year, x.sido]), [['fs_4455', 1, 1, '2026-10-26', 1998, '경기도'], ['fs_4456', 1, 0, '2026-10-26', null, '']]);
+	const consent = await env.DB.prepare("SELECT agreed_at IS NOT NULL AS req, agreed_opt_at IS NOT NULL AS opt, policy, birth_year, sido, phone_enc IS NOT NULL AS em FROM signup_requests ORDER BY id").all();
+	assert.deepEqual(consent.results.map((x: any) => [x.req, x.opt, x.policy, x.birth_year, x.sido, x.em]), [[1, 1, '2026-10-26', 1998, '경기도', 1], [1, 0, '2026-10-26', null, '', 0]]);
 });
 
-test('승인: 운영진만, 신청 때 정한 비밀번호로 바로 로그인, 기록 남음', async () => {
+test('승인: 운영진만, 신청 때 정한 번호·비밀번호로 바로 로그인, 기록 남음', async () => {
 	assert.match((await post({ action: 'admin.signups' }, M)).error, /권한/);
 	const list = (await post({ action: 'admin.signups' }, S)).signups;
-	assert.deepEqual(list.map((x: any) => [x.login_id, x.birth_year, x.same_name]), [['fs_4455', 1998, 1], ['fs_4456', null, 1]]); // 같은 이름 신청이 하나 더
-	assert.equal(JSON.stringify(list).includes('pw_'), false);
+	assert.deepEqual(list.map((x: any) => [x.birth_year, x.same_name, x.emergency]), [[1998, 1, 1], [null, 1, 0]]); // 같은 이름 신청이 하나 더
+	assert.equal(/pw_|phone_key|4444/.test(JSON.stringify(list)), false);
 	const r = await post({ action: 'admin.signupDecide', id: list[0].id, approve: true }, S);
 	assert.equal(r.ok, true);
 	const m = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(r.memberId).first();
-	assert.deepEqual([m.login_id, m.name, m.gender, m.region, m.area, m.birth_year, m.role, m.policy, !!m.agreed_at, !!m.agreed_opt_at], ['fs_4455', '새회원', '여', '경기북부', '의정부', 1998, 'member', '2026-10-26', true, true]);
+	assert.deepEqual([m.login_id, m.name, m.gender, m.region, m.area, m.birth_year, m.role, m.policy, !!m.agreed_at, !!m.agreed_opt_at, !!m.phone_key, !!m.phone_enc], [null, '새회원', '여', '경기북부', '의정부', 1998, 'member', '2026-10-26', true, true, true, true]);
 	assert.equal((await post({ action: 'admin.signupDecide', id: list[0].id, approve: true }, S)).ok, false);
-	const s = await post({ action: 'login', loginId: '4455', password: 'snow-board-1' });
+	const s = await post({ action: 'login', loginId: '44445555', password: 'snow-board-1' });
 	assert.equal(s.ok, true);
 	assert.equal(s.mustChange, false);
-	assert.equal((await env.DB.prepare("SELECT pw_hash FROM signup_requests WHERE login_id = 'fs_4455'").first()).pw_hash, ''); // 신청에 남은 해시는 비움
-	// 지역 안 적은 신청은 지역 빈 칸
+	assert.equal((await env.DB.prepare("SELECT pw_hash FROM signup_requests WHERE id = ?").bind(list[0].id).first()).pw_hash, ''); // 신청에 남은 해시는 비움
+	// 비상 연락처는 운영진이 볼 때만 풀고 기록
+	assert.equal((await post({ action: 'admin.memberPhone', id: r.memberId }, M)).ok, false);
+	assert.equal((await post({ action: 'admin.memberPhone', id: r.memberId }, S)).phone, '01044445555');
+	assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM admin_logs WHERE action = 'member.phoneView'").first()).n, 1);
 	const r2 = await post({ action: 'admin.signupDecide', id: list[1].id, approve: true }, S);
-	assert.deepEqual(Object.values(await env.DB.prepare('SELECT region, area, birth_year FROM members WHERE id = ?').bind(r2.memberId).first()), ['', '', null]);
+	assert.deepEqual(Object.values(await env.DB.prepare('SELECT region, area, birth_year, phone_enc FROM members WHERE id = ?').bind(r2.memberId).first()), ['', '', null, null]);
+	assert.match((await post({ action: 'admin.memberPhone', id: r2.memberId }, S)).error, /없어요/);
 	assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM admin_logs WHERE action = 'signup.approve'").first()).n, 2);
 });
 
@@ -68,11 +69,16 @@ test('회원 관리: 운영진은 정보 수정·상태 변경, 권한·관리�
 	assert.equal((await post({ action: 'admin.members' }, M)).ok, false);
 	const all = (await post({ action: 'admin.members' }, S)).members;
 	assert.equal(all.length, 5);
-	assert.equal(JSON.stringify(all).includes('phone'), false);
-	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-1', area: '노원구', login_id: '0001', birth_year: '1991' }, S)).ok, true);
-	assert.match((await post({ action: 'admin.memberUpdate', id: 'm-1', login_id: 'fs_4455' }, S)).error, /다른 회원/);
-	assert.match((await post({ action: 'admin.memberUpdate', id: 'm-1', login_id: 'kim' }, S)).error, /fs_/);
-	assert.deepEqual(Object.values(await env.DB.prepare("SELECT area, login_id, birth_year FROM members WHERE id = 'm-1'").first()), ['노원구', 'fs_0001', 1991]);
+	assert.equal(JSON.stringify(all).includes('phone_key'), false);
+	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-1', area: '노원구', birth_year: '1991', phone: '010 1111 0001', emergency: true }, S)).ok, true);
+	assert.match((await post({ action: 'admin.memberUpdate', id: 'm-1', phone: '0101' }, S)).error, /휴대폰/);
+	assert.match((await post({ action: 'admin.memberUpdate', id: 'm-1', phone: '4444-5555' }, S)).error, /다른 회원/);
+	assert.equal(JSON.stringify((await env.DB.prepare("SELECT detail FROM admin_logs WHERE action = 'member.update'").all()).results).includes('11110001'), false); // 번호는 기록에 안 남김
+	assert.deepEqual(Object.values(await env.DB.prepare("SELECT area, login_id, birth_year, phone_enc IS NOT NULL FROM members WHERE id = 'm-1'").first()), ['노원구', null, 1991, 1]); // 번호를 넣으면 예전 fs_ 아이디는 끝
+	assert.equal((await post({ action: 'login', loginId: '11110001', password: PASSWORD })).ok, true);
+	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-1', emergency: false }, S)).ok, true);
+	assert.equal((await env.DB.prepare("SELECT phone_enc FROM members WHERE id = 'm-1'").first()).phone_enc, null);
+	M = await sessionFor('m-1');
 	assert.match((await post({ action: 'admin.memberStatus', id: 'm-1', role: 'staff' }, S)).error, /관리자만/); // 운영진은 권한 변경 못 함
 	assert.match((await post({ action: 'admin.memberStatus', id: 'm-boss', status: 'suspended' }, S)).error, /관리자만/); // 관리자 계정 상태도 못 바꿈
 	assert.equal((await post({ action: 'admin.memberStatus', id: 'm-1', status: 'suspended' }, S)).ok, true); // 상태는 운영진도
@@ -165,7 +171,7 @@ test('조 편성: 운영진만, 행사 저장·목록·불러오기·고치기·
 	assert.equal((await post({ action: 'admin.teams.list' }, S)).events.length, 0);
 });
 
-test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 들어간 신청만, 아이디는 안 넣음, 구글 실패해도 신청은 저장', async () => {
+test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 들어간 신청만, 번호는 안 넣음, 구글 실패해도 신청은 저장', async () => {
 	await env.DB.prepare("UPDATE members SET email = 'staff@x.com' WHERE id = 'm-staff'").run();
 	await env.DB.prepare("UPDATE members SET email = 'member@x.com' WHERE id = 'm-1'").run(); // 일반 회원 → 안 받음
 	const sent: any[] = [];
@@ -177,9 +183,9 @@ test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 �
 	}) as any;
 	Object.assign(env, { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 's', GOOGLE_REFRESH_TOKEN: 'r' });
 	try {
-		const f = { ...form, name: '알림신청', loginId: '7777' };
+		const f = { ...form, name: '알림신청', phone: '7777-1234' };
 		assert.equal((await post(f)).ok, true);
-		await post({ ...f, loginId: '7778', website: 'spam' }); // 숨은 칸 → 저장·메일 없음
+		await post({ ...f, phone: '7777-1235', website: 'spam' }); // 숨은 칸 → 저장·메일 없음
 		await post(f); // 중복 → 거부, 메일 없음
 		assert.equal(sent.length, 1);
 		const mime = new TextDecoder().decode(Uint8Array.from(atob(sent[0].raw.replace(/-/g, '+').replace(/_/g, '/')), (ch) => ch.charCodeAt(0)));
@@ -189,10 +195,10 @@ test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 �
 		const body = [...mime.matchAll(/base64\r\n\r\n([A-Za-z0-9+/=\r\n]+)/g)].map((m) => new TextDecoder().decode(Uint8Array.from(atob(m[1].replace(/\r\n/g, '')), (ch) => ch.charCodeAt(0)))).join('\n');
 		assert.match(body, /NEW<br>MEMBER\./);
 		assert.match(body, /지역: 경기도 의정부시/);
-		assert.equal(/fs_7777|snow-board/.test(body), false); // 아이디·비밀번호 X
+		assert.equal(/7777|snow-board/.test(body), false); // 번호·비밀번호 X
 		// 구글 실패해도 신청은 저장
 		globalThis.fetch = (async () => new Response('no', { status: 500 })) as any;
-		assert.equal((await post({ ...f, loginId: '7779' })).ok, true);
+		assert.equal((await post({ ...f, phone: '7777-1236' })).ok, true);
 	} finally {
 		globalThis.fetch = realFetch;
 		for (const k of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REFRESH_TOKEN']) delete env[k];

@@ -6,7 +6,7 @@
 import { EMAIL, lessonMail, pendingLessons, sendMail, staffEmails } from './notify.ts';
 import type { Ctx } from './index.ts';
 import { need, Reply } from './auth.ts';
-import { iso, LOGIN_ID, maskRanks, normLoginId, randomToken } from './lib.ts';
+import { iso, maskRanks, normPhone, openPhone, phoneKey, randomToken, sealPhone } from './lib.ts';
 import { regionOf } from './region.ts';
 
 const log = (c: Ctx, actor: string, action: string, target: string | null, detail: object) =>
@@ -36,9 +36,9 @@ export async function summary(c: Ctx) {
 
 export async function signups(c: Ctx) {
 	await need(c, 'staff');
-	// sameName: 같은 이름의 회원·다른 대기 신청 수 (휴대폰을 안 받아서 같은 사람인지는 운영진이 오픈채팅과 맞춰 봄)
+	// sameName: 같은 이름의 회원·다른 대기 신청 수 (같은 번호는 가입 때 막지만, 다른 번호로 또 신청했는지는 운영진이 확인). 번호는 안 보냄
 	const { results } = await c.env.DB.prepare(
-		`SELECT s.id, s.created_at, s.login_id, s.name, s.gender, s.birth_year, s.sido, s.area, s.agreed_opt_at IS NOT NULL AS agreed_opt,
+		`SELECT s.id, s.created_at, s.name, s.gender, s.birth_year, s.sido, s.area, s.phone_enc IS NOT NULL AS emergency, s.agreed_opt_at IS NOT NULL AS agreed_opt,
 		        (SELECT count(*) FROM members m WHERE m.name = s.name AND m.status != 'withdrawn') + (SELECT count(*) FROM signup_requests o WHERE o.name = s.name AND o.id != s.id AND o.status = 'pending' AND o.is_active = 1) AS same_name
 		 FROM signup_requests s WHERE s.status = 'pending' AND s.is_active = 1 ORDER BY s.created_at`,
 	).all();
@@ -57,14 +57,14 @@ export async function signupDecide(c: Ctx) {
 	const stmts = [db.prepare("UPDATE signup_requests SET status = ?, decided_by = ?, decided_at = ?, pw_hash = '', pw_salt = '' WHERE id = ?").bind(approve ? 'approved' : 'rejected', me.id, now, s.id)];
 	let memberId = null;
 	if (approve) {
-		if (await db.prepare('SELECT 1 FROM members WHERE login_id = ?').bind(s.login_id).first()) throw bad('이미 다른 회원이 쓰는 아이디예요. 거절하고 다시 신청해 달라고 안내해 주세요.');
+		if (await db.prepare('SELECT 1 FROM members WHERE phone_key = ?').bind(s.phone_key).first()) throw bad('이미 가입한 번호예요. 거절해 주세요.');
 		memberId = 'm' + randomToken().slice(0, 15);
 		const area = s.area ? normArea(s.area) : '';
 		stmts.push(
 			db.prepare(
-				`INSERT INTO members (id, login_id, name, gender, birth_year, region, area, joined_at, approved_at, agreed_at, agreed_opt_at, policy, created_at, updated_at, sort_no)
-				 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?9, ?9, (SELECT coalesce(max(sort_no), 0) + 1 FROM members))`,
-			).bind(memberId, s.login_id, s.name, s.gender, s.birth_year, s.sido || area ? regionOf(s.sido, area) : '', area, s.created_at, now, s.agreed_at, s.agreed_opt_at, s.policy),
+				`INSERT INTO members (id, name, gender, birth_year, region, area, phone_key, phone_enc, joined_at, approved_at, agreed_at, agreed_opt_at, policy, created_at, updated_at, sort_no)
+				 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?10, ?10, (SELECT coalesce(max(sort_no), 0) + 1 FROM members))`,
+			).bind(memberId, s.name, s.gender, s.birth_year, s.sido || area ? regionOf(s.sido, area) : '', area, s.phone_key, s.phone_enc, s.created_at, now, s.agreed_at, s.agreed_opt_at, s.policy),
 			db.prepare('INSERT INTO member_credentials (member_id, hash, salt, iter, changed_at) VALUES (?, ?, ?, ?, ?)').bind(memberId, s.pw_hash, s.pw_salt, s.pw_iter, now),
 		);
 	}
@@ -77,45 +77,73 @@ export async function signupDecide(c: Ctx) {
 export async function members(c: Ctx) {
 	const me = await need(c, 'staff');
 	const { results } = await c.env.DB.prepare(
-		`SELECT m.id, m.login_id, m.name, m.gender, m.birth_year, m.region, m.area, m.email, m.role, m.status, m.joined_at, m.agreed_at, m.agreed_opt_at, m.policy,
+		`SELECT m.id, m.login_id, m.name, m.gender, m.birth_year, m.region, m.area, m.phone_key IS NOT NULL AS has_phone, m.phone_enc, m.email, m.role, m.status, m.joined_at, m.agreed_at, m.agreed_opt_at, m.policy,
 		        (SELECT max(at) FROM login_logs l WHERE l.member_id = m.id AND l.ok = 1) AS last_login,
 		        c.member_id IS NOT NULL AND c.hash IS NULL AS reset_pending, c.changed_at AS password_changed
 		 FROM members m LEFT JOIN member_credentials c ON c.member_id = m.id AND c.is_active = 1
 		 ORDER BY m.sort_no, m.name`,
 	).all();
-	// {export: true} 명부 내려받기 — 개인정보라 누가 언제 받았는지 운영 기록
-	if (c.body.export === true) await log(c, me.id, 'members.export', null, { count: results.length }).run();
-	return { ok: true, role: me.role, members: results };
+	// 비상 연락처는 목록엔 '있음'만, {export: true} 명부 내려받기 때만 풀어서 — 개인정보라 누가 언제 받았는지 운영 기록
+	const exp = c.body.export === true;
+	if (exp) await log(c, me.id, 'members.export', null, { count: results.length }).run();
+	const list = await Promise.all(results.map(async ({ phone_enc, ...m }: any) => ({ ...m, emergency: !!phone_enc, ...(exp && { phone: await openPhone(c.env.PHONE_KEY, phone_enc) }) })));
+	return { ok: true, role: me.role, members: list };
 }
 
-const FIELDS = ['login_id', 'name', 'gender', 'birth_year', 'region', 'area', 'email'] as const;
-// {id, login_id?, name?, gender?, birth_year?, region?, area?, email?} 운영진. email은 운영진 강습 알림용(notify.ts). 아이디를 잊은 회원·겹쳐서 바꿔야 할 때 여기서
+const FIELDS = ['name', 'gender', 'birth_year', 'region', 'area', 'email'] as const;
+// {id, name?, gender?, birth_year?, region?, area?, email?, phone?, emergency?} 운영진. email은 운영진 강습 알림용(notify.ts)
+// phone: 로그인 휴대폰 번호를 새로 넣거나 바꿀 때만 (화면엔 안 보임, HMAC만 저장 — 넣으면 예전 fs_ 아이디는 끝)
+// emergency: true면 그 번호를 비상 연락처로도(회원이 동의한 경우만), false면 비상 연락처 지움
 export async function memberUpdate(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
-	const before = await db.prepare(`SELECT ${FIELDS.join(', ')} FROM members WHERE id = ?`).bind(String(c.body.id)).first<any>();
+	const id = String(c.body.id ?? '');
+	const before = await db.prepare(`SELECT ${FIELDS.join(', ')}, phone_enc FROM members WHERE id = ?`).bind(id).first<any>();
 	if (!before) throw bad('회원을 찾지 못했어요.');
 	const next: Record<string, any> = {};
 	for (const k of FIELDS) {
 		if (c.body[k] === undefined) continue;
 		let v = String(c.body[k] ?? '').replace(/\s+/g, ' ').trim().slice(0, k === 'email' ? 100 : 60);
-		if (k === 'login_id') v = normLoginId(v);
 		if (k === 'email') v = v.toLowerCase();
 		if (k === 'email' && v && !EMAIL.test(v)) throw bad('메일 주소를 확인해 주세요.');
-		if (k === 'login_id' && !LOGIN_ID.test(v)) throw bad('아이디는 fs_ 뒤에 숫자 4자리예요. (예: fs_1234)');
 		if (k === 'name' && !v) throw bad('이름을 적어 주세요.');
 		if (k === 'gender' && v && v !== '남' && v !== '여') throw bad('성별을 확인해 주세요.');
 		if (k === 'birth_year' && v && !(Number(v) >= 1930 && Number(v) <= c.now.getFullYear())) throw bad('출생연도를 확인해 주세요. (예 1996)');
 		if (v !== String(before[k] ?? '')) next[k] = k === 'birth_year' ? (v ? Number(v) : null) : v || (k === 'region' || k === 'area' ? '' : null);
 	}
+	const shown = { ...next }; // 운영 기록용 (번호는 안 남김)
+	if (String(c.body.phone ?? '').trim()) {
+		const phone = normPhone(c.body.phone);
+		if (!phone) throw bad('휴대폰 번호를 확인해 주세요. (010 빼고 8자리)');
+		next.phone_key = await phoneKey(c.env.PHONE_KEY, phone);
+		if (await db.prepare('SELECT 1 FROM members WHERE phone_key = ? AND id != ?').bind(next.phone_key, id).first()) throw bad('다른 회원이 쓰는 번호예요.');
+		next.login_id = null;
+		next.phone_enc = c.body.emergency === true ? await sealPhone(c.env.PHONE_KEY, phone) : null;
+		shown.phone = '변경';
+		shown.emergency = c.body.emergency === true;
+	} else if (c.body.emergency === true && !before.phone_enc) {
+		throw bad('비상 연락처로 쓰려면 휴대폰 번호를 다시 넣어 주세요.');
+	} else if (c.body.emergency === false && before.phone_enc) {
+		next.phone_enc = null;
+		shown.emergency = false;
+	}
 	if (!Object.keys(next).length) return { ok: true };
-	if (next.login_id && (await db.prepare('SELECT 1 FROM members WHERE login_id = ? AND id != ?').bind(next.login_id, c.body.id).first())) throw bad('다른 회원이 쓰는 아이디예요.');
 	const keys = Object.keys(next);
 	await db.batch([
-		db.prepare(`UPDATE members SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`).bind(...keys.map((k) => next[k]), iso(c.now), c.body.id),
-		log(c, me.id, 'member.update', String(c.body.id), { before: Object.fromEntries(keys.map((k) => [k, before[k]])), after: next }),
+		db.prepare(`UPDATE members SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`).bind(...keys.map((k) => next[k]), iso(c.now), id),
+		log(c, me.id, 'member.update', id, { before: Object.fromEntries(Object.keys(shown).filter((k) => k in before).map((k) => [k, before[k]])), after: shown }),
 	]);
 	return { ok: true };
+}
+
+// {id} → {phone} 비상 연락처 보기 (운영진, 선택 동의한 회원만 있음). 볼 때마다 운영 기록
+export async function memberPhone(c: Ctx) {
+	const me = await need(c, 'staff');
+	const id = String(c.body.id ?? '');
+	const m = await c.env.DB.prepare('SELECT phone_enc FROM members WHERE id = ?').bind(id).first<{ phone_enc: string | null }>();
+	if (!m?.phone_enc) throw bad('비상 연락처가 없어요.');
+	await log(c, me.id, 'member.phoneView', id, {}).run();
+	return { ok: true, phone: await openPhone(c.env.PHONE_KEY, m.phone_enc) };
 }
 
 // {id, status?, role?} — 상태(활동·정지·탈퇴)는 운영진 이상(관리자 계정은 관리자만, 사용자 요구 2026-10-23), 권한 변경은 관리자만
@@ -181,7 +209,7 @@ export async function lessons(c: Ctx) {
 	}
 	const from = new Date(c.now.getTime() + 9 * 3600e3 - 14 * 86400e3).toISOString().slice(0, 10); // 한국 날짜 기준 14일 전
 	const { results } = await db.prepare(
-		`SELECT l.date, l.member_id, l.teacher_id, l.created_at, m.name, m.login_id, m.region, m.area, t.name AS teacher
+		`SELECT l.date, l.member_id, l.teacher_id, l.created_at, m.name, m.region, m.area, t.name AS teacher
 		 FROM lesson_requests l JOIN members m ON m.id = l.member_id LEFT JOIN members t ON t.id = l.teacher_id
 		 WHERE l.is_active = 1 AND l.date >= ? ORDER BY l.teacher_id IS NOT NULL, l.date DESC, l.created_at`, // 연결 전 먼저, 날짜는 최신순 (사용자 요구)
 	).bind(from).all<any>();

@@ -54,7 +54,7 @@ test('승인: 운영진만, 신청 때 정한 번호·비밀번호로 바로 로
 	const s = await post({ action: 'login', loginId: '44445555', password: 'snow-board-1' });
 	assert.equal(s.ok, true);
 	assert.equal(s.mustChange, false);
-	assert.equal((await env.DB.prepare("SELECT pw_hash FROM signup_requests WHERE id = ?").bind(list[0].id).first()).pw_hash, ''); // 신청에 남은 해시는 비움
+	assert.equal(await env.DB.prepare('SELECT 1 FROM signup_requests WHERE id = ?').bind(list[0].id).first(), null); // 승인하면 신청 줄은 삭제
 	// 비상 연락처는 운영진이 볼 때만 풀고 기록
 	assert.equal((await post({ action: 'admin.memberPhone', id: r.memberId }, M)).ok, false);
 	assert.equal((await post({ action: 'admin.memberPhone', id: r.memberId }, S)).phone, '01044445555');
@@ -63,6 +63,12 @@ test('승인: 운영진만, 신청 때 정한 번호·비밀번호로 바로 로
 	assert.deepEqual(Object.values(await env.DB.prepare('SELECT region, area, birth_year, phone_enc FROM members WHERE id = ?').bind(r2.memberId).first()), ['', '', null, null]);
 	assert.match((await post({ action: 'admin.memberPhone', id: r2.memberId }, S)).error, /없어요/);
 	assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM admin_logs WHERE action = 'signup.approve'").first()).n, 2);
+	assert.equal(JSON.stringify((await env.DB.prepare("SELECT detail FROM admin_logs WHERE action LIKE 'signup.%'").all()).results).includes('새회원'), false); // 기록에 이름 없음
+	// 거절해도 삭제
+	await post({ ...form, phone: '4444-6666', name: '거절됨' });
+	const rej = (await post({ action: 'admin.signups' }, S)).signups[0];
+	assert.equal((await post({ action: 'admin.signupDecide', id: rej.id, approve: false }, S)).ok, true);
+	assert.equal((await env.DB.prepare('SELECT count(*) AS n FROM signup_requests').first()).n, 0);
 });
 
 test('회원 관리: 운영진은 정보 수정·상태 변경, 권한·관리자 계정은 관리자만, 정지하면 바로 로그아웃, 내 권한은 못 바꿈', async () => {

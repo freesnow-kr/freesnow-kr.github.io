@@ -42,3 +42,6 @@ INSERT INTO consent_terms (version, type, required, title, body) VALUES
 서버는 해외(Cloudflare 등)에 있어요. 자세한 건 처리방침을 봐 주세요.'),
 ('2026-10-26', 'warning', 1, '가입 정보가 일치하지 않거나 허위 정보로 가입한 경우 예고 없이 탈퇴 처리돼요.', ''),
 ('2026-10-26', 'policy', 1, '개인정보처리방침 (시행일 2026년 10월 26일)', 'https://freesnow-kr.github.io/privacy/ — 저장소 src/pages/privacy.astro 의 2026-10-26 판');
+
+-- 승인·거절한 가입 신청 줄은 이제 바로 삭제함 (admin.signupDecide) — 예전에 처리하고 남은 줄도 지움
+DELETE FROM signup_requests WHERE status != 'pending';

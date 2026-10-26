@@ -45,7 +45,7 @@ export async function signups(c: Ctx) {
 	return { ok: true, signups: results };
 }
 
-// {id, approve: true|false} — 승인하면 회원으로 (지역 = 신청한 시도를 짧게 — 경기는 북부·남부, 거주지는 시·군 뗀 값)
+// {id, approve: true|false} — 승인하면 회원으로, 승인·거절 모두 신청 줄은 삭제 (지역 = 신청한 시도를 짧게 — 경기는 북부·남부, 거주지는 시·군 뗀 값)
 export async function signupDecide(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
@@ -53,8 +53,7 @@ export async function signupDecide(c: Ctx) {
 	if (!s) throw bad('이미 처리했거나 없는 신청이에요.');
 	const approve = c.body.approve === true;
 	const now = iso(c.now);
-	// 승인·거절하면 신청에 남은 비밀번호 해시는 비움 (승인이면 회원 비밀번호로 옮김)
-	const stmts = [db.prepare("UPDATE signup_requests SET status = ?, decided_by = ?, decided_at = ?, pw_hash = '', pw_salt = '' WHERE id = ?").bind(approve ? 'approved' : 'rejected', me.id, now, s.id)];
+	const stmts: D1PreparedStatement[] = [];
 	let memberId = null;
 	if (approve) {
 		if (await db.prepare('SELECT 1 FROM members WHERE login_key = ?').bind(s.login_key).first()) throw bad('이미 가입한 번호예요. 거절해 주세요.');
@@ -68,7 +67,8 @@ export async function signupDecide(c: Ctx) {
 			db.prepare('INSERT INTO member_credentials (member_id, hash, salt, iter, changed_at) VALUES (?, ?, ?, ?, ?)').bind(memberId, s.pw_hash, s.pw_salt, s.pw_iter, now),
 		);
 	}
-	stmts.push(log(c, me.id, approve ? 'signup.approve' : 'signup.reject', memberId, { signup: s.id, name: s.name }));
+	// 승인하면 회원으로 옮긴 뒤, 거절이면 바로 신청 줄을 진짜 삭제 (사용자 요구 2026-10-26 — 소프트 삭제 예외: 처리방침 '가입 거절 시 지체 없이 삭제'). 운영 기록엔 이름 없이 신청 번호만
+	stmts.push(db.prepare('DELETE FROM signup_requests WHERE id = ?').bind(s.id), log(c, me.id, approve ? 'signup.approve' : 'signup.reject', memberId, { signup: s.id }));
 	await db.batch(stmts);
 	return { ok: true, memberId };
 }

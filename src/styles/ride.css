@@ -391,6 +391,7 @@ a {
 }
 .notice-list {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr); /* 긴 제목이 칸을 넓히지 않고 … 으로 줄게 */
 	flex: 1;
 	gap: 6px;
 	margin: 0;
@@ -402,8 +403,10 @@ a {
 	display: flex;
 	gap: 12px;
 	align-items: baseline;
+	min-width: 0;
 }
 .notice-list a {
+	min-width: 0;
 	overflow: hidden;
 	font-weight: 700;
 	white-space: nowrap;
@@ -419,6 +422,21 @@ a {
 	flex: none;
 	font-size: 13px;
 	color: #4a4d55;
+}
+/* 날짜는 오른쪽 끝에 (사용자 요구 2026-10-26) */
+.notice-list span {
+	margin-left: auto;
+	font-variant-numeric: tabular-nums;
+}
+/* 좁은 화면: 첫 줄 [NOTICE] …… 전체 보기, 아래로 제목 (예전엔 한 줄에 다 넣어 화면 밖으로 밀림 — 2026-10-26 고침) */
+@media (max-width: 860px) {
+	.notice-all {
+		margin-left: auto;
+	}
+	.notice-list {
+		flex-basis: 100%;
+		order: 1;
+	}
 }
 /* season */
 .season {

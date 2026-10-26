@@ -125,14 +125,14 @@ export function signupMail(v: { name: string; gender: string; region: string; at
 }
 
 // 가입 신청 알림 (메일 + 앱 알림). 실패해도 신청은 저장된 채로(로그만)
-export async function signupRequested(env: Env, v: { name: string; gender: string; region: string; at: Date }) {
+export async function signupRequested(env: Env, v: { name: string; gender: string; region: string; who: string; at: Date }) {
 	try {
 		const { n } = (await env.DB.prepare("SELECT count(*) AS n FROM signup_requests WHERE status = 'pending' AND is_active = 1").first<{ n: number }>())!;
 		const to = (await staffEmails(env)).map((r) => r.email);
 		const mail = signupMail({ ...v, pending: n });
 		await Promise.all([
 			to.length && sendMail(env, to, mail.subject, mail.text, mail.html).catch((e) => console.error('signup mail', e)),
-			pushStaff(env, { title: `가입 신청 · ${v.name}`, body: `${v.region} · 가입 대기 ${n}건`, url: '/admin/', tag: 'signup' }),
+			pushStaff(env, { title: `[가입 신청] ${v.who}`, body: `가입 대기 ${n}건`, url: '/admin/', tag: 'signup' }), // who = 이름/출생연도 두 자리/거주지 (사용자 요구 2026-10-26)
 		]);
 	} catch (e) {
 		console.error('signup notify', e);
@@ -157,7 +157,7 @@ export async function lessonRequested(env: Env, memberId: string, name: string, 
 		const mail = lessonMail({ name, date, riders: results.map((r) => r.name), pending });
 		await Promise.all([
 			to.length && sendMail(env, to, mail.subject, mail.text, mail.html).catch((e) => console.error('lesson mail', e)),
-			pushStaff(env, { title: `강습 요청 · ${name}`, body: `${dayOf(date)} 출격 · 연결 대기 ${pending}건`, url: '/admin/', tag: 'lesson' }),
+			pushStaff(env, { title: `[강습 요청] ${name}`, body: `${dayOf(date)} 출격 / 연결 대기 ${pending}건`, url: '/admin/', tag: 'lesson' }),
 		]);
 	} catch (e) {
 		console.error('lesson notify', e);

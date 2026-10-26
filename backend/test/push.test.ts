@@ -70,8 +70,8 @@ test('앱 알림: 구독 검사·해제, 운영진만 받음, 내용 복호화·
 		await post({ action: 'signup', name: '새사람', gender: '여', year: '1998', month: '3', day: '7', sido: '경기도', sigungu: '의정부시', phone: '010-5555-1212', agree: true });
 		assert.deepEqual(sent.map((x) => x.url), ['https://push.test/staff']);
 		const msg = await decrypt(staffDev, sent[0].body);
-		assert.equal(msg.title, '가입 신청 · 새사람');
-		assert.match(msg.body, /경기도 의정부시 · 가입 대기 1건/);
+		assert.equal(msg.title, '[가입 신청] 새사람/98/의정부');
+		assert.equal(msg.body, '가입 대기 1건');
 		assert.equal(sent[0].headers['Content-Encoding'], 'aes128gcm');
 		// VAPID: JWT 서명을 공개키로 확인, aud = 푸시 서비스 출처
 		const m = /^vapid t=([^.]+)\.([^.]+)\.([^,]+), k=(.+)$/.exec(sent[0].headers.Authorization)!;

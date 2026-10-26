@@ -2,6 +2,7 @@
 import type { Ctx, Env } from './index.ts';
 import { need } from './auth.ts';
 import { iso, later, normPhone, randomToken } from './lib.ts';
+import { normArea } from './admin.ts';
 import { signupRequested } from './notify.ts';
 
 const SIGNUP_PER_HOUR = 30; // 전체 신청 시간당 상한 (스팸 방지)
@@ -32,7 +33,7 @@ export async function signup(c: Ctx) {
 	// 동시에 같은 번호로 두 번 와도 대기 중 신청은 하나 (UNIQUE 부분 인덱스)
 	const r = await db.prepare("INSERT INTO signup_requests (created_at, name, gender, birth, sido, area, phone) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING")
 		.bind(iso(c.now), name, gender, birth, sido, area, phone).run();
-	if (r.meta.changes) await signupRequested(c.env, { name, gender, region: `${sido} ${area}`, at: c.now }); // 실제로 들어간 신청만 운영진 메일
+	if (r.meta.changes) await signupRequested(c.env, { name, gender, region: `${sido} ${area}`, who: `${name}/${String(y).slice(2)}/${normArea(area)}`, at: c.now }); // 실제로 들어간 신청만 운영진 메일
 	return { ok: true };
 }
 

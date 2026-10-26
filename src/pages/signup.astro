@@ -87,13 +87,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 					<label>
 						출생연도
-						<!-- 필수, 고르기 (사용자 요구 2026-10-26). 동호회는 19세 이상만 — 연 나이 기준, 올해 19세가 되는 해(올해-19년생)부터 (사용자 요구). 고를 수 있으면 되니까 나이 체크를 따로 안 받음
-						     (빌드한 해 기준 — 해가 바뀌면 다시 배포. 서버도 같은 규칙) -->
+						<!-- 필수, 고르기 (사용자 요구 2026-10-26). 동호회는 19세 이상만 — 연 나이 기준, 올해 19세가 되는 해(올해-19년생)부터. 고를 수 있으면 되니까 나이 체크를 따로 안 받음
+						     목록·안내는 브라우저가 오늘 날짜로 채움(아래 script) → 해가 바뀌면 다시 배포 안 해도 1년씩 올라감. 서버도 같은 규칙 -->
 						<select name="year" required>
 							<option value="">선택</option>
-							{Array.from({ length: new Date().getFullYear() - 19 - 1940 + 1 }, (_, i) => new Date().getFullYear() - 19 - i).map((y) => <option value={y}>{y}년</option>)}
 						</select>
-						<small class="field-note">{new Date().getFullYear() - 19}년생부터 가입할 수 있어요.</small>
+						<small class="field-note year-note">19세 이상만 가입할 수 있어요.</small>
 					</label>
 
 					<fieldset>
@@ -163,6 +162,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			const form = document.querySelector<HTMLFormElement>('.signup')!;
 			const error = form.querySelector<HTMLElement>('.mem-error')!;
 			const done = document.querySelector<HTMLElement>('.done')!;
+
+			// 출생연도: 올해 19세가 되는 해부터 1940년까지 (오늘 날짜 기준이라 해마다 자동으로 바뀜)
+			const youngest = new Date().getFullYear() - 19;
+			form.year.append(...Array.from({ length: youngest - 1940 + 1 }, (_, i) => new Option(`${youngest - i}년`, String(youngest - i))));
+			form.querySelector('.year-note')!.textContent = `${youngest}년생부터 가입할 수 있어요.`;
 
 			// 서버도 같은 검사를 하지만, 먼저 화면에서 알려줌
 			// 시도 고르면 그 시도의 시군구 목록 채우기

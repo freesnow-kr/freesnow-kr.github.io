@@ -21,7 +21,7 @@ test('탈퇴', async () => {
 	assert.equal((await post({ action: 'me' }, token)).expired, true);
 	assert.equal((await post({ action: 'login', loginId: '1111-2222', password: PASSWORD })).ok, false);
 	// 같은 번호로 다시 가입 신청 가능
-	assert.equal((await post({ action: 'signup', phone: '1111-2222', password: 'snow-board-1', name: '김보드', gender: '남', agree: true, age14: true })).ok, true);
+	assert.equal((await post({ action: 'signup', phone: '1111-2222', password: 'snow-board-1', name: '김보드', gender: '남', year: '1996', agree: true })).ok, true);
 });
 
 test('관리자는 바로 탈퇴 안 됨', async () => {

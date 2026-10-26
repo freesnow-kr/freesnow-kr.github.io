@@ -463,6 +463,7 @@ a {
 }
 .head p {
 	color: #4a4d55;
+	text-align: right; /* 제목 오른쪽 끝에 맞춤 (사용자 요구 2026-10-26) — 좁은 화면(제목 아래)은 왼쪽 */
 }
 .trip-list {
 	list-style: none;
@@ -687,6 +688,9 @@ a {
 @media (max-width: 720px) {
 	.head {
 		grid-template-columns: 1fr;
+	}
+	.head p {
+		text-align: left;
 	}
 	.trip-list > li {
 		grid-template-columns: 2rem 1fr auto;

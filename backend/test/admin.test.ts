@@ -202,3 +202,9 @@ test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 �
 		for (const k of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REFRESH_TOKEN']) delete env[k];
 	}
 });
+
+test('동의 문구: 지금 처리방침 시행일(POLICY_VERSION)의 문구가 consent_terms에 다 있음 (문구를 바꾸면 새 version 줄을 더할 것)', async () => {
+	const { POLICY_VERSION } = await import('../src/lib.ts');
+	const kinds = (await env.DB.prepare('SELECT kind FROM consent_terms WHERE version = ? AND is_active = 1').bind(POLICY_VERSION).all()).results.map((r: any) => r.kind).sort();
+	assert.deepEqual(kinds, ['age14', 'emergency', 'notice', 'optional', 'policy', 'required', 'warning']);
+});

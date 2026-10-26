@@ -87,13 +87,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 					<label>
 						출생연도
-						<!-- 필수, 고르기 (사용자 요구 2026-10-26). 올해-15년부터만 → 고를 수 있으면 생일 전이어도 만 14세 이상이라 '만 14세 이상' 체크를 따로 안 받음
+						<!-- 필수, 고르기 (사용자 요구 2026-10-26). 동호회는 만 19세 이상만 (사용자 요구) → 올해-20년부터만: 고를 수 있으면 생일 전이어도 만 19세 이상이라 나이 체크를 따로 안 받음
 						     (빌드한 해 기준 — 해가 바뀌면 다시 배포. 서버도 같은 규칙) -->
 						<select name="year" required>
 							<option value="">선택</option>
-							{Array.from({ length: new Date().getFullYear() - 15 - 1940 + 1 }, (_, i) => new Date().getFullYear() - 15 - i).map((y) => <option value={y}>{y}년</option>)}
+							{Array.from({ length: new Date().getFullYear() - 20 - 1940 + 1 }, (_, i) => new Date().getFullYear() - 20 - i).map((y) => <option value={y}>{y}년</option>)}
 						</select>
-						<small class="field-note">만 14세 이상만 가입할 수 있어요.</small>
+						<small class="field-note">만 19세 이상만 가입할 수 있어요.</small>
 					</label>
 
 					<fieldset>
@@ -119,7 +119,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<details class="privacy">
 						<summary>개인정보 수집, 이용 안내</summary>
 						<ul>
-							<li><b>필수 항목</b> 휴대폰 번호(아이디 — 암호화되어서 저장), 비밀번호, 이름, 성별, 출생연도(만 14세 이상 확인) — 회원 로그인, 중복 가입 방지, 가입 확인(오픈채팅 닉네임과 맞춰 보기), 출격, 시즌방 명단, 정모 조 편성</li>
+							<li><b>필수 항목</b> 휴대폰 번호(아이디 — 암호화되어서 저장), 비밀번호, 이름, 성별, 출생연도(만 19세 이상 확인) — 회원 로그인, 중복 가입 방지, 가입 확인(오픈채팅 닉네임과 맞춰 보기), 출격, 시즌방 명단, 정모 조 편성</li>
 							<li><b>선택 항목</b> 거주지, 휴대폰 번호의 비상 연락처 사용 — 회원 명부 지역별 정리, 비상시 연락(운영진만 봐요)</li>
 							<li><b>보유 기간</b> 탈퇴 또는 가입 거절 시 지체 없이 삭제</li>
 							<li>필수 항목에 동의하지 않으면 가입할 수 없어요. 선택 항목은 동의하지 않아도 가입할 수 있어요.</li>

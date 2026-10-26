@@ -81,9 +81,19 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<nav class="rows" aria-label="계정">
 						<a class="row" href={`${base}/password/`}>비밀번호 변경<i>›</i></a>
 						<a class="row staff-link" href={`${base}/admin/`} hidden>운영진 화면<i>›</i></a>
+						<button class="row app-install" type="button" hidden>앱으로 설치 <small>홈 화면에 FREE SNOW 아이콘</small><i>›</i></button>
 						<button class="row out logout" type="button">로그아웃</button>
 					</nav>
 				</div>
+
+				<!-- 앱으로 설치 안내 (아이폰·앱 안 브라우저 등 설치 창을 못 띄울 때) -->
+				<dialog class="app-dlg" aria-labelledby="app-dlg-title">
+					<div class="dlg-head">
+						<h3 id="app-dlg-title">앱으로 설치</h3>
+						<button class="dlg-close" type="button" aria-label="닫기">✕</button>
+					</div>
+					<div class="dlg-body app-how"></div>
+				</dialog>
 
 				<!-- 내 시즌방 이용 상세 (모든 회원 것은 운영진 화면 '시즌방 정산') -->
 				<dialog class="stay-dlg" aria-labelledby="stay-dlg-title">
@@ -111,7 +121,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		</footer>
 
 		<script>
-			import { base, call, loginUrl, logout, photoSrc, store } from '../scripts/session';
+			import { app, base, call, loginUrl, logout, photoSrc, store } from '../scripts/session';
 
 			const dash = document.querySelector<HTMLElement>('.dash')!;
 			const token = store.get();
@@ -311,6 +321,31 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			dash.querySelector('.logout')!.addEventListener('click', () => {
 				logout();
 				location.href = `${base}/`;
+			});
+
+			// 앱으로 설치 (PWA, 사용자 요구 2026-10-26): 이미 앱으로 열었으면 숨김. 안드로이드 크롬은 설치 창, 그 밖엔 방법 안내
+			const installRow = dash.querySelector<HTMLButtonElement>('.app-install')!;
+			installRow.hidden = app.installed();
+			const appDlg = document.querySelector<HTMLDialogElement>('.app-dlg')!;
+			appDlg.querySelector('.dlg-close')!.addEventListener('click', () => appDlg.close());
+			appDlg.addEventListener('click', (e) => e.target === appDlg && appDlg.close());
+			const how = (steps: string[], note = '') => {
+				const box = appDlg.querySelector('.app-how')!;
+				const ol = document.createElement('ol');
+				ol.append(...steps.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
+				box.replaceChildren(ol, ...(note ? [Object.assign(document.createElement('p'), { className: 'app-note', textContent: note })] : []));
+				appDlg.showModal();
+			};
+			installRow.addEventListener('click', async () => {
+				if (app.inApp())
+					return how(['오른쪽 위(또는 아래) ⋯ 메뉴를 눌러요.', app.ios() ? "'Safari로 열기'를 눌러요." : "'다른 브라우저로 열기'를 눌러요.", '열린 브라우저에서 마이페이지 → 앱으로 설치를 다시 눌러요.'], '카카오톡 같은 앱 안의 브라우저에서는 설치할 수 없어요.');
+				if (app.ios())
+					return how(['Safari 아래쪽 가운데 공유 버튼(□↑)을 눌러요.', "목록을 내려 '홈 화면에 추가'를 눌러요.", "오른쪽 위 '추가'를 누르면 홈 화면에 FREE SNOW 아이콘이 생겨요."], '앱으로 처음 열면 한 번 다시 로그인해 주세요. 아이폰은 앱과 Safari의 저장 공간이 따로예요.');
+				if (app.canPrompt()) {
+					const ok = await app.prompt().catch(() => null); // 안드로이드 크롬 설치 창 (실패하면 아래 안내)
+					if (ok !== null) return void (ok && (installRow.hidden = true));
+				}
+				how(["브라우저 메뉴(⋮)를 눌러요.", "'앱 설치' 또는 '홈 화면에 추가'를 눌러요."]);
 			});
 		</script>
 	</body>
@@ -527,8 +562,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			background: var(--white);
 		}
 	}
-	/* 시즌방 이용 상세 팝업 */
-	.stay-dlg {
+	/* 시즌방 이용 상세 팝업 (앱으로 설치 안내도 같은 모양 — 클래스는 따로: 시즌방 코드가 .stay-dlg로 찾음) */
+	.stay-dlg,
+	.app-dlg {
 		width: min(520px, 92vw);
 		max-height: 80vh;
 		padding: 0;
@@ -536,7 +572,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		border-radius: 18px;
 		box-shadow: 0 20px 60px rgb(0 0 0 / 0.3);
 	}
-	.stay-dlg::backdrop {
+	.stay-dlg::backdrop,
+	.app-dlg::backdrop {
 		background: rgb(0 0 0 / 0.45);
 	}
 	.dlg-head {
@@ -632,6 +669,33 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	.row.out {
 		color: #c4320a;
+	}
+	.row small {
+		margin: 0 auto 0 8px;
+		color: var(--gray);
+		font-size: 12px;
+		font-weight: 400;
+	}
+	/* 앱으로 설치 안내 */
+	.app-how {
+		word-break: keep-all;
+	}
+	.app-how :global(ol) {
+		display: grid;
+		gap: 10px;
+		margin: 12px 0 0;
+		padding-left: 1.3em;
+		font-size: 15px;
+		line-height: 1.6;
+	}
+	:global(.app-note) {
+		margin-top: 14px;
+		padding: 10px 12px;
+		border-radius: 10px;
+		background: var(--bone);
+		color: #4a4d55;
+		font-size: 13px;
+		line-height: 1.6;
 	}
 	@media (hover: hover) {
 		.row:hover {

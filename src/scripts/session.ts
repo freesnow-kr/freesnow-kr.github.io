@@ -31,6 +31,29 @@ export const store = {
 
 export const passwordUrl = `${base}/password/`;
 
+// 앱으로 설치(PWA): 서비스 워커 등록 + 안드로이드 크롬의 설치 창을 잡아 두었다가 마이페이지 '앱으로 설치'에서 띄움
+// 아이폰은 설치 창을 띄울 방법이 없어(애플 정책) Safari 공유 → '홈 화면에 추가' 안내
+if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${base}/sw.js`).catch(() => {});
+let installEvent: any = null;
+addEventListener('beforeinstallprompt', (e) => {
+	e.preventDefault(); // 크롬이 아래에 띄우는 작은 안내 대신 우리 버튼으로
+	installEvent = e;
+	dispatchEvent(new Event('fs-installable'));
+});
+export const app = {
+	installed: () => matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true,
+	canPrompt: () => !!installEvent,
+	prompt: async () => {
+		if (!installEvent) return false;
+		installEvent.prompt();
+		const { outcome } = await installEvent.userChoice;
+		installEvent = null;
+		return outcome === 'accepted';
+	},
+	ios: () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+	inApp: () => /KAKAOTALK|NAVER\(|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent), // 카톡 등 앱 안 브라우저 → 설치 안 됨
+};
+
 // text/plain POST → CORS 사전요청 없이 호출 (Content-Type·Authorization 헤더 붙이지 말 것 — 토큰은 body.token)
 export const call = async (body: { action: string; [k: string]: unknown }) => {
 	const res = await (await fetch(club.api, { method: 'POST', body: JSON.stringify(body) })).json();

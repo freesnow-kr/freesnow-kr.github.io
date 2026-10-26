@@ -9,6 +9,8 @@ export const club = {
 	somoimUrl: import.meta.env.PUBLIC_SOMOIM_URL ?? '',
 	// API 서버 = Cloudflare Worker (backend/, https://api.freesnow.workers.dev). 비어 있으면 회원 페이지는 '준비 중'
 	api: import.meta.env.PUBLIC_API_URL ?? '',
+	// 안드로이드 APK 내려받기 (구글 드라이브, 사용자 요구 2026-10-26). 없으면 /app/ 에서 APK 안내를 숨김 (선택 값)
+	apkUrl: import.meta.env.PUBLIC_APK_URL ?? '',
 };
 
 export const trips = [

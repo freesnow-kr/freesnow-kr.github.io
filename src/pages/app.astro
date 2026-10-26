@@ -50,7 +50,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<div class="app-hero">
 						<img src={`${base}/icon-192.png`} alt="" width="72" height="72" />
 						<div>
-							<h2>FREE SNOW 앱</h2>
+							<h2>Freesnow 앱</h2>
 							<p class="app-lead">앱스토어 없이 홈 화면에 설치해요. 누르면 주소창 없이 앱처럼 열려요.</p>
 						</div>
 					</div>
@@ -60,6 +60,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<p class="app-tag"></p>
 						<a class="btn btn-ink app-btn app-kakao" hidden>Safari / Chrome으로 열기</a>
 						<button class="btn btn-ink app-btn app-prompt" type="button" hidden>앱 설치</button>
+						<!-- 안드로이드: APK 파일로도 설치 (구글 드라이브, club.apkUrl) -->
+						{club.apkUrl && <a class="btn btn-line-dark app-btn app-apk" href={club.apkUrl} target="_blank" rel="noopener" hidden>APK 파일로 설치</a>}
 						<ol class="app-steps"></ol>
 						<p class="app-note" hidden></p>
 					</section>
@@ -70,7 +72,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							<li>Safari로 이 페이지를 열어요.</li>
 							<li>아래쪽 가운데 공유 버튼(□↑)을 눌러요.</li>
 							<li>목록을 내려 '홈 화면에 추가'를 눌러요.</li>
-							<li>오른쪽 위 '추가'를 누르면 홈 화면에 FREE SNOW 아이콘이 생겨요.</li>
+							<li>오른쪽 위 '추가'를 누르면 홈 화면에 Freesnow 아이콘이 생겨요.</li>
 						</ol>
 					</details>
 					<details class="app-other">
@@ -79,6 +81,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							<li>Chrome으로 이 페이지를 열어요.</li>
 							<li>'앱 설치' 버튼이 보이면 눌러요. 없으면 오른쪽 위 메뉴(⋮) → '앱 설치' 또는 '홈 화면에 추가'.</li>
 						</ol>
+						{club.apkUrl && (
+							<p class="app-apk-note">
+								APK 파일로 설치할 수도 있어요: <a href={club.apkUrl} target="_blank" rel="noopener">APK 내려받기 ↗</a><br />
+								구글 드라이브가 '바이러스 검사를 할 수 없다'고 하면 '무시하고 다운로드'를 눌러요. 내려받은 파일을 누르고 '출처를 알 수 없는 앱' 설치를 허용하면 돼요.
+							</p>
+						)}
 					</details>
 					<p class="app-small">앱으로 처음 열면 한 번 다시 로그인해 주세요. 앱과 브라우저는 로그인 정보가 따로예요.</p>
 				</div>
@@ -104,6 +112,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			function draw() {
 				now.hidden = false;
 				$('.app-kakao').hidden = $('.app-prompt').hidden = true;
+				const apk = now.querySelector<HTMLElement>('.app-apk');
+				if (apk) apk.hidden = !/Android/.test(navigator.userAgent) || app.installed() || app.inApp(); // 안드로이드 바깥 브라우저에서만
 				note('');
 				if (app.installed()) {
 					$('.app-tag').textContent = '이미 앱으로 열었어요 ✓';
@@ -117,7 +127,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				}
 				if (app.ios()) {
 					$('.app-tag').textContent = '아이폰';
-					steps(['아래쪽 가운데 공유 버튼(□↑)을 눌러요.', "목록을 내려 '홈 화면에 추가'를 눌러요.", "오른쪽 위 '추가'를 누르면 홈 화면에 FREE SNOW 아이콘이 생겨요."]);
+					steps(['아래쪽 가운데 공유 버튼(□↑)을 눌러요.', "목록을 내려 '홈 화면에 추가'를 눌러요.", "오른쪽 위 '추가'를 누르면 홈 화면에 Freesnow 아이콘이 생겨요."]);
 					return;
 				}
 				$('.app-tag').textContent = /Android/.test(navigator.userAgent) ? '안드로이드' : '이 기기';
@@ -215,6 +225,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		gap: 8px;
 		margin: 12px 0 0;
 		padding-left: 1.3em;
+		line-height: 1.6;
+	}
+	.app-apk-note {
+		margin-top: 10px;
+		color: #4a4d55;
+		font-size: 13px;
 		line-height: 1.6;
 	}
 	.app-small {

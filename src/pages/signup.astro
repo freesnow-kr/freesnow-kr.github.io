@@ -48,65 +48,37 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			<section class="mem-body">
 				{!club.api && <p class="mem-msg">회원가입 준비 중이에요.</p>}
 
-				<form class="signup" hidden={!club.api} novalidate>
-					<!-- 화면은 사용자가 고른 시안 A (2026-10-26): 주황 번호 묶음 01 로그인 정보, 02 기본 정보, 03 선택 정보, 04 동의 -->
-					<h2 class="sec"><i>01</i> 로그인 정보</h2>
+				<form class="signup tf" hidden={!club.api} novalidate>
+					<!-- 얇은 폼 (ride.css .tf, 사용자 요구 2026-10-26 — 참고 사이트처럼 깔끔하게). 이름표 대신 칸 안 회색 글씨 -->
+					<h2 class="tf-title">회원가입</h2>
 					<!-- 아이디 = 010 뺀 휴대폰 번호 (사용자 결정 2026-10-26). 서버는 번호를 되돌릴 수 없는 값(HMAC)으로만 저장, 화면 어디에도 안 보임 -->
-					<label class="row">
-						<span class="lb">휴대폰 번호</span>
-						<span class="box">
-							<span class="pre" aria-hidden="true">010</span>
-							<input name="phone" type="tel" inputmode="numeric" autocomplete="username" maxlength="9" placeholder="1234 5678" required />
-						</span>
-						<small class="hint">아이디로 사용해요. 암호화되어서 저장되고 화면에 보이지 않아요.</small>
-					</label>
-					<label class="row">
-						<span class="lb">비밀번호</span>
-						<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="8자 이상" required />
-					</label>
-					<label class="row">
-						<span class="lb">비밀번호 확인</span>
-						<input name="password2" type="password" autocomplete="new-password" maxlength="128" required />
-					</label>
-
-					<h2 class="sec"><i>02</i> 기본 정보</h2>
-					<label class="row">
-						<span class="lb">이름</span>
-						<input name="name" type="text" autocomplete="name" maxlength="20" required />
-					</label>
-					<div class="row" role="radiogroup" aria-labelledby="lb-gender">
-						<span class="lb" id="lb-gender">성별</span>
-						<div class="seg">
-							<label><input type="radio" name="gender" value="남" required /><span>남</span></label>
-							<label><input type="radio" name="gender" value="여" /><span>여</span></label>
-						</div>
+					<input name="phone" type="tel" inputmode="numeric" autocomplete="username" maxlength="13" aria-label="휴대폰 번호 (아이디)" placeholder="휴대폰 번호 (010 제외)" required />
+					<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" aria-label="비밀번호" placeholder="비밀번호 (8자 이상)" required />
+					<input name="password2" type="password" autocomplete="new-password" maxlength="128" aria-label="비밀번호 확인" placeholder="비밀번호 확인" required />
+					<input name="name" type="text" autocomplete="name" maxlength="20" aria-label="이름" placeholder="이름" required />
+					<div class="seg" role="radiogroup" aria-label="성별">
+						<label><input type="radio" name="gender" value="남" required /><span>남</span></label>
+						<label><input type="radio" name="gender" value="여" /><span>여</span></label>
 					</div>
-					<label class="row">
-						<span class="lb">출생연도</span>
-						<!-- 필수, 고르기 (사용자 요구 2026-10-26). 동호회는 19세 이상만 — 연 나이 기준, 올해 19세가 되는 해(올해-19년생)부터. 고를 수 있으면 되니까 나이 체크를 따로 안 받음
-						     목록, 안내는 브라우저가 오늘 날짜로 채움(아래 script) → 해가 바뀌면 다시 배포 안 해도 1년씩 올라감. 서버도 같은 규칙 -->
-						<select name="year" required>
-							<option value="">선택</option>
+					<!-- 출생연도: 필수, 고르기 (사용자 요구 2026-10-26). 동호회는 19세 이상만 — 연 나이 기준, 올해 19세가 되는 해(올해-19년생)부터. 고를 수 있으면 되니까 나이 체크를 따로 안 받음
+					     목록, 안내는 브라우저가 오늘 날짜로 채움(아래 script) → 해가 바뀌면 다시 배포 안 해도 1년씩 올라감. 서버도 같은 규칙 -->
+					<select name="year" aria-label="출생연도" required>
+						<option value="">출생연도</option>
+					</select>
+
+					<p class="tf-sub">선택 입력</p>
+					<div class="area">
+						<select name="sido" aria-label="거주지 시도">
+							<option value="">거주지 (시도)</option>
+							{Object.keys(regions).map((sido) => <option value={sido}>{sido}</option>)}
 						</select>
-						<small class="hint year-note">19세 이상만 가입할 수 있어요.</small>
-					</label>
-
-					<h2 class="sec"><i>03</i> 선택 정보 <span class="tag">선택</span></h2>
-					<div class="row" role="group" aria-labelledby="lb-area">
-						<span class="lb" id="lb-area">거주지</span>
-						<div class="area">
-							<select name="sido" aria-label="시도">
-								<option value="">시도</option>
-								{Object.keys(regions).map((sido) => <option value={sido}>{sido}</option>)}
-							</select>
-							<select name="sigungu" aria-label="시군구" disabled>
-								<option value="">시군구</option>
-							</select>
-						</div>
+						<select name="sigungu" aria-label="거주지 시군구" disabled>
+							<option value="">시군구</option>
+						</select>
 					</div>
-					<label class="check">
+					<label class="tf-check">
 						<input name="emergency" type="checkbox" />
-						<span>휴대폰 번호를 비상 연락처로도 사용해요<small>스키장 사고 등 비상시 운영진만 확인할 수 있어요</small></span>
+						<span>휴대폰 번호를 비상 연락처로도 사용해요 <small>(스키장 사고 등 비상시 운영진만 확인)</small></span>
 					</label>
 
 					<!-- 봇 방지: 사람에겐 안 보이는 칸 -->
@@ -115,16 +87,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<input name="website" type="text" tabindex="-1" autocomplete="off" />
 					</label>
 
-					<h2 class="sec"><i>04</i> 동의</h2>
 					<!-- 동의 문구를 바꾸면: backend lib.ts POLICY_VERSION + privacy.astro 시행일 + 새 version의 consent_terms 줄(migration) -->
-					<div class="consent">
-						<label class="check strong">
+					<div class="agree">
+						<label class="tf-check">
 							<input name="agree" type="checkbox" required />
-							<span>필수 항목 수집, 이용 동의</span>
+							<span>[필수] 개인정보 수집, 이용 동의</span>
 						</label>
-						<label class="check">
+						<label class="tf-check">
 							<input name="agreeOpt" type="checkbox" />
-							<span>선택 항목(거주지, 비상 연락처 사용) 수집, 이용 동의 (선택)</span>
+							<span>[선택] 선택 항목(거주지, 비상 연락처 사용) 수집, 이용 동의</span>
 						</label>
 						<details class="privacy">
 							<summary>자세히 보기</summary>
@@ -139,8 +110,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						</details>
 					</div>
 
-					<p class="note">가입 정보가 일치하지 않거나 허위 정보로 가입한 경우 예고 없이 탈퇴 처리돼요.</p>
-					<button class="btn btn-ink" type="submit">가입 신청</button>
+					<ul class="tf-notes">
+						<li>휴대폰 번호는 아이디로만 쓰고, 암호화되어 저장돼요.</li>
+						<li class="year-note">19세 이상만 가입할 수 있어요.</li>
+						<li>가입 정보가 일치하지 않거나 허위 정보로 가입한 경우 예고 없이 탈퇴 처리돼요.</li>
+					</ul>
+					<button class="tf-btn" type="submit">가입 신청</button>
 					<p class="mem-error" role="alert"></p>
 				</form>
 
@@ -170,7 +145,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			// 출생연도: 올해 19세가 되는 해부터 1940년까지 (오늘 날짜 기준이라 해마다 자동으로 바뀜)
 			const youngest = new Date().getFullYear() - 19;
 			form.year.append(...Array.from({ length: youngest - 1940 + 1 }, (_, i) => new Option(`${youngest - i}년`, String(youngest - i))));
-			form.querySelector('.year-note')!.textContent = `${youngest}년생부터 가입할 수 있어요.`;
+			form.querySelector('.year-note')!.textContent = `${youngest}년생부터 가입할 수 있어요. (19세 이상)`;
 
 			// 서버도 같은 검사를 하지만, 먼저 화면에서 알려줌
 			// 시도 고르면 그 시도의 시군구 목록 채우기
@@ -231,130 +206,30 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 </html>
 
 <style>
-	.signup,
 	.done {
 		display: grid;
-		gap: 10px;
-		max-width: 480px;
-	}
-	.done {
 		gap: 20px;
+		max-width: 460px;
 	}
 	.done h2 {
 		font-size: clamp(1.6rem, 3vw, 2.2rem);
 		font-weight: 900;
 		letter-spacing: -0.03em;
 	}
-	/* 묶음 제목: 주황 번호 + 아래 검정 줄 (시안 A) */
-	.sec {
-		display: flex;
-		align-items: baseline;
-		gap: 8px;
-		margin-top: 18px;
-		padding-bottom: 8px;
-		border-bottom: 1.5px solid var(--black);
-		font-size: 15px;
-		font-weight: 900;
+	.done p {
+		color: #4a4d55;
 	}
-	.sec:first-child {
-		margin-top: 0;
+	.done .btn {
+		justify-self: start;
 	}
-	.sec i {
-		color: var(--accent);
-		font: 16px var(--display);
-		font-style: normal;
-	}
-	.tag {
-		padding: 1px 8px;
-		border-radius: 99px;
-		background: #e4e1da;
-		color: #555;
-		font-size: 11px;
-		font-weight: 700;
-	}
-	.signup label {
-		display: grid;
-		gap: 6px;
-		font-size: 13px;
-		font-weight: 700;
-	}
-	/* 이름표와 칸을 한 줄에 (사용자 요구 2026-10-26: 아래로 길게 늘어서 많이 적는 느낌) — 안내 문구는 칸 아래, 같은 칸 줄에 맞춤 */
-	.signup .row {
-		display: grid;
-		grid-template-columns: 84px minmax(0, 1fr);
-		align-items: center;
-		gap: 4px 10px;
-	}
-	.row > .hint {
-		grid-column: 2;
-	}
-	.lb {
-		font-size: 13px;
-		font-weight: 700;
-		line-height: 1.3;
-	}
-	.signup input[type='text'],
-	.signup input[type='password'],
-	.signup input[type='tel'],
-	.signup select,
-	.box {
-		min-height: 48px;
-		padding: 0 14px;
-		border: 1.5px solid var(--black);
-		border-radius: 0;
-		background-color: var(--white);
-		color: var(--black);
-		font: inherit;
-		font-size: 16px;
-		font-weight: 400;
-	}
-	.signup select {
-		width: 100%;
-		min-width: 0;
-		padding-right: 38px; /* 화살표 자리 (모양은 ride.css 공통) */
-	}
-	.signup input {
-		min-width: 0;
-	}
-	/* 휴대폰 번호: 칸 안 왼쪽에 회색 '010' */
-	.box {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
-	.box .pre {
-		color: var(--gray);
-		font-weight: 500;
-	}
-	.box input[type='tel'] {
-		flex: 1;
-		min-height: 44px;
-		padding: 0;
-		border: 0;
-		outline: none;
-	}
-	.box:focus-within {
-		outline: 2px solid var(--accent);
-		outline-offset: 3px;
-	}
-	.hint {
-		color: var(--gray);
-		font-size: 12px;
-		font-weight: 400;
-	}
-	/* 성별: 검정, 흰색 두 칸 (고른 쪽이 검정) */
+	/* 성별: 얇은 두 칸, 고른 쪽만 검정 */
 	.seg {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		border: 1.5px solid var(--black);
-		background: var(--white);
+		gap: 8px;
 	}
 	.seg label {
-		display: block;
 		cursor: pointer;
-	}
-	.seg label + label {
-		border-left: 1.5px solid var(--black);
 	}
 	.seg input {
 		position: absolute;
@@ -364,102 +239,51 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.seg span {
 		display: grid;
 		place-items: center;
-		height: 44px;
-		font-size: 15px;
+		height: 42px;
+		border: 1px solid var(--line);
+		background: var(--white);
+		color: #9a9ea7;
+		font-size: 13px;
+		letter-spacing: 0.06em;
 	}
 	.seg input:checked + span {
+		border-color: var(--black);
 		background: var(--black);
 		color: var(--white);
 	}
 	.seg input:focus-visible + span {
 		outline: 2px solid var(--accent);
-		outline-offset: -4px;
+		outline-offset: 2px;
 	}
 	/* minmax(0, …): 가장 긴 선택지('제주특별자치도' 등)가 칸을 넓히지 않게 */
 	.area {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 8px;
-		width: 100%;
 	}
-	/* 체크박스: 칠하지 않고 흰 칸에 체크 표시만 (사용자 요구 2026-10-26) */
-	.check {
-		display: flex !important;
-		align-items: flex-start;
-		gap: 10px !important;
-		font-size: 14px !important;
-		font-weight: 400 !important;
-		cursor: pointer;
-	}
-	.check.strong {
-		font-weight: 700 !important;
-	}
-	.check span {
+	.agree {
 		display: grid;
-		gap: 2px;
+		gap: 8px;
+		margin-top: 8px;
+		padding-top: 12px;
+		border-top: 1px solid var(--line);
 	}
-	.check small {
-		color: var(--gray);
+	.privacy {
+		color: #4a4d55;
 		font-size: 12px;
 	}
-	.check input {
-		flex: none;
-		appearance: none;
-		width: 20px;
-		height: 20px;
-		margin: 1px 0 0;
-		border: 1.5px solid var(--black);
-		background: var(--white) center / 14px no-repeat;
+	.privacy summary {
+		color: var(--gray);
 		cursor: pointer;
 	}
-	.check input:checked {
-		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 7.5 5.5 11 12 3.5' fill='none' stroke='%230b0d12' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-	}
-	.check input:focus-visible {
-		outline: 2px solid var(--accent);
-		outline-offset: 2px;
+	.privacy ul {
+		margin: 8px 0 0;
+		padding-left: 16px;
+		display: grid;
+		gap: 4px;
 	}
 	.hp {
 		position: absolute;
 		left: -9999px;
-	}
-	/* 동의: 흰 상자 하나에 필수, 선택 체크 + 자세히 보기 */
-	.consent {
-		display: grid;
-		gap: 12px;
-		padding: 14px;
-		border: 1.5px solid var(--black);
-		background: var(--white);
-	}
-	.privacy {
-		font-size: 13px;
-		color: #4a4d55;
-	}
-	.privacy summary {
-		color: var(--gray);
-		font-size: 12px;
-		cursor: pointer;
-	}
-	.privacy ul {
-		margin: 10px 0 0;
-		padding-left: 18px;
-		display: grid;
-		gap: 4px;
-	}
-	/* 허위 가입 안내 (사용자 요구 2026-10-26) — 차분한 회색 */
-	.note {
-		color: #4a4d55;
-		font-size: 12px;
-	}
-	.mem-error {
-		color: #c4320a;
-		font-weight: 700;
-		min-height: 1.6em;
-	}
-	.done p {
-		color: #4a4d55;
-	}
-	.done .btn {
-		justify-self: start;
 	}
 </style>

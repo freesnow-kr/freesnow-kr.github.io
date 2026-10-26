@@ -46,6 +46,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			<section class="mem-body">
 				<p class="mem-msg w-msg" role="status">불러오는 중…</p>
 				<form class="w" hidden>
+					<p class="w-draft" hidden><span></span> <button type="button" class="w-draft-clear">새로 쓰기</button></p>
 					<label>말머리
 						<select name="category" required>
 							<option value="notice" class="staff-only">공지</option>
@@ -143,6 +144,70 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				return new Promise<Blob>((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error('jpeg'))), 'image/jpeg', 0.85));
 			};
 
+			// ── 임시저장 (사용자 요구 2026-10-26): 30초마다 + 화면을 떠날 때 이 브라우저에. 다시 열면 자동으로 채움, 3시간 지나면 지움 ──
+			// ── 가입인사 양식: 말머리 '가입인사'를 고르면 공지 '가입인사양식' 글의 양식을 내용에 (운영진이 공지를 고치면 따라감) ──
+			const KEEP = 3 * 3600e3;
+			const DRAFT = `fs-board-draft:${editId ?? 'new'}`;
+			const body = form.elements.namedItem('body') as HTMLTextAreaElement;
+			let greetingForm: string | null = null;
+			async function loadGreetingForm() {
+				if (greetingForm !== null) return greetingForm;
+				const list = await call({ action: 'board.list', token, category: 'notice' }).catch(() => null);
+				const p = list?.posts?.find((x: any) => x.title.includes('가입인사') && x.title.includes('양식'));
+				const g = p ? await call({ action: 'board.get', token, id: p.id }).catch(() => null) : null;
+				const lines = String(g?.post?.body ?? '').split('\n');
+				const at = lines.findIndex((l) => l.includes('가입양식')); // 위쪽 안내 문구는 빼고 양식부터, '》' 안내 줄도 뺌
+				greetingForm = (at >= 0 ? lines.slice(at) : lines).filter((l) => !l.trim().startsWith('》')).join('\n').trim();
+				return greetingForm;
+			}
+			function setupDraftAndGreeting(sel: HTMLSelectElement) {
+				const snap = () => JSON.stringify({ category: sel.value, title: form.title.value, body: body.value });
+				// 지난 임시저장들 정리 (3시간 지난 것)
+				try {
+					for (const k of Object.keys(localStorage)) if (k.startsWith('fs-board-draft:') && !(Date.now() - (JSON.parse(localStorage.getItem(k)!).at ?? 0) < KEEP)) localStorage.removeItem(k);
+				} catch {}
+				let saved: any = null;
+				try {
+					saved = JSON.parse(localStorage.getItem(DRAFT) ?? 'null');
+				} catch {}
+				const note = form.querySelector<HTMLElement>('.w-draft')!;
+				if (saved) {
+					if ([...sel.options].some((o) => o.value === saved.category)) sel.value = saved.category;
+					form.title.value = saved.title;
+					body.value = saved.body;
+					note.querySelector('span')!.textContent = `임시저장한 글을 불러왔어요 (${new Date(saved.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 저장, 3시간 뒤 지워져요)`;
+					note.hidden = false;
+				}
+				let last = snap();
+				const save = () => {
+					const now = snap();
+					if (now === last) return;
+					last = now;
+					const empty = !form.title.value.trim() && (!body.value.trim() || body.value.trim() === greetingForm);
+					try {
+						empty ? localStorage.removeItem(DRAFT) : localStorage.setItem(DRAFT, JSON.stringify({ ...JSON.parse(now), at: Date.now() }));
+					} catch {}
+				};
+				setInterval(save, 30_000);
+				addEventListener('pagehide', save);
+				document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && save());
+				note.querySelector('.w-draft-clear')!.addEventListener('click', () => {
+					try { localStorage.removeItem(DRAFT); } catch {}
+					location.reload(); // 고치기면 서버 글로, 새 글이면 빈 칸으로
+				});
+				form.addEventListener('submit', () => (last = snap())); // 올리는 중 화면 떠나도 다시 저장 안 함 (성공하면 아래에서 지움)
+
+				// 가입인사 양식: 내용이 비었을 때만 채움, 양식 그대로인 채로 다른 말머리로 바꾸면 다시 비움
+				sel.addEventListener('change', async () => {
+					if (sel.value === 'greeting') {
+						if (body.value.trim()) return;
+						const f = await loadGreetingForm();
+						if (f && !body.value.trim() && sel.value === 'greeting') body.value = `${f}\n`;
+					} else if (greetingForm && body.value.trim() === greetingForm) body.value = '';
+				});
+				if (sel.value === 'greeting' && !body.value.trim()) sel.dispatchEvent(new Event('change')); // ?c=greeting 로 들어온 경우
+			}
+
 			if (!token) location.replace(`${loginUrl}?next=${encodeURIComponent(location.pathname + location.search)}`);
 			else {
 				// 운영진이면 공지·고정 보이게 (서버도 따로 확인)
@@ -170,6 +235,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				drawThumbs();
 				msg.hidden = true;
 				form.hidden = false;
+				setupDraftAndGreeting(sel);
 			}
 
 			form.addEventListener('submit', async (e) => {
@@ -195,6 +261,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						alert('글은 올렸지만 사진은 못 올렸어요. (이 브라우저에서 열 수 없는 사진일 수 있어요)');
 					}
 				}
+				try { localStorage.removeItem(DRAFT); } catch {} // 다 올렸으면 임시저장 지움
 				location.replace(`${base}/board/view/?id=${encodeURIComponent(r.id)}`);
 			});
 		</script>
@@ -245,6 +312,27 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.w-photos {
 		display: grid;
 		gap: 10px;
+	}
+	/* 임시저장 불러옴 안내 */
+	.w-draft {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px 10px;
+		padding: 10px 12px;
+		border-radius: 10px;
+		background: var(--white);
+		color: #4a4d55;
+		font-size: 13px;
+	}
+	.w-draft button {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--black);
+		font: 700 13px 'Noto Sans KR', sans-serif;
+		text-decoration: underline;
+		cursor: pointer;
 	}
 	.w-label {
 		font-size: 14px;

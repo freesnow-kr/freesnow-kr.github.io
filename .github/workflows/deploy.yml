@@ -18,6 +18,7 @@ jobs:
       PUBLIC_JOIN_URL: ${{ secrets.PUBLIC_JOIN_URL || vars.PUBLIC_JOIN_URL }}
       PUBLIC_SOMOIM_URL: ${{ secrets.PUBLIC_SOMOIM_URL || vars.PUBLIC_SOMOIM_URL }}
       PUBLIC_API_URL: ${{ secrets.PUBLIC_API_URL || vars.PUBLIC_API_URL }}
+      PUBLIC_APK_URL: ${{ secrets.PUBLIC_APK_URL || vars.PUBLIC_APK_URL }} # 선택 (없으면 APK 안내만 숨김)
     steps:
       # 하나라도 비어 있으면 여기서 멈춤 → 지금 떠 있는 사이트는 그대로 (빈 링크로 덮어쓰지 않게)
       - name: Check site settings

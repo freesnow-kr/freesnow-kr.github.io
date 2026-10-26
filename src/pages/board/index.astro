@@ -235,6 +235,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
+	/* 휴대폰: 한 줄이면 제목이 거의 안 보여서 글쓴이·날짜는 제목 아래 */
+	@media (max-width: 560px) {
+		.b-list :global(a) {
+			flex-wrap: wrap;
+			gap: 6px 12px;
+		}
+		.b-list :global(.b-head) {
+			flex-basis: 100%;
+		}
+	}
 	.b-more {
 		display: flex;
 		margin: 20px auto 0;

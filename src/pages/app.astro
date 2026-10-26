@@ -1,0 +1,225 @@
+---
+import { club } from '../data/club';
+import Meta from '../components/Meta.astro';
+import '../styles/ride.css';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
+// 앱 설치 안내 (사용자 요구 2026-10-26: 링크 하나로 나눠 주게 — 로그인 없이). 연 휴대폰에 맞는 방법을 먼저 보여 줌
+// 카톡에서 열면 카톡 안 브라우저라 설치가 안 됨 → 'kakaotalk://web/openExternal?url='로 바깥 브라우저로 (카톡이 지원하는 주소)
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
+		<link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<Meta title={`${club.name} — 앱 설치`} description="휴대폰 홈 화면에 FREE SNOW 앱을 설치해요. 앱스토어 없이 이 링크로." />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;700;900&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="nav">
+			<a class="wordmark" href={`${base}/`}><img src={`${base}/logo-white.png`} alt="FREE SNOW" width="103" height="50" /></a>
+			<nav id="site-nav" aria-label="메인">
+				<a href={`${base}/#season`}>SEASON</a>
+				<a href={`${base}/board/`}>BOARD</a>
+				<a href={`${base}/gallery/`}>GALLERY</a>
+				<a href={`${base}/webcam/`}>WEBCAM</a>
+				<a href={`${base}/rank/`}>CHAT RANK</a>
+				<a href={`${base}/shredlog/`}>SHRED LOG</a>
+				<a href={`${base}/seasonroom/`}>RIDE &amp; STAY</a>
+			</nav>
+			<a class="nav-join" href={`${base}/login/`}>LOGIN</a>
+			<button class="nav-menu" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-nav">☰</button>
+		</header>
+
+		<main>
+			<section class="mem-intro">
+				<p class="kicker">INSTALL</p>
+				<h1>GET THE APP.</h1>
+			</section>
+
+			<section class="mem-body">
+				<div class="app">
+					<div class="app-hero">
+						<img src={`${base}/icon-192.png`} alt="" width="72" height="72" />
+						<div>
+							<h2>FREE SNOW 앱</h2>
+							<p class="app-lead">앱스토어 없이 홈 화면에 설치해요. 누르면 주소창 없이 앱처럼 열려요.</p>
+						</div>
+					</div>
+
+					<!-- 지금 휴대폰에 맞는 방법 (스크립트가 골라서 보여 줌). 스크립트가 안 돌면 아래 접힌 안내만 -->
+					<section class="app-now" hidden>
+						<p class="app-tag"></p>
+						<a class="btn btn-ink app-btn app-kakao" hidden>Safari / Chrome으로 열기</a>
+						<button class="btn btn-ink app-btn app-prompt" type="button" hidden>앱 설치</button>
+						<ol class="app-steps"></ol>
+						<p class="app-note" hidden></p>
+					</section>
+
+					<details class="app-other">
+						<summary>아이폰에서 설치하기</summary>
+						<ol>
+							<li>Safari로 이 페이지를 열어요.</li>
+							<li>아래쪽 가운데 공유 버튼(□↑)을 눌러요.</li>
+							<li>목록을 내려 '홈 화면에 추가'를 눌러요.</li>
+							<li>오른쪽 위 '추가'를 누르면 홈 화면에 FREE SNOW 아이콘이 생겨요.</li>
+						</ol>
+					</details>
+					<details class="app-other">
+						<summary>안드로이드에서 설치하기</summary>
+						<ol>
+							<li>Chrome으로 이 페이지를 열어요.</li>
+							<li>'앱 설치' 버튼이 보이면 눌러요. 없으면 오른쪽 위 메뉴(⋮) → '앱 설치' 또는 '홈 화면에 추가'.</li>
+						</ol>
+					</details>
+					<p class="app-small">앱으로 처음 열면 한 번 다시 로그인해 주세요. 앱과 브라우저는 로그인 정보가 따로예요.</p>
+				</div>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<div class="footer-row">
+				<span>{club.footer}</span>
+			</div>
+			<p class="giant" aria-hidden="true">FREE SNOW</p>
+		</footer>
+
+		<script>
+			import { app } from '../scripts/session';
+
+			const now = document.querySelector<HTMLElement>('.app-now')!;
+			const $ = <T extends HTMLElement = HTMLElement>(s: string) => now.querySelector<T>(s)!;
+			const steps = (list: string[]) => $('.app-steps').replaceChildren(...list.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
+			const note = (t: string) => Object.assign($('.app-note'), { hidden: !t, textContent: t });
+			const kakao = /KAKAOTALK/i.test(navigator.userAgent);
+
+			function draw() {
+				now.hidden = false;
+				$('.app-kakao').hidden = $('.app-prompt').hidden = true;
+				note('');
+				if (app.installed()) {
+					$('.app-tag').textContent = '이미 앱으로 열었어요 ✓';
+					return steps([]);
+				}
+				if (app.inApp()) {
+					$('.app-tag').textContent = kakao ? '카카오톡 안에서 열었어요' : '앱 안의 브라우저에서 열었어요';
+					if (kakao) Object.assign($<HTMLAnchorElement>('.app-kakao'), { hidden: false, href: `kakaotalk://web/openExternal?url=${encodeURIComponent(location.href)}` });
+					steps(kakao ? ['위 버튼을 누르면 바깥 브라우저로 이 페이지가 열려요.', '거기서 안내대로 설치해요.'] : ['오른쪽 위(또는 아래) ⋯ 메뉴를 눌러요.', app.ios() ? "'Safari로 열기'를 눌러요." : "'다른 브라우저로 열기'를 눌러요.", '열린 브라우저에서 안내대로 설치해요.']);
+					return note('앱 안의 브라우저에서는 설치할 수 없어요.');
+				}
+				if (app.ios()) {
+					$('.app-tag').textContent = '아이폰';
+					steps(['아래쪽 가운데 공유 버튼(□↑)을 눌러요.', "목록을 내려 '홈 화면에 추가'를 눌러요.", "오른쪽 위 '추가'를 누르면 홈 화면에 FREE SNOW 아이콘이 생겨요."]);
+					return;
+				}
+				$('.app-tag').textContent = /Android/.test(navigator.userAgent) ? '안드로이드' : '이 기기';
+				if (app.canPrompt()) {
+					$('.app-prompt').hidden = false;
+					return steps([]);
+				}
+				steps(["브라우저 메뉴(⋮)를 눌러요.", "'앱 설치' 또는 '홈 화면에 추가'를 눌러요."]);
+				if (!/Android/.test(navigator.userAgent)) note('휴대폰에서 이 주소를 열면 더 쉬워요: ' + location.href);
+			}
+			draw();
+			addEventListener('fs-installable', draw); // 크롬 설치 창은 조금 늦게 준비될 수 있음
+			$('.app-prompt').addEventListener('click', async () => {
+				const ok = await app.prompt().catch(() => false);
+				if (ok) $('.app-tag').textContent = '설치했어요 ✓', ($('.app-prompt').hidden = true);
+			});
+		</script>
+	</body>
+</html>
+
+<style>
+	.app {
+		display: grid;
+		gap: 18px;
+		max-width: 520px;
+		word-break: keep-all;
+	}
+	.app-hero {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+	.app-hero img {
+		flex: none;
+		border-radius: 16px;
+	}
+	.app-hero h2 {
+		font-size: clamp(1.5rem, 3vw, 2rem);
+		font-weight: 900;
+	}
+	.app-lead {
+		margin-top: 4px;
+		color: #4a4d55;
+		line-height: 1.6;
+	}
+	.app-now {
+		display: grid;
+		gap: 14px;
+		padding: 20px;
+		border-radius: 16px;
+		background: var(--white);
+	}
+	.app-tag {
+		color: var(--accent);
+		font-size: 13px;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+	}
+	.app-btn {
+		justify-content: center;
+		min-height: 52px;
+	}
+	.app-steps {
+		display: grid;
+		gap: 10px;
+		margin: 0;
+		padding-left: 1.3em;
+		font-size: 16px;
+		line-height: 1.6;
+	}
+	.app-steps:empty {
+		display: none;
+	}
+	.app-note {
+		padding: 10px 12px;
+		border-radius: 10px;
+		background: var(--bone);
+		color: #4a4d55;
+		font-size: 13px;
+		line-height: 1.6;
+		overflow-wrap: anywhere;
+	}
+	.app-other {
+		padding: 14px 16px;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--white);
+	}
+	.app-other summary {
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.app-other ol {
+		display: grid;
+		gap: 8px;
+		margin: 12px 0 0;
+		padding-left: 1.3em;
+		line-height: 1.6;
+	}
+	.app-small {
+		color: #4a4d55;
+		font-size: 13px;
+		line-height: 1.6;
+	}
+</style>

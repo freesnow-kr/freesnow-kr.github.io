@@ -1,7 +1,7 @@
 // 회원가입 신청·프로필 사진 (Apps Script signup·avatar를 옮김). 신청은 signup_requests에 쌓이고 운영진이 /admin에서 승인
 import type { Ctx, Env } from './index.ts';
 import { need } from './auth.ts';
-import { iso, later, normPhone, randomToken } from './lib.ts';
+import { iso, later, normPhone, pbkdf2, randomToken, safeEqual } from './lib.ts';
 import { normArea } from './admin.ts';
 import { signupRequested } from './notify.ts';
 
@@ -60,6 +60,28 @@ export async function avatar(c: Ctx) {
 		.bind(me.id, `r2:${key}`, iso(c.now)).run();
 	await dropOld();
 	return { ok: true, photo: photoUrl(c, `r2:${key}`) };
+}
+
+// 회원 탈퇴 {password} (사용자 요구 2026-10-26, 구글 플레이 정책: 앱·웹에서 직접 계정 삭제)
+// 개인정보처리방침대로 개인정보는 지체 없이 지움 — 운영진이 '탈퇴'로 바꾸는 것(기록 그대로)과 다름:
+//   회원 줄은 다른 기록이 가리켜서 남기고 이름 '탈퇴 회원'·연락처 등은 비움, 개인 기록(SHRED LOG·스노우라이브·프로필 사진·알림 기기·비밀번호·세션)은 진짜 삭제
+//   게시글·댓글·갤러리 사진·출격·시즌방(정산) 기록은 남지만 '탈퇴 회원'으로만 보임
+export async function withdraw(c: Ctx) {
+	const db = c.env.DB;
+	const me = await need(c);
+	if (me.role === 'admin') return { ok: false, error: '관리자는 다른 관리자에게 권한을 넘긴 뒤 탈퇴할 수 있어요.' };
+	const cred = await db.prepare('SELECT hash, salt, iter FROM member_credentials WHERE member_id = ? AND is_active = 1').bind(me.id).first<{ hash: string | null; salt: string; iter: number }>();
+	if (!cred?.hash || !safeEqual(await pbkdf2(String(c.body.password ?? ''), cred.salt, cred.iter), cred.hash)) return { ok: false, error: '비밀번호가 맞지 않아요.' };
+	const photo = await db.prepare('SELECT photo FROM profiles WHERE member_id = ?').bind(me.id).first<{ photo: string }>();
+	const del = (table: string) => db.prepare(`DELETE FROM ${table} WHERE member_id = ?`).bind(me.id);
+	await db.batch([
+		db.prepare("UPDATE members SET status = 'withdrawn', phone = ?2, name = '탈퇴 회원', gender = NULL, birth = NULL, region = '', area = '', private_contact = NULL, email = NULL, role = 'member', updated_at = ?3 WHERE id = ?1")
+			.bind(me.id, `x${me.id}`, iso(c.now)), // 연락처는 UNIQUE라 비우는 대신 회원 ID로 (같은 번호로 다시 가입할 수 있게)
+		...['sessions', 'member_credentials', 'profiles', 'push_subscriptions', 'ride_logs', 'expense_logs', 'season_passes', 'snowlive_records', 'snowlive_links'].map(del),
+		db.prepare('INSERT INTO admin_logs (at, actor_id, action, target_id, detail) VALUES (?, ?, ?, ?, ?)').bind(iso(c.now), me.id, 'member.withdraw', me.id, '{}'),
+	]);
+	if (photo?.photo.startsWith('r2:')) await c.env.PHOTOS.delete(photo.photo.slice(3));
+	return { ok: true };
 }
 
 // DB의 사진 값 → 화면에 줄 값: 'r2:키'는 이 서버 주소로, 드라이브 ID·data URL은 그대로

@@ -1,0 +1,10 @@
+[
+	{
+		"relation": ["delegate_permission/common.handle_all_urls"],
+		"target": {
+			"namespace": "android_app",
+			"package_name": "io.github.freesnowkr",
+			"sha256_cert_fingerprints": ["48:B2:E8:60:02:24:F7:DD:63:11:7D:8B:BB:26:86:4B:53:46:80:95:29:6B:40:11:FE:05:2F:F7:18:39:40:7E"]
+		}
+	}
+]

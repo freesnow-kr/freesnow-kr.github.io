@@ -82,9 +82,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<a class="row" href={`${base}/password/`}>비밀번호 변경<i>›</i></a>
 						<a class="row staff-link" href={`${base}/admin/`} hidden>운영진 화면<i>›</i></a>
 						<button class="row push-row" type="button" hidden>앱 알림 <small class="push-state"></small><i>›</i></button>
-						<a class="row app-install" href={`${base}/app/`} hidden>앱으로 설치 <small>홈 화면에 FREE SNOW 아이콘</small><i>›</i></a>
+						<a class="row app-install" href={`${base}/app/`} hidden>앱으로 설치 <small>홈 화면에 Freesnow 아이콘</small><i>›</i></a>
 						<button class="row out logout" type="button">로그아웃</button>
 					</nav>
+					<button class="bye-open" type="button">회원 탈퇴</button>
 				</div>
 
 				<!-- 내 시즌방 이용 상세 (모든 회원 것은 운영진 화면 '시즌방 정산') -->
@@ -101,6 +102,26 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							<tfoot><tr><th>합계</th><th class="stay-sum"></th><th class="stay-won"></th></tr></tfoot>
 						</table>
 					</div>
+				</dialog>
+
+				<!-- 회원 탈퇴 (사용자 요구 2026-10-26, 구글 플레이 정책). 개인정보처리방침 #delete 와 같은 내용 -->
+				<dialog class="stay-dlg bye-dlg" aria-labelledby="bye-dlg-title">
+					<form class="bye-form" method="dialog">
+						<div class="dlg-head">
+							<h3 id="bye-dlg-title">회원 탈퇴</h3>
+							<button class="dlg-close" type="button" aria-label="닫기">✕</button>
+						</div>
+						<div class="dlg-body">
+							<ul>
+								<li>이름·연락처·생년월일·거주지·프로필 사진, SHRED LOG·스노우라이브 기록은 <b>바로 지워지고 되돌릴 수 없어요.</b></li>
+								<li>게시글·댓글·갤러리 사진, 출격·시즌방 기록(정산)은 남고 '탈퇴 회원'으로 보여요. 지우고 싶은 글·사진은 탈퇴 전에 지워 주세요.</li>
+								<li>다시 함께하려면 가입 신청부터 다시 해야 해요.</li>
+							</ul>
+							<label>비밀번호 확인 <input name="password" type="password" autocomplete="current-password" required /></label>
+							<p class="mem-error bye-error" role="alert"></p>
+							<button class="btn btn-ink bye-go" type="submit">탈퇴하기</button>
+						</div>
+					</form>
 				</dialog>
 			</section>
 		</main>
@@ -316,6 +337,33 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				logout();
 				location.href = `${base}/`;
 			});
+
+			// 회원 탈퇴: 비밀번호 확인 → 서버가 개인정보 지움 → 이 기기 로그인 정보도 지우고 메인으로
+			{
+				const dlg = document.querySelector<HTMLDialogElement>('.bye-dlg')!;
+				const form = dlg.querySelector<HTMLFormElement>('.bye-form')!;
+				const error = dlg.querySelector<HTMLElement>('.bye-error')!;
+				const go = dlg.querySelector<HTMLButtonElement>('.bye-go')!;
+				dash.querySelector('.bye-open')!.addEventListener('click', () => {
+					form.reset();
+					error.textContent = '';
+					dlg.showModal();
+				});
+				dlg.querySelector('.dlg-close')!.addEventListener('click', () => dlg.close());
+				dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+				form.addEventListener('submit', async (e) => {
+					e.preventDefault();
+					if (!confirm('정말 탈퇴할까요? 되돌릴 수 없어요.')) return;
+					go.disabled = true;
+					error.textContent = '';
+					const r = await call({ action: 'withdraw', token: store.get(), password: form.password.value }).catch(() => null);
+					go.disabled = false;
+					if (!r?.ok) return void (error.textContent = r?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
+					store.clear();
+					alert('탈퇴했어요. 그동안 함께해 주셔서 고마워요.');
+					location.href = `${base}/`;
+				});
+			}
 
 			// 앱 알림 (운영진만, 사용자 요구 2026-10-26): 강습 요청·가입 신청을 휴대폰 알림으로. 기기마다 켜야 함
 			async function setupPush() {
@@ -567,6 +615,48 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		border: 0;
 		border-radius: 18px;
 		box-shadow: 0 20px 60px rgb(0 0 0 / 0.3);
+	}
+	/* 회원 탈퇴: 계정 목록 아래 작은 글자 */
+	.bye-open {
+		display: block;
+		margin: 18px 0 0 auto;
+		padding: 6px 4px;
+		border: 0;
+		background: none;
+		color: var(--gray);
+		font: 13px 'Noto Sans KR', sans-serif;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+	.bye-dlg ul {
+		margin: 12px 0 16px;
+		padding-left: 18px;
+		font-size: 14px;
+		line-height: 1.7;
+	}
+	.bye-dlg label {
+		display: grid;
+		gap: 6px;
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.bye-dlg input {
+		min-height: 44px;
+		padding: 0 12px;
+		border: 1.5px solid var(--black);
+		font-size: 16px;
+	}
+	.bye-error {
+		margin-top: 8px;
+		color: #c4320a;
+		font-size: 14px;
+	}
+	.bye-error:empty {
+		display: none;
+	}
+	.bye-go {
+		width: 100%;
+		margin-top: 12px;
 	}
 	.stay-dlg::backdrop {
 		background: rgb(0 0 0 / 0.45);

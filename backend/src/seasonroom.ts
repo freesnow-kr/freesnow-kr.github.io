@@ -2,7 +2,7 @@
 // 회원, 날짜당 한 줄(PRIMARY KEY), 취소해도 줄은 남기고 kind = '취소'. 방 구분, 정원 없음, 지난 날짜도 자유롭게. 시즌 = 7/1 ~ 6/30
 import type { Ctx } from './index.ts';
 import { need } from './auth.ts';
-import { ROOM_PRICES as PRICES, iso } from './lib.ts';
+import { ROOM_PRICES as PRICES, givenName, iso } from './lib.ts';
 import { lessonRequested } from './notify.ts';
 
 
@@ -55,13 +55,13 @@ export async function seasonRoom(c: Ctx) {
 		 LEFT JOIN room_owners o ON o.season = ?2 AND o.member_id = r.member_id AND o.is_active = 1
 		 WHERE r.date BETWEEN ?3 AND ?4 AND r.kind != '취소' AND r.is_active = 1`,
 	).bind(me.id, season, from, to).all<{ date: string; name: string; kind: string; me: number; owner: number }>();
-	const nights = results.map((r) => ({ date: r.date, name: r.name, kind: r.kind, me: !!r.me, owner: !!r.owner })).sort(byDateName);
+	const nights = results.map((r) => ({ date: r.date, name: givenName(r.name), kind: r.kind, me: !!r.me, owner: !!r.owner })).sort(byDateName);
 	const rides = (
 		await db.prepare(
 			`SELECT r.date, m.name, r.member_id = ?1 AS me FROM ride_checks r JOIN members m ON m.id = r.member_id
 			 WHERE r.date BETWEEN ?2 AND ?3 AND r.status = '출격' AND r.is_active = 1`,
 		).bind(me.id, from, to).all<{ date: string; name: string; me: number }>()
-	).results.map((r) => ({ date: r.date, name: r.name, me: !!r.me })).sort(byDateName);
+	).results.map((r) => ({ date: r.date, name: givenName(r.name), me: !!r.me })).sort(byDateName);
 	const lessons = (
 		await db.prepare('SELECT date FROM lesson_requests WHERE member_id = ? AND date BETWEEN ? AND ? AND is_active = 1 ORDER BY date').bind(me.id, from, to).all<{ date: string }>()
 	).results.map((r) => r.date);

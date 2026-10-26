@@ -53,7 +53,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<input name="loginId" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" inputmode="numeric" aria-label="휴대폰 번호 (아이디)" placeholder="휴대폰 번호 (010 제외)" required />
 					<input name="password" type="password" autocomplete="current-password" aria-label="비밀번호" placeholder="비밀번호" required />
 					<div class="row">
-						<a href={`${base}/signup/`}>회원가입</a>
+						<a href={`${base}/signup/`}>가입 신청</a>
 						<button class="tf-btn" type="submit">로그인</button>
 					</div>
 					<ul class="tf-notes">
@@ -116,7 +116,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 </html>
 
 <style>
-	/* 회원가입 링크는 왼쪽, 로그인 버튼은 오른쪽 */
+	/* 가입 신청 링크는 왼쪽, 로그인 버튼은 오른쪽 */
 	.row {
 		display: flex;
 		justify-content: space-between;

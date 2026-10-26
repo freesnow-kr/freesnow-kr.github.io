@@ -91,7 +91,8 @@
 - `public/manifest.webmanifest`(이름 FREE SNOW, `display: standalone`, 검정 테마, 상대 주소라 base가 바뀌어도 됨) + `public/sw.js`(**아무것도 저장 안 하는** 최소 서비스 워커 — 예전 화면이 남는 문제 없게, 나중에 운영진 앱 알림(웹 푸시) 자리). `Meta.astro`가 모든 페이지에 manifest·theme-color·apple-mobile-web-app 태그.
 - `session.ts` `app`: 서비스 워커 등록, 안드로이드 크롬 `beforeinstallprompt`를 잡아 둠(크롬 기본 작은 안내 대신), `installed()`(standalone이면 true)·`ios()`·`inApp()`(카톡 등 앱 안 브라우저).
 - **설치 링크 `/app/`**(`src/pages/app.astro`, 로그인 없이 — 사용자 요구: 링크 하나로 나눠 주기): 연 기기에 맞는 방법을 먼저 — 이미 앱이면 '이미 앱으로 열었어요', **카카오톡 안 브라우저면 [Safari / Chrome으로 열기] = `kakaotalk://web/openExternal?url=…`**(카톡이 지원하는 바깥 브라우저 열기), 다른 앱 안 브라우저는 ⋯ 메뉴 안내, 아이폰은 공유 → '홈 화면에 추가', 안드로이드 크롬은 [앱 설치](설치 창이 늦게 준비되면 `fs-installable`로 다시 그림), 그 밖엔 메뉴 안내. 아래엔 아이폰·안드로이드 안내를 접어서. 마이페이지 '앱으로 설치'는 이 페이지로 링크(앱으로 열었으면 숨김).
-- 아이폰 홈 화면 앱은 7일 저장소 삭제가 없고, iOS 16.4+면 웹 푸시도 받을 수 있음(아직 안 함).
+- 아이폰 홈 화면 앱은 7일 저장소 삭제가 없음.
+- **앱 알림(웹 푸시)**(사용자 요구 2026-10-26): 운영진 알림(강습 요청·가입 신청)을 메일과 **같이** 휴대폰 알림으로. 서버 `backend/src/push.ts` — 라이브러리 없이 VAPID(RFC 8292, ES256) + 내용 암호화(RFC 8291 aes128gcm), 서명 키는 secret `VAPID_JWK`(`cd backend && node scripts/vapid.mjs`가 만들어 바로 넣음 — 다시 만들면 예전 구독 무효), 공개키는 `push.key`. 테이블 `push_subscriptions`(`0016`, 기기마다 한 줄, 끄면 is_active 0, 푸시 서비스 404·410이면 서버가 끔). 받는 사람 = 활동 운영진·관리자의 켜진 기기 전부. API `push.key/subscribe/unsubscribe/test`. 화면: `src/scripts/push.ts`(켜기 = 알림 허락 → 구독 → 서버 저장 → 시험 알림), `public/sw.js`(알림 띄우기, 누르면 그 주소 — 같은 종류는 tag로 최신 하나), 마이페이지 '앱 알림' 줄(운영진·관리자만, 기기마다 켬). **아이폰은 홈 화면 앱(iOS 16.4+)에서만** — Safari 탭이면 '앱으로 설치한 뒤 켤 수 있어요' → `/app/`. 테스트 `test/push.test.ts`가 보낸 내용을 기기처럼 복호화·서명 확인.
 
 ## 경로 규칙 (중요)
 

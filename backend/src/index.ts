@@ -8,6 +8,7 @@ import { somoim } from './somoim.ts';
 import { avatar, serveProfile, signup } from './members.ts';
 import { chatRank, gallery } from './gallery.ts';
 import * as admin from './admin.ts';
+import * as push from './push.ts';
 import * as photos from './photos.ts';
 import * as board from './board.ts';
 import * as teams from './teams.ts';
@@ -25,6 +26,7 @@ export type Env = {
 	GOOGLE_CLIENT_ID?: string; // secret, 시즌 사진을 드라이브로 보관할 때 (scripts/google-auth.mjs가 넣음)
 	GOOGLE_CLIENT_SECRET?: string;
 	GOOGLE_REFRESH_TOKEN?: string;
+	VAPID_JWK?: string; // secret, 앱 알림(웹 푸시) 서명용 P-256 개인키 JWK (scripts/vapid.mjs)
 };
 export type Ctx = { env: Env; req: Request; body: Record<string, any>; now: Date };
 
@@ -45,6 +47,10 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	avatar,
 	gallery,
 	chatrank: chatRank,
+	'push.key': push.key,
+	'push.subscribe': push.subscribe,
+	'push.unsubscribe': push.unsubscribe,
+	'push.test': push.test,
 	'admin.summary': admin.summary,
 	'admin.signups': admin.signups,
 	'admin.signupDecide': admin.signupDecide,

@@ -81,6 +81,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<nav class="rows" aria-label="계정">
 						<a class="row" href={`${base}/password/`}>비밀번호 변경<i>›</i></a>
 						<a class="row staff-link" href={`${base}/admin/`} hidden>운영진 화면<i>›</i></a>
+						<button class="row push-row" type="button" hidden>앱 알림 <small class="push-state"></small><i>›</i></button>
 						<a class="row app-install" href={`${base}/app/`} hidden>앱으로 설치 <small>홈 화면에 FREE SNOW 아이콘</small><i>›</i></a>
 						<button class="row out logout" type="button">로그아웃</button>
 					</nav>
@@ -113,6 +114,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 		<script>
 			import { app, base, call, loginUrl, logout, photoSrc, store } from '../scripts/session';
+			import { pushOff, pushOn, pushState } from '../scripts/push';
 
 			const dash = document.querySelector<HTMLElement>('.dash')!;
 			const token = store.get();
@@ -151,6 +153,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					setupStays(res.season?.season);
 					// 운영진·관리자에게만 링크 (권한은 서버가 따로 확인)
 					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'admin'].includes(res.me.role);
+					if (['staff', 'admin'].includes(res.me.role)) setupPush();
 					setupAvatar(res.me.name, res.me.photo || '');
 				}
 			}
@@ -313,6 +316,31 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				logout();
 				location.href = `${base}/`;
 			});
+
+			// 앱 알림 (운영진만, 사용자 요구 2026-10-26): 강습 요청·가입 신청을 휴대폰 알림으로. 기기마다 켜야 함
+			async function setupPush() {
+				const row = dash.querySelector<HTMLButtonElement>('.push-row')!;
+				const label = row.querySelector('.push-state')!;
+				const TEXT: Record<string, string> = { on: '켜짐 · 강습 요청·가입 신청', off: '꺼짐 · 눌러서 켜기', denied: '휴대폰 설정에서 막혀 있어요', install: '아이폰은 앱으로 설치한 뒤 켤 수 있어요', unsupported: '이 브라우저는 알림을 못 받아요' };
+				let state = await pushState().catch(() => 'unsupported');
+				const show = () => (label.textContent = TEXT[state]);
+				row.hidden = false;
+				show();
+				row.addEventListener('click', async () => {
+					if (state === 'install') return void (location.href = `${base}/app/`);
+					if (state === 'denied') return alert('휴대폰 설정 → 알림에서 FREE SNOW(또는 브라우저) 알림을 허용한 뒤 다시 눌러 주세요.');
+					if (state === 'unsupported') return alert('이 브라우저에서는 앱 알림을 받을 수 없어요. 휴대폰에서 앱으로 설치한 뒤 켜 주세요.');
+					if (state === 'on' && !confirm('이 기기의 앱 알림을 끌까요?')) return;
+					label.textContent = state === 'on' ? '끄는 중…' : '켜는 중…';
+					try {
+						await (state === 'on' ? pushOff() : pushOn());
+					} catch (e) {
+						alert((e as Error).message);
+					}
+					state = await pushState().catch(() => 'unsupported');
+					show();
+				});
+			}
 
 			// 앱으로 설치 → /app/ (안내는 그 페이지 한 곳에서, 사용자 요구 2026-10-26). 이미 앱으로 열었으면 숨김
 			dash.querySelector<HTMLElement>('.app-install')!.hidden = app.installed();

@@ -21,7 +21,7 @@ const form = { action: 'signup', phone: '4444-5555', password: 'snow-board-1', n
 
 test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저장 안 함, 응답엔 아무 데이터 없음, 번호는 HMAC, 암호문으로만', async () => {
 	assert.match((await post({ ...form, agree: false })).error, /동의/);
-	assert.match((await post({ ...form, year: String(new Date().getFullYear() - 14) })).error, /14세/); // 올해-14년생은 생일 전이면 13세
+	assert.match((await post({ ...form, year: String(new Date().getFullYear() - 19) })).error, /19세/); // 올해-19년생은 생일 전이면 18세
 	assert.match((await post({ ...form, gender: '' })).error, /성별/);
 	assert.match((await post({ ...form, phone: '1234' })).error, /휴대폰/);
 	assert.match((await post({ ...form, password: 'short' })).error, /8자/);
@@ -213,5 +213,5 @@ test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 �
 test('동의 문구: 지금 처리방침 시행일(POLICY_VERSION)의 문구가 consent_terms에 다 있음 (문구를 바꾸면 새 version 줄을 더할 것)', async () => {
 	const { POLICY_VERSION } = await import('../src/lib.ts');
 	const types = (await env.DB.prepare('SELECT type FROM consent_terms WHERE version = ? AND is_active = 1').bind(POLICY_VERSION).all()).results.map((r: any) => r.type).sort();
-	assert.deepEqual(types, ['emergency', 'notice', 'optional', 'policy', 'required', 'warning']); // 만 14세는 출생연도로 (0021)
+	assert.deepEqual(types, ['emergency', 'notice', 'optional', 'policy', 'required', 'warning']); // 나이(만 19세 이상)는 출생연도로 (0021)
 });

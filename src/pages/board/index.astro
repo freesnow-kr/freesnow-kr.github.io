@@ -237,6 +237,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	/* 휴대폰: 한 줄이면 제목이 거의 안 보여서 글쓴이·날짜는 제목 아래 */
 	@media (max-width: 560px) {
+		/* 말머리 버튼은 작게 — 보통 휴대폰(390px)에서 다섯 개가 한 줄 (사용자 요구 2026-10-26) */
+		.b-tabs {
+			gap: 5px;
+		}
+		.b-tabs button {
+			min-height: 32px;
+			padding: 0 11px;
+			font-size: 13px;
+		}
 		.b-list :global(a) {
 			flex-wrap: wrap;
 			gap: 6px 12px;

@@ -86,6 +86,13 @@
 - 헤더 오른쪽 버튼(`.nav-join`)은 **LOGIN** → `/login/`. 로그인 상태면 `session.ts`가 그 자리를 **동그란 내 메뉴**(`.nav-me`, 프로필 사진 — `/members`에서 받아 `fs-member-photo`에 둠 — 없으면 이름 끝 두 글자)로 바꾸고, 누르면 **내 정보**(`/members/`) / **로그아웃**. 바깥 클릭·Esc로 닫힘.
 - 푸터 오른쪽 문구는 `club.footer`(지금 **SINCE 2024**, 사용자 선택) — 모든 페이지 공통. 오픈채팅(`club.joinUrl`)은 메인 히어로 `KAKAO OPEN CHAT` 버튼, 로그인 화면의 가입 문의 버튼, 푸터 링크로 연결.
 
+## 앱으로 설치 (PWA, 2026-10-26 사용자 요구: 앱스토어 없이 링크로)
+
+- `public/manifest.webmanifest`(이름 FREE SNOW, `display: standalone`, 검정 테마, 상대 주소라 base가 바뀌어도 됨) + `public/sw.js`(**아무것도 저장 안 하는** 최소 서비스 워커 — 예전 화면이 남는 문제 없게, 나중에 운영진 앱 알림(웹 푸시) 자리). `Meta.astro`가 모든 페이지에 manifest·theme-color·apple-mobile-web-app 태그.
+- `session.ts` `app`: 서비스 워커 등록, 안드로이드 크롬 `beforeinstallprompt`를 잡아 둠(크롬 기본 작은 안내 대신), `installed()`(standalone이면 true)·`ios()`·`inApp()`(카톡 등 앱 안 브라우저).
+- 마이페이지 '앱으로 설치' 줄(앱으로 열었으면 숨김): 앱 안 브라우저 → 'Safari로/다른 브라우저로 열기' 안내, 아이폰 → 공유 → '홈 화면에 추가' 안내 + "앱은 Safari와 저장 공간이 따로라 처음 한 번 다시 로그인", 안드로이드 크롬 → 설치 창(실패하면 메뉴 안내). 안내 팝업 클래스는 `.app-dlg`(시즌방 코드가 `.stay-dlg`를 첫 번째로 찾아서 같은 클래스를 쓰면 시즌방 팝업이 깨짐 — 실제로 겪음).
+- 아이폰 홈 화면 앱은 7일 저장소 삭제가 없고, iOS 16.4+면 웹 푸시도 받을 수 있음(아직 안 함).
+
 ## 경로 규칙 (중요)
 
 - 내부 링크·에셋은 항상 `` `${base}/...` ``, `const base = import.meta.env.BASE_URL.replace(/\/$/, '')` — 끝 슬래시를 떼서 지금(루트)은 `''`. 그냥 `BASE_URL`을 쓰면 루트에선 `/`라 `${base}/`가 `//…`(다른 사이트 주소)로 깨짐.
@@ -97,7 +104,7 @@
 - 원본 영상 `public/2526_*.mp4`는 **`.gitignore`로 배포 제외** (HEVC라 Chrome/Firefox 재생 불가, 용량 큼).
 - 영상 교체: `scripts/make-hero.swift` (macOS AVFoundation. 로컬 ffmpeg는 x265 라이브러리 문제로 깨져 있음). HEVC → H.264, 2.5Mbps, 소리 유지. 세로로 저장된 가로 영상이면 회전 처리 필요(첫 영상 `2526_season.mp4`가 그랬음).
 - 히어로 `<video autoplay muted loop playsinline>` — 자동재생은 음소거만 허용되므로 소리는 `.hero-sound` 버튼으로 켬. `.hero-pause` 버튼(5초 넘는 자동재생은 멈춤 수단 필요), `prefers-reduced-motion`이면 정지 상태로 시작.
-- **헤더 로고**(사용자 요구 2026-10-23, 예전 글자 'FREE SNOW' 대신): `public/logo-white.png` — 원본 `public/freesnow_logo3.jpeg`(저장소엔 안 올림)를 `scripts/make-logo.py`로 여백 자르고 배경 지우고 흰색으로(PIL). 모든 페이지 헤더 `.wordmark` 안 `<img>`, 높이 50px·원래 비율(좌우로 늘렸다가 사용자 요청으로 되돌리고 크기만 키움 — `ride.css`). 원본을 바꾸면 스크립트 다시 실행.
+- **헤더 로고**(사용자 요구 2026-10-23, 예전 글자 'FREE SNOW' 대신): `public/logo-white.png` — 원본 `public/freesnow_logo3.jpeg`(저장소엔 안 올림)를 `python3 -I scripts/make-logo.py public/freesnow_logo3.jpeg public`로 여백 자르고 배경 지우고 흰색으로(PIL). 같은 스크립트가 **앱 아이콘**(검정 바탕 + 흰 로고: `icon-192/512.png`, `icon-maskable-512.png`(여백 넉넉), `apple-touch-icon.png` 180px — 2026-10-26부터 아이폰 홈 화면 아이콘도 이것)도 만듦. 모든 페이지 헤더 `.wordmark` 안 `<img>`, 높이 50px·원래 비율(좌우로 늘렸다가 사용자 요청으로 되돌리고 크기만 키움 — `ride.css`). 원본을 바꾸면 스크립트 다시 실행.
 - 파비콘: `public/favicon.png`(원 바깥 투명), `public/apple-touch-icon.png`(흰 배경, iOS는 투명을 검게 칠함). 원본 `public/freesnow_logo5.jpeg`.
 - `public/mascot.svg`: `/cute` 픽셀 펭귄 (직접 그린 오리지널, crispEdges path).
 

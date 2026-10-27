@@ -9,21 +9,21 @@ const SIGNUP_PER_HOUR = 30; // 전체 신청 시간당 상한 (스팸 방지)
 const PHOTO_MAX = 400_000; // base64 글자 수 (브라우저가 256px JPG로 줄여서 보냄 ≈ 20~60KB)
 
 // 응답은 {ok} / {ok:false, error}뿐. 숨은 칸(website)이 채워지면 저장 없이 ok
-// 받는 것(사용자 결정 2026-10-26): 휴대폰 번호(= 아이디, 010 빼고), 비밀번호, 이름, 성별, 출생연도 필수 / 시도, 시군구, 비상 연락처 사용 선택(선택 동의 한 번)
-// 휴대폰 번호는 HMAC(login_key)만 저장, 선택 동의하면 비상 연락처로 암호문(phone_enc)도. 비밀번호는 해시 → 승인하면 그대로 로그인 비밀번호 (admin.signupDecide)
+// 받는 것(사용자 결정 2026-10-27): 휴대폰 번호(= 아이디, 010 빼고, 비상 연락처로도), 비밀번호, 이름, 성별, 출생연도, 거주지(시도, 시군구) 모두 필수, 동의도 필수 하나뿐
+// 휴대폰 번호는 로그인용 HMAC(login_key) + 비상 연락처용 암호문(phone_enc). 비밀번호는 해시 → 승인하면 그대로 로그인 비밀번호 (admin.signupDecide)
 export async function signup(c: Ctx) {
 	const db = c.env.DB;
 	const b = c.body;
 	if (b.website) return { ok: true };
 	if (b.agree !== true) return { ok: false, error: '필수 항목 수집, 이용에 동의해 주세요.' };
 	const text = (v: unknown, max: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
-	const opt = b.agreeOpt === true; // 선택 동의를 안 했으면 선택 항목은 받지 않음
-	const name = text(b.name, 20), sido = opt ? text(b.sido, 20) : '', area = opt ? text(b.sigungu, 20) : '';
+	const name = text(b.name, 20), sido = text(b.sido, 20), area = text(b.sigungu, 20);
 	const gender = b.gender === '남' || b.gender === '여' ? b.gender : '';
 	const phone = normPhone(b.phone), pw = String(b.password ?? '');
 	const year = Number(String(b.year ?? '').replace(/\D/g, '')); // 필수 (사용자 요구 2026-10-26)
 	if (!phone) return { ok: false, error: '휴대폰 번호를 확인해 주세요. (010 빼고 8자리)' };
 	if (!name || !gender) return { ok: false, error: '이름과 성별을 적어 주세요.' };
+	if (!sido || !area) return { ok: false, error: '거주지(시도, 시군구)를 골라 주세요.' };
 	const weak = weakReason(pw, phone, c.env.RESET_PASSWORD);
 	if (weak) return { ok: false, error: weak };
 	if (!(year >= 1930 && year <= c.now.getFullYear())) return { ok: false, error: '출생연도를 골라 주세요.' };
@@ -43,8 +43,8 @@ export async function signup(c: Ctx) {
 	const r = await db.prepare(
 		`INSERT INTO signup_requests (login_key, name, gender, birth_year, sido, area, phone_enc, pw_hash, pw_salt, pw_iter, agreed_at, agreed_opt_at, policy, created_at)
 		 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?11) ON CONFLICT DO NOTHING`,
-	).bind(key, name, gender, year, sido, area, b.emergency === true && opt ? await sealPhone(c.env.PHONE_KEY, phone) : null,
-		await pbkdf2(pw, salt, PBKDF2_ITER), salt, PBKDF2_ITER, iso(c.now), opt ? iso(c.now) : null, POLICY_VERSION).run();
+	).bind(key, name, gender, year, sido, area, await sealPhone(c.env.PHONE_KEY, phone), // 휴대폰 번호는 비상 연락처로도 (암호문)
+		await pbkdf2(pw, salt, PBKDF2_ITER), salt, PBKDF2_ITER, iso(c.now), null, POLICY_VERSION).run(); // 선택 동의는 없앰 (agreed_opt_at 안 씀)
 	if (!r.meta.changes) return DUP;
 	// 운영진 메일, 앱 알림: 이름/출생연도 두 자리/거주지 — 적은 것만 (번호는 안 넣음)
 	const who = [name, String(year).slice(2), area ? normArea(area) : ''].filter(Boolean).join('/');

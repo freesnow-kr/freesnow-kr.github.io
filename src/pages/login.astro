@@ -52,10 +52,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<h2 class="tf-title">로그인</h2>
 					<input name="loginId" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" inputmode="numeric" aria-label="휴대폰 번호 (아이디)" placeholder="휴대폰 번호 (010 제외)" required />
 					<input name="password" type="password" autocomplete="current-password" aria-label="비밀번호" placeholder="비밀번호" required />
-					<div class="row">
-						<a href={`${base}/signup/`}>가입 신청</a>
-						<button class="tf-btn" type="submit">로그인</button>
-					</div>
+					<!-- 로그인 버튼 아래 가입 신청 버튼 (사용자 요구 2026-10-27: 글자 링크 대신 버튼) -->
+					<button class="tf-btn" type="submit">로그인</button>
+					<a class="tf-btn tf-btn-line" href={`${base}/signup/`}>가입 신청</a>
 					<ul class="tf-notes">
 						<li>비밀번호를 잊었다면 운영진에게 초기화를 요청해 주세요.</li>
 					</ul>
@@ -116,15 +115,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 </html>
 
 <style>
-	/* 가입 신청 링크는 왼쪽, 로그인 버튼은 오른쪽 */
-	.row {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-top: 4px;
+	.tf-btn {
+		display: grid;
+		place-items: center;
+		width: 100%;
+		text-decoration: none;
 	}
-	.row a {
-		color: #3a3d45;
-		font-size: 13px;
+	/* 가입 신청: 흰 바탕 검정 테두리 */
+	.tf-btn-line {
+		border: 1px solid var(--black);
+		background: var(--white);
+		color: var(--black);
 	}
 </style>

@@ -38,7 +38,7 @@ export async function signups(c: Ctx) {
 	await need(c, 'staff');
 	// sameName: 같은 이름의 회원, 다른 대기 신청 수 (같은 번호는 가입 때 막지만, 다른 번호로 또 신청했는지는 운영진이 확인). 번호는 안 보냄
 	const { results } = await c.env.DB.prepare(
-		`SELECT s.id, s.created_at, s.name, s.gender, s.birth_year, s.sido, s.area, s.phone_enc IS NOT NULL AS emergency, s.agreed_opt_at IS NOT NULL AS agreed_opt,
+		`SELECT s.id, s.created_at, s.name, s.gender, s.birth_year, s.sido, s.area, s.phone_enc IS NOT NULL AS emergency,
 		        (SELECT count(*) FROM members m WHERE m.name = s.name AND m.status != 'withdrawn') + (SELECT count(*) FROM signup_requests o WHERE o.name = s.name AND o.id != s.id AND o.status = 'pending' AND o.is_active = 1) AS same_name
 		 FROM signup_requests s WHERE s.status = 'pending' AND s.is_active = 1 ORDER BY s.created_at`,
 	).all();
@@ -88,9 +88,8 @@ export async function members(c: Ctx) {
 }
 
 const FIELDS = ['name', 'gender', 'birth_year', 'region', 'area', 'email'] as const;
-// {id, name?, gender?, birth_year?, region?, area?, email?, phone?, emergency?} 운영진. email은 운영진 강습 알림용(notify.ts)
-// phone: 로그인 휴대폰 번호를 새로 넣거나 바꿀 때만 (화면엔 안 보임, HMAC만 저장)
-// emergency: true면 그 번호를 비상 연락처로도(회원이 동의한 경우만), false면 비상 연락처 지움
+// {id, name?, gender?, birth_year?, region?, area?, email?, phone?} 운영진. email은 운영진 강습 알림용(notify.ts)
+// phone: 휴대폰 번호를 새로 넣거나 바꿀 때만 (화면엔 안 보임) — 로그인용 HMAC + 비상 연락처 암호문 둘 다
 export async function memberUpdate(c: Ctx) {
 	const db = c.env.DB;
 	const me = await need(c, 'staff');
@@ -114,14 +113,8 @@ export async function memberUpdate(c: Ctx) {
 		if (!phone) throw bad('휴대폰 번호를 확인해 주세요. (010 빼고 8자리)');
 		next.login_key = await phoneKey(c.env.PHONE_KEY, phone);
 		if (await db.prepare('SELECT 1 FROM members WHERE login_key = ? AND id != ?').bind(next.login_key, id).first()) throw bad('다른 회원이 쓰는 번호예요.');
-		next.phone_enc = c.body.emergency === true ? await sealPhone(c.env.PHONE_KEY, phone) : null;
+		next.phone_enc = await sealPhone(c.env.PHONE_KEY, phone); // 같은 번호가 비상 연락처 (사용자 결정 2026-10-27)
 		shown.phone = '변경';
-		shown.emergency = c.body.emergency === true;
-	} else if (c.body.emergency === true && !before.phone_enc) {
-		throw bad('비상 연락처로 쓰려면 휴대폰 번호를 다시 넣어 주세요.');
-	} else if (c.body.emergency === false && before.phone_enc) {
-		next.phone_enc = null;
-		shown.emergency = false;
 	}
 	if (!Object.keys(next).length) return { ok: true };
 	const keys = Object.keys(next);

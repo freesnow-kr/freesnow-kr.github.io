@@ -66,20 +66,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<option value="">출생연도</option>
 					</select>
 
-					<p class="tf-sub">선택 입력</p>
 					<div class="area">
-						<select name="sido" aria-label="거주지 시도">
+						<select name="sido" aria-label="거주지 시도" required>
 							<option value="">거주지 (시도)</option>
 							{Object.keys(regions).map((sido) => <option value={sido}>{sido}</option>)}
 						</select>
-						<select name="sigungu" aria-label="거주지 시군구" disabled>
+						<select name="sigungu" aria-label="거주지 시군구" required disabled>
 							<option value="">시군구</option>
 						</select>
 					</div>
-					<label class="tf-check">
-						<input name="emergency" type="checkbox" />
-						<span>휴대폰 번호를 비상 연락처로도 사용해요 <small>(스키장 사고 등 비상시 운영진만 확인)</small></span>
-					</label>
 
 					<!-- 봇 방지: 사람에겐 안 보이는 칸 -->
 					<label class="hp" aria-hidden="true">
@@ -93,17 +88,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							<input name="agree" type="checkbox" required />
 							<span>[필수] 개인정보 수집, 이용 동의</span>
 						</label>
-						<label class="tf-check">
-							<input name="agreeOpt" type="checkbox" />
-							<span>[선택] 선택 항목(거주지, 비상 연락처 사용) 수집, 이용 동의</span>
-						</label>
 						<details class="privacy">
 							<summary>자세히 보기</summary>
 							<ul>
-								<li><b>필수 항목</b> 휴대폰 번호(아이디 — 암호화되어서 저장), 비밀번호, 이름, 성별, 출생연도(19세 이상 확인) — 회원 로그인, 중복 가입 방지, 가입 확인(오픈채팅 닉네임과 맞춰 보기), 출격, 시즌방 명단, 정모 조 편성</li>
-								<li><b>선택 항목</b> 거주지, 휴대폰 번호의 비상 연락처 사용 — 회원 명부 지역별 정리, 비상시 연락(운영진만 봐요)</li>
+								<li><b>수집 항목</b> 휴대폰 번호(아이디, 비상 연락처 — 암호화되어서 저장), 비밀번호, 이름, 성별, 출생연도(19세 이상 확인), 거주지(시도, 시군구)</li>
+								<li><b>이용 목적</b> 회원 로그인, 중복 가입 방지, 가입 확인(오픈채팅 닉네임과 맞춰 보기), 출격, 시즌방 명단, 정모 조 편성, 회원 명부 지역별 정리, 스키장 사고 등 비상시 연락(운영진만)</li>
 								<li><b>보유 기간</b> 탈퇴 또는 가입 거절 시 지체 없이 삭제</li>
-								<li>필수 항목에 동의하지 않으면 가입할 수 없어요. 선택 항목은 동의하지 않아도 가입할 수 있어요.</li>
+								<li>동의하지 않으면 가입할 수 없어요.</li>
 								<li>서버는 해외(Cloudflare 등)에 있어요. 자세한 건 처리방침을 봐 주세요.</li>
 								<li><a href={`${base}/privacy/`} target="_blank">개인정보처리방침 전체 보기 ↗</a></li>
 							</ul>
@@ -111,7 +102,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					</div>
 
 					<ul class="tf-notes">
-						<li>휴대폰 번호는 아이디로만 쓰고, 암호화되어 저장돼요.</li>
+						<li>휴대폰 번호는 아이디와 비상 연락처(운영진만)로 쓰고, 암호화되어 저장돼요.</li>
 						<li class="year-note">19세 이상만 가입할 수 있어요.</li>
 						<li>가입 정보가 일치하지 않거나 허위 정보로 가입한 경우 예고 없이 탈퇴 처리돼요.</li>
 					</ul>
@@ -164,8 +155,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (d.get('password') !== d.get('password2')) return '비밀번호 확인이 달라요.';
 				if (!String(d.get('name')).trim() || !d.get('gender')) return '이름과 성별을 적어 주세요.';
 				if (!d.get('year')) return '출생연도를 골라 주세요.';
-				if ((d.get('sido') || d.get('emergency')) && !d.get('agreeOpt')) return '선택 항목을 적었다면 선택 항목 동의에 체크해 주세요. (안 적어도 가입돼요)';
-				if (!d.get('agree')) return '필수 항목 수집, 이용에 동의해 주세요.';
+				if (!d.get('sido') || !d.get('sigungu')) return '거주지(시도, 시군구)를 골라 주세요.';
+				if (!d.get('agree')) return '개인정보 수집, 이용에 동의해 주세요.';
 				return '';
 			};
 
@@ -177,18 +168,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if (msg) return;
 
 				busy(form, true, '신청 중…');
-				const opt = d.get('agreeOpt') === 'on'; // 선택 동의를 안 했으면 선택 항목은 안 보냄
 				const res = await call({
 					action: 'signup',
 					phone: d.get('phone'),
 					password: d.get('password'),
 					name: d.get('name'),
 					gender: d.get('gender'),
-					agreeOpt: opt,
 					year: d.get('year'),
-					sido: opt ? d.get('sido') : '',
-					sigungu: opt ? d.get('sigungu') : '',
-					emergency: opt && d.get('emergency') === 'on',
+					sido: d.get('sido'),
+					sigungu: d.get('sigungu'),
 					website: d.get('website'),
 					agree: d.get('agree') === 'on',
 				}).catch(() => null);

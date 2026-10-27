@@ -17,7 +17,7 @@ useDb(
 		B = await sessionFor('m-boss');
 	},
 );
-const form = { action: 'signup', phone: '4444-5555', password: 'snow-board-1', name: '새회원', gender: '여', agreeOpt: true, year: '1998', sido: '경기도', sigungu: '의정부시', emergency: true, agree: true };
+const form = { action: 'signup', phone: '4444-5555', password: 'snow-board-1', name: '새회원', gender: '여', year: '1998', sido: '경기도', sigungu: '의정부시', agree: true };
 
 test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저장 안 함, 응답엔 아무 데이터 없음, 번호는 HMAC, 암호문으로만', async () => {
 	assert.match((await post({ ...form, agree: false })).error, /동의/);
@@ -32,25 +32,26 @@ test('가입 신청: 형식 검사, 같은 번호 거부, 숨은 칸이면 저�
 	const { status, cors, ...r } = await post({ ...form, year: String(new Date().getFullYear() - 19) }); // 올해 19세가 되는 해(2026년이면 2007년생)부터 됨
 	assert.deepEqual(r, { ok: true });
 	assert.match((await post(form)).error, /이미/); // 대기 중 신청도
-	assert.equal((await post({ ...form, phone: '4444-5556', agreeOpt: false })).ok, true); // 선택 동의 안 하면 지역, 비상 연락처는 안 받음
+	assert.match((await post({ ...form, phone: '4444-5556', sigungu: '' })).error, /거주지/); // 거주지도 필수 (2026-10-27)
+	assert.equal((await post({ ...form, phone: '4444-5556' })).ok, true);
 	await post({ ...form, phone: '9999-9999', website: 'spam' });
 	assert.equal((await env.DB.prepare('SELECT count(*) AS n FROM signup_requests').first()).n, 2);
 	const rows = JSON.stringify((await env.DB.prepare('SELECT * FROM signup_requests').all()).results);
 	assert.equal(/snow-board-1|44445555/.test(rows), false); // 비밀번호, 번호 원문 없음
-	// 동의 기록: 시각, 선택 동의, 처리방침 시행일
+	// 동의 기록: 시각, 처리방침 시행일 (선택 동의는 없앰), 휴대폰 번호는 비상 연락처 암호문으로도
 	const consent = await env.DB.prepare("SELECT agreed_at IS NOT NULL AS req, agreed_opt_at IS NOT NULL AS opt, policy, birth_year, sido, phone_enc IS NOT NULL AS em FROM signup_requests ORDER BY id").all();
-	assert.deepEqual(consent.results.map((x: any) => [x.req, x.opt, x.policy, x.birth_year, x.sido, x.em]), [[1, 1, '2026-10-26', new Date().getFullYear() - 19, '경기도', 1], [1, 0, '2026-10-26', 1998, '', 0]]);
+	assert.deepEqual(consent.results.map((x: any) => [x.req, x.opt, x.policy, x.birth_year, x.sido, x.em]), [[1, 0, '2026-10-27', new Date().getFullYear() - 19, '경기도', 1], [1, 0, '2026-10-27', 1998, '경기도', 1]]);
 });
 
 test('승인: 운영진만, 신청 때 정한 번호, 비밀번호로 바로 로그인, 기록 남음', async () => {
 	assert.match((await post({ action: 'admin.signups' }, M)).error, /권한/);
 	const list = (await post({ action: 'admin.signups' }, S)).signups;
-	assert.deepEqual(list.map((x: any) => [x.birth_year, x.same_name, x.emergency]), [[new Date().getFullYear() - 19, 1, 1], [1998, 1, 0]]); // 같은 이름 신청이 하나 더
+	assert.deepEqual(list.map((x: any) => [x.birth_year, x.same_name, x.emergency]), [[new Date().getFullYear() - 19, 1, 1], [1998, 1, 1]]); // 같은 이름 신청이 하나 더
 	assert.equal(/pw_|login_key|4444/.test(JSON.stringify(list)), false);
 	const r = await post({ action: 'admin.signupDecide', id: list[0].id, approve: true }, S);
 	assert.equal(r.ok, true);
 	const m = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(r.memberId).first();
-	assert.deepEqual([m.name, m.gender, m.region, m.area, m.birth_year, m.role, m.policy, !!m.agreed_at, !!m.agreed_opt_at, !!m.login_key, !!m.phone_enc], ['새회원', '여', '경기북부', '의정부', new Date().getFullYear() - 19, 'member', '2026-10-26', true, true, true, true]);
+	assert.deepEqual([m.name, m.gender, m.region, m.area, m.birth_year, m.role, m.policy, !!m.agreed_at, !!m.agreed_opt_at, !!m.login_key, !!m.phone_enc], ['새회원', '여', '경기북부', '의정부', new Date().getFullYear() - 19, 'member', '2026-10-27', true, false, true, true]);
 	assert.equal((await post({ action: 'admin.signupDecide', id: list[0].id, approve: true }, S)).ok, false);
 	const s = await post({ action: 'login', loginId: '44445555', password: 'snow-board-1' });
 	assert.equal(s.ok, true);
@@ -61,8 +62,8 @@ test('승인: 운영진만, 신청 때 정한 번호, 비밀번호로 바로 로
 	assert.equal((await post({ action: 'admin.memberPhone', id: r.memberId }, S)).phone, '01044445555');
 	assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM admin_logs WHERE action = 'member.phoneView'").first()).n, 1);
 	const r2 = await post({ action: 'admin.signupDecide', id: list[1].id, approve: true }, S);
-	assert.deepEqual(Object.values(await env.DB.prepare('SELECT region, area, birth_year, phone_enc FROM members WHERE id = ?').bind(r2.memberId).first()), ['', '', 1998, null]);
-	assert.match((await post({ action: 'admin.memberPhone', id: r2.memberId }, S)).error, /없어요/);
+	assert.deepEqual(Object.values(await env.DB.prepare('SELECT region, area, birth_year FROM members WHERE id = ?').bind(r2.memberId).first()), ['경기북부', '의정부', 1998]);
+	assert.equal((await post({ action: 'admin.memberPhone', id: r2.memberId }, S)).phone, '01044445556');
 	assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM admin_logs WHERE action = 'signup.approve'").first()).n, 2);
 	assert.equal(JSON.stringify((await env.DB.prepare("SELECT detail FROM admin_logs WHERE action LIKE 'signup.%'").all()).results).includes('새회원'), false); // 기록에 이름 없음
 	// 거절해도 삭제
@@ -77,14 +78,13 @@ test('회원 관리: 운영진은 정보 수정, 상태 변경, 권한, 관리�
 	const all = (await post({ action: 'admin.members' }, S)).members;
 	assert.equal(all.length, 5);
 	assert.equal(JSON.stringify(all).includes('login_key'), false);
-	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-1', area: '노원구', birth_year: '1991', phone: '010 1111 0001', emergency: true }, S)).ok, true);
+	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-1', area: '노원구', birth_year: '1991', phone: '010 1111 0001' }, S)).ok, true);
 	assert.match((await post({ action: 'admin.memberUpdate', id: 'm-1', phone: '0101' }, S)).error, /휴대폰/);
 	assert.match((await post({ action: 'admin.memberUpdate', id: 'm-1', phone: '4444-5555' }, S)).error, /다른 회원/);
 	assert.equal(JSON.stringify((await env.DB.prepare("SELECT detail FROM admin_logs WHERE action = 'member.update'").all()).results).includes('11110001'), false); // 번호는 기록에 안 남김
 	assert.deepEqual(Object.values(await env.DB.prepare("SELECT area, birth_year, phone_enc IS NOT NULL FROM members WHERE id = 'm-1'").first()), ['노원구', 1991, 1]);
 	assert.equal((await post({ action: 'login', loginId: '11110001', password: PASSWORD })).ok, true);
-	assert.equal((await post({ action: 'admin.memberUpdate', id: 'm-1', emergency: false }, S)).ok, true);
-	assert.equal((await env.DB.prepare("SELECT phone_enc FROM members WHERE id = 'm-1'").first()).phone_enc, null);
+	assert.equal((await post({ action: 'admin.memberPhone', id: 'm-1' }, S)).phone, '01011110001'); // 같은 번호가 비상 연락처
 	M = await sessionFor('m-1');
 	assert.match((await post({ action: 'admin.memberStatus', id: 'm-1', role: 'staff' }, S)).error, /관리자만/); // 운영진은 권한 변경 못 함
 	assert.match((await post({ action: 'admin.memberStatus', id: 'm-boss', status: 'suspended' }, S)).error, /관리자만/); // 관리자 계정 상태도 못 바꿈
@@ -213,5 +213,5 @@ test('가입 신청 알림 메일: 메일 있는 운영진에게만, 실제로 �
 test('동의 문구: 지금 처리방침 시행일(POLICY_VERSION)의 문구가 consent_terms에 다 있음 (문구를 바꾸면 새 version 줄을 더할 것)', async () => {
 	const { POLICY_VERSION } = await import('../src/lib.ts');
 	const types = (await env.DB.prepare('SELECT type FROM consent_terms WHERE version = ? AND is_active = 1').bind(POLICY_VERSION).all()).results.map((r: any) => r.type).sort();
-	assert.deepEqual(types, ['emergency', 'notice', 'optional', 'policy', 'required', 'warning']); // 나이(19세 이상)는 출생연도로 (0021)
+	assert.deepEqual(types, ['notice', 'policy', 'required', 'warning']); // 2026-10-27: 동의는 필수 하나 (0022)
 });

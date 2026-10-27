@@ -204,8 +204,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<label>출생연도 <input name="birth_year" inputmode="numeric" placeholder="1996" /></label>
 						<label>지역 <input name="region" placeholder="경기북부, 서울 … (선택 동의한 회원만)" /></label>
 						<label>거주지 <input name="area" /></label>
-						<label>휴대폰 번호 (로그인 아이디) <input name="phone" type="tel" inputmode="numeric" autocomplete="off" placeholder="바꾸거나 처음 넣을 때만 — 저장하면 안 보여요" /></label>
-						<label class="check"><input name="emergency" type="checkbox" /> 이 번호를 비상 연락처로도 (회원이 동의한 경우만)</label>
+						<label>휴대폰 번호 (로그인 아이디) <input name="phone" type="tel" inputmode="numeric" autocomplete="off" placeholder="바꿀 때만 — 비상 연락처도 같이 바뀌고, 저장하면 안 보여요" /></label>
 						<label>메일 <input name="email" type="email" placeholder="운영진은 강습 요청 알림을 받아요" /></label>
 						<fieldset class="admin-only">
 							<label>권한 <select name="role"><option value="member">회원</option><option value="master">마스터 (명예)</option><option value="staff">운영진</option><option value="admin">관리자</option></select></label>
@@ -322,7 +321,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						btns.className = 'btns';
 						btns.append(button('승인', () => decide(true), 'btn-mini ink'), button('거절', () => decide(false)));
 						const name = s.same_name ? `${s.name} (같은 이름 ${s.same_name})` : s.name; // 휴대폰이 없어서 같은 사람인지는 운영진이 확인
-						return tr([String(i + 1), when(s.created_at), name, s.gender ?? '', s.birth_year ? String(s.birth_year) : '-', [s.sido, s.area].filter(Boolean).join(' ') || '-', s.emergency ? '동의' : '-', btns]);
+						return tr([String(i + 1), when(s.created_at), name, s.gender ?? '', s.birth_year ? String(s.birth_year) : '-', [s.sido, s.area].filter(Boolean).join(' ') || '-', s.emergency ? '있음' : '-', btns]);
 					}),
 				);
 			}
@@ -408,7 +407,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				editing = m;
 				for (const k of ['name', 'gender', 'birth_year', 'region', 'area', 'email', 'role']) (form.elements.namedItem(k) as HTMLInputElement).value = m[k] ?? '';
 				(form.elements.namedItem('phone') as HTMLInputElement).value = ''; // 번호는 안 보여 줌
-				(form.elements.namedItem('emergency') as HTMLInputElement).checked = !!m.emergency;
 				$('.edit-error').textContent = '';
 				dialog.showModal();
 			}
@@ -416,11 +414,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				if ((e.submitter as HTMLButtonElement)?.value !== 'save') return;
 				e.preventDefault();
 				const d = Object.fromEntries(new FormData(form)) as Record<string, string>;
-				const { role: newRole, emergency: _, ...info } = d;
+				const { role: newRole, ...info } = d;
 				const status = editing.status; // 상태는 '상태 변경' 버튼에서
-				// 비상 연락처: 번호를 새로 넣을 때 체크 상태로, 번호 없이 체크만 바꾸면 끄기만 (켜려면 번호를 다시 넣어야 함 — 서버가 안내)
-				const em = (form.elements.namedItem('emergency') as HTMLInputElement).checked;
-				const r1 = await call({ action: 'admin.memberUpdate', token, id: editing.id, ...info, ...((info.phone || em !== !!editing.emergency) && { emergency: em }) }).catch(() => null);
+				const r1 = await call({ action: 'admin.memberUpdate', token, id: editing.id, ...info }).catch(() => null);
 				if (!r1?.ok) return void ($('.edit-error').textContent = r1?.error ?? '저장하지 못했어요.');
 				// 권한은 관리자만 (서버가 다시 확인)
 				const roleNext = role === 'admin' ? newRole : editing.role;
@@ -1424,17 +1420,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		gap: 4px;
 		font-size: 13px;
 		font-weight: 700;
-	}
-	.edit-form label.check {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		font-weight: 400;
-	}
-	.edit-form label.check input {
-		min-height: 0;
-		width: 18px;
-		height: 18px;
 	}
 	.edit-form input,
 	.edit-form select {

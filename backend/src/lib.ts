@@ -12,7 +12,7 @@ export function normPhone(v: unknown): string {
 
 // 가입 동의 기록에 남기는 개인정보처리방침 시행일 — src/pages/privacy.astro의 시행일을 바꾸면 같이.
 // 그 판의 동의 문구는 DB consent_terms(version = 이 값, 0020)에 보관 — 가입 화면 문구를 바꾸면 새 version 줄을 더하는 migration도 (테스트가 확인)
-export const POLICY_VERSION = '2026-10-26';
+export const POLICY_VERSION = '2026-10-27';
 
 // 출격, 시즌방 명단 이름: 성 빼고 이름만 (사용자 요구 2026-10-26) — 홍길동 → 길동, 김철 → 철, 네 글자 이상(남궁민수)은 끝 두 글자
 export function givenName(name: string): string {

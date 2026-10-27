@@ -50,8 +50,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				<form class="login tf" hidden={!club.api}>
 					<!-- 얇은 폼 (ride.css .tf, 사용자 요구 2026-10-26) -->
 					<h2 class="tf-title">로그인</h2>
-					<input name="loginId" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" inputmode="numeric" aria-label="휴대폰 번호 (아이디)" placeholder="휴대폰 번호 (010 제외)" required />
-					<input name="password" type="password" autocomplete="current-password" aria-label="비밀번호" placeholder="비밀번호" required />
+					<input name="loginId" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" inputmode="numeric" aria-label="휴대폰 번호 (아이디)" placeholder="HP (010 제외)" required />
+					<input name="password" type="password" autocomplete="current-password" aria-label="비밀번호" placeholder="PW" required />
 					<!-- 로그인 버튼 아래 가입 신청 버튼 (사용자 요구 2026-10-27: 글자 링크 대신 버튼) -->
 					<button class="tf-btn" type="submit">로그인</button>
 					<a class="tf-btn tf-btn-line" href={`${base}/signup/`}>가입 신청</a>

@@ -52,10 +52,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<!-- 얇은 폼 (ride.css .tf, 사용자 요구 2026-10-26 — 참고 사이트처럼 깔끔하게). 이름표 대신 칸 안 회색 글씨 -->
 					<h2 class="tf-title">가입 신청</h2>
 					<!-- 아이디 = 010 뺀 휴대폰 번호 (사용자 결정 2026-10-26). 서버는 번호를 되돌릴 수 없는 값(HMAC)으로만 저장, 화면 어디에도 안 보임 -->
-					<input name="phone" type="tel" inputmode="numeric" autocomplete="username" maxlength="13" aria-label="휴대폰 번호 (아이디)" placeholder="휴대폰 번호 (010 제외)" required />
-					<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" aria-label="비밀번호" placeholder="비밀번호 (8자 이상)" required />
-					<input name="password2" type="password" autocomplete="new-password" maxlength="128" aria-label="비밀번호 확인" placeholder="비밀번호 확인" required />
-					<input name="name" type="text" autocomplete="name" maxlength="20" aria-label="이름" placeholder="이름" required />
+					<input name="phone" type="tel" inputmode="numeric" autocomplete="username" maxlength="13" aria-label="휴대폰 번호 (아이디)" placeholder="HP (010 제외)" required />
+					<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" aria-label="비밀번호" placeholder="PW (8자 이상)" required />
+					<input name="password2" type="password" autocomplete="new-password" maxlength="128" aria-label="비밀번호 확인" placeholder="PW 확인" required />
+					<input name="name" type="text" autocomplete="name" maxlength="20" aria-label="이름" placeholder="NAME" required />
 					<div class="seg" role="radiogroup" aria-label="성별">
 						<label><input type="radio" name="gender" value="남" required /><span>남</span></label>
 						<label><input type="radio" name="gender" value="여" /><span>여</span></label>

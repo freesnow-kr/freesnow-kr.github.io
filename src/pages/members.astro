@@ -77,6 +77,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<div><dt>SHRED LOG</dt><dd data-k="visits">-</dd></div>
 						<div><dt>사진</dt><dd data-k="photos">-</dd></div>
 					</dl>
+					<!-- 이번 시즌 배지, 출격 순위 (사용자 요구 2026-10-29, Worker rideRank). 없으면 안 보임 -->
+					<a class="my-badges" href={`${base}/seasonroom/`} hidden><span class="my-rank"></span><span class="badge-list"></span></a>
 
 					<nav class="rows" aria-label="계정">
 						<a class="row" href={`${base}/password/`}>비밀번호 변경<i>›</i></a>
@@ -174,6 +176,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					// 운영진, 관리자에게만 링크 (권한은 서버가 따로 확인)
 					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'admin'].includes(res.me.role);
 					if (['staff', 'admin'].includes(res.me.role)) setupPush();
+					// 배지, 출격 순위 (실패하면 안 보임)
+					call({ action: 'rideRank', token }).then((r) => {
+						if (!r?.ok || (!r.me.count && !r.me.badges.length)) return;
+						const box = dash.querySelector<HTMLElement>('.my-badges')!;
+						box.querySelector('.my-rank')!.textContent = r.me.count ? `${r.season} 출격 ${r.me.rank}등` : '';
+						box.querySelector('.badge-list')!.replaceChildren(...r.me.badges.map((b: { label: string }) => Object.assign(document.createElement('i'), { textContent: b.label })));
+						box.hidden = false;
+					}).catch(() => {});
 					setupAvatar(res.me.name, res.me.photo || '');
 				}
 			}
@@ -549,6 +559,30 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		display: none;
 	}
 	/* 숫자 띠: 칸 없이 세로줄로 나눔 */
+	/* 배지 줄: 출격 순위 + 배지 칩 (누르면 RIDE & STAY 순위) */
+	.my-badges {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px 10px;
+		padding: 12px 0;
+		border-bottom: 1px solid var(--line);
+		color: var(--black);
+		font-size: 13px;
+		font-weight: 700;
+		text-decoration: none;
+	}
+	.badge-list {
+		display: contents;
+	}
+	.my-badges :global(i) {
+		padding: 3px 10px;
+		border-radius: 99px;
+		background: #fff1ea;
+		color: #c2410c;
+		font-size: 12px;
+		font-style: normal;
+	}
 	.strip {
 		display: grid;
 		grid-template-columns: repeat(4, 1fr);

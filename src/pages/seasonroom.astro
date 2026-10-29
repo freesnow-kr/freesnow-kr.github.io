@@ -83,6 +83,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						</form>
 					</div>
 
+					<!-- 이번 시즌 출격 순위 + 내 배지 (사용자 요구 2026-10-29, Worker rideRank — 회원만, 성 뺀 이름) -->
+					<section class="rank" hidden>
+						<h2 class="rank-title">이번 시즌 출격 순위</h2>
+						<p class="rank-me"></p>
+						<ul class="badges"></ul>
+						<ol class="rank-list"></ol>
+					</section>
 				</div>
 			</section>
 		</main>
@@ -339,7 +346,32 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				btn.textContent = op === 'remove' ? '취소 중' : '저장 중';
 				await room(seasonOf(selected), { op, kind, date: selected });
 				render();
+				if (kind !== '강습') drawRank(); // 순위, 배지도 바뀔 수 있어서
 			});
+
+			// 출격 순위: 상위 10명(같은 횟수는 같은 순위) + 내 순위, 배지. 출격 체크를 바꾸면 다시 그림
+			async function drawRank() {
+				const r = await call({ action: 'rideRank', token }).catch(() => null);
+				const sec = document.querySelector<HTMLElement>('.rank')!;
+				if (!r?.ok) return;
+				sec.hidden = false;
+				sec.querySelector('.rank-title')!.textContent = `${r.season} 시즌 출격 순위`;
+				sec.querySelector('.rank-me')!.textContent = r.me.count ? `나는 ${r.me.rank}등 | 출격 ${r.me.count}회` : '아직 이번 시즌 출격 기록이 없어요.';
+				sec.querySelector('.badges')!.replaceChildren(...r.me.badges.map((b: { label: string }) => Object.assign(document.createElement('li'), { textContent: b.label })));
+				sec.querySelector('.rank-list')!.replaceChildren(
+					...(r.top.length ? r.top : [null]).map((x: { rank: number; name: string; count: number; me: boolean } | null) => {
+						const li = document.createElement('li');
+						if (!x) return Object.assign(li, { className: 'empty', textContent: '아직 출격한 사람이 없어요.' });
+						li.className = x.me ? 'me' : '';
+						li.append(
+							Object.assign(document.createElement('b'), { textContent: `${x.rank}` }),
+							Object.assign(document.createElement('span'), { textContent: `${x.name}${x.me ? ' (나)' : ''}` }),
+							Object.assign(document.createElement('small'), { textContent: `${x.count}회` }),
+						);
+						return li;
+					}),
+				);
+			}
 
 			// 로그인 안 했으면 로그인 화면으로 (로그인 후 이 페이지로 돌아옴)
 			if (!token) location.replace(back);
@@ -347,12 +379,77 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				msg.remove();
 				box.hidden = false;
 				render();
+				drawRank();
 			} else msg.textContent = '시즌방 기록을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.';
 		</script>
 	</body>
 </html>
 
 <style>
+	/* 출격 순위 + 내 배지 */
+	.rank {
+		display: grid;
+		gap: 10px;
+		max-width: 520px;
+		margin-top: 12px;
+		padding: 20px;
+		border: 1.5px solid var(--black);
+		background: var(--white);
+	}
+	.rank-title {
+		font-size: 1.1rem;
+		font-weight: 900;
+	}
+	.rank-me {
+		color: #4a4d55;
+		font-size: 14px;
+	}
+	.badges {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.badges :global(li) {
+		padding: 3px 10px;
+		border-radius: 99px;
+		background: #fff1ea;
+		color: #c2410c;
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.rank-list {
+		display: grid;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.rank-list :global(li) {
+		display: grid;
+		grid-template-columns: 32px minmax(0, 1fr) auto;
+		align-items: baseline;
+		padding: 8px 0;
+		border-top: 1px solid var(--line);
+		font-size: 14px;
+	}
+	.rank-list :global(li b) {
+		font-family: var(--display);
+		font-weight: 400;
+		font-size: 18px;
+	}
+	.rank-list :global(li small) {
+		color: #4a4d55;
+	}
+	.rank-list :global(li.me) {
+		color: #c2410c;
+		font-weight: 700;
+	}
+	.rank-list :global(li.empty) {
+		display: block;
+		color: #4a4d55;
+	}
 	.room {
 		display: grid;
 		gap: 20px;

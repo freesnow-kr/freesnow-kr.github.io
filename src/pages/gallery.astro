@@ -58,7 +58,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<p class="up-msg" role="status"></p>
 				</div>
 				<p class="mem-msg g-msg" role="status">사진 불러오는 중…</p>
-				<ul class="grid"></ul>
+				<!-- 찍은 날짜별로 묶음 (사용자 요구 2026-10-29): 날짜 제목 + 사진 격자, 그날 정모가 있었으면 정모 표시. 예전 드라이브 사진은 맨 아래 '예전 사진' -->
+				<div class="days"></div>
 			</section>
 		</main>
 
@@ -83,7 +84,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			import { call, fetchPhotos, galleryPhotos, largeOf, store, thumbOf, type Photo } from '../scripts/session';
 			import { club } from '../data/club';
 
-			const grid = document.querySelector<HTMLUListElement>('.grid')!;
+			const days = document.querySelector<HTMLElement>('.days')!;
 			const msg = document.querySelector<HTMLElement>('.g-msg')!;
 			const dialog = document.querySelector<HTMLDialogElement>('.viewer')!;
 			const img = dialog.querySelector('img')!;
@@ -98,26 +99,52 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				photos = list ?? [];
 				msg.textContent = !list ? '사진을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' : photos.length ? '' : '아직 사진이 없어요.';
 				msg.hidden = !msg.textContent;
-				grid.replaceChildren(
-					...photos.map((p, i) => {
-						const li = document.createElement('li');
-						const a = document.createElement('a');
-						a.href = largeOf(p);
-						const pic = document.createElement('img');
-						pic.src = thumbOf(p);
-						pic.alt = p.caption || `프리스노우 사진 ${i + 1}`;
-						pic.loading = i < 8 ? 'eager' : 'lazy';
-						pic.referrerPolicy = 'no-referrer';
-						a.append(pic);
-						a.addEventListener('click', (e) => {
-							e.preventDefault();
-							show(i);
-							dialog.showModal();
-						});
-						li.append(a);
-						return li;
+				// 같은 날끼리 (목록은 이미 찍은 날 최신순, 날짜 없는 예전 사진은 뒤)
+				const groups: { date?: string; meetup?: string; items: number[] }[] = [];
+				photos.forEach((p, i) => {
+					const last = groups.at(-1);
+					if (last && last.date === p.date) {
+						last.items.push(i);
+						last.meetup ??= p.meetup;
+					} else groups.push({ date: p.date, meetup: p.meetup, items: [i] });
+				});
+				const WD = '일월화수목금토';
+				days.replaceChildren(
+					...groups.map((g) => {
+						const sec = document.createElement('section');
+						sec.className = 'day';
+						const h = document.createElement('h2');
+						h.className = 'day-head';
+						const d = g.date ? new Date(`${g.date}T00:00:00`) : null;
+						h.append(Object.assign(document.createElement('span'), { textContent: d ? `${g.date!.replace(/-/g, '.')} (${WD[d.getDay()]})` : '예전 사진' }));
+						h.append(Object.assign(document.createElement('small'), { textContent: `사진 ${g.items.length}장` }));
+						if (g.meetup) h.append(Object.assign(document.createElement('b'), { className: 'day-meetup', textContent: `정모 | ${g.meetup}` }));
+						const ul = document.createElement('ul');
+						ul.className = 'grid';
+						ul.append(...g.items.map((i) => tile(photos[i], i)));
+						sec.append(h, ul);
+						return sec;
 					}),
 				);
+			}
+			// 사진 칸 하나 (i = 전체 목록에서 몇 번째 — 크게 보기에서 ←/→로 날짜를 넘어 이어서 봄)
+			function tile(p: Photo, i: number) {
+				const li = document.createElement('li');
+				const a = document.createElement('a');
+				a.href = largeOf(p);
+				const pic = document.createElement('img');
+				pic.src = thumbOf(p);
+				pic.alt = p.caption || `프리스노우 사진 ${i + 1}`;
+				pic.loading = i < 8 ? 'eager' : 'lazy';
+				pic.referrerPolicy = 'no-referrer';
+				a.append(pic);
+				a.addEventListener('click', (e) => {
+					e.preventDefault();
+					show(i);
+					dialog.showModal();
+				});
+				li.append(a);
+				return li;
 			}
 			const show = (i: number) => {
 				if (!photos.length) return dialog.close();
@@ -201,8 +228,36 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 </html>
 
 <style>
+	/* 날짜 묶음: 날짜 제목 줄 + 그날 사진 격자 */
+	.days {
+		display: grid;
+		gap: 28px;
+		margin-top: 16px;
+	}
+	.days :global(.day-head) {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 4px 10px;
+		margin-bottom: 10px;
+		padding-bottom: 8px;
+		border-bottom: 1px solid var(--line);
+		font-size: 16px;
+		font-weight: 900;
+	}
+	.days :global(.day-head small) {
+		color: var(--gray);
+		font-size: 13px;
+		font-weight: 400;
+	}
+	.days :global(.day-meetup) {
+		padding: 2px 8px;
+		background: var(--accent);
+		color: var(--black);
+		font-size: 12px;
+	}
 	/* 벽돌형: 사진 원래 비율 그대로 (잘리지 않음). 열마다 위→아래로 채움 */
-	.grid {
+	.days :global(.grid) {
 		list-style: none;
 		margin: 0;
 		padding: 0;
@@ -210,27 +265,27 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		column-gap: 6px;
 	}
 	@media (max-width: 640px) {
-		.grid {
+		.days :global(.grid) {
 			columns: 2;
 			column-gap: 4px;
 		}
 	}
-	.grid :global(li) {
+	.days :global(.grid li) {
 		break-inside: avoid;
 		margin-bottom: 6px;
 	}
-	.grid :global(a) {
+	.days :global(.grid a) {
 		display: block;
 		overflow: hidden;
 		background: var(--black);
 	}
-	.grid :global(img) {
+	.days :global(.grid img) {
 		display: block;
 		width: 100%;
 		height: auto;
 		transition: transform 0.4s, opacity 0.2s;
 	}
-	.grid :global(a:hover img) {
+	.days :global(.grid a:hover img) {
 		transform: scale(1.03);
 		opacity: 0.9;
 	}

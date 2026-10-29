@@ -62,15 +62,23 @@ export async function serve(env: Env, id: string, size: string): Promise<Respons
 }
 
 // 갤러리 목록에 넣을 사진들 (찍은 날 최신순). 로그인했으면 내가 지울 수 있는 사진에 mine
+// date = 찍은 날(한국 시간), 그날 정모가 있었으면 meetup = 정모 제목 (갤러리가 날짜별로 묶음, 사용자 요구 2026-10-29)
 export async function listPhotos(c: Ctx) {
 	let me: { id: string; role: string } | null = null;
 	if (c.body.token) me = await need(c).catch(() => null);
 	const base = new URL(c.req.url).origin;
-	const { results } = await c.env.DB.prepare('SELECT id, caption, season, storage, drive_id, uploaded_by FROM photos WHERE is_active = 1 ORDER BY taken_at DESC, created_at DESC').all<any>();
+	const kst = (t: string) => new Date(Date.parse(t) + 9 * 3600e3).toISOString().slice(0, 10);
+	const [{ results }, meetups] = await Promise.all([
+		c.env.DB.prepare('SELECT id, caption, season, storage, drive_id, uploaded_by, taken_at FROM photos WHERE is_active = 1 ORDER BY taken_at DESC, created_at DESC').all<any>(),
+		c.env.DB.prepare("SELECT title, starts_at FROM meetups WHERE status != 'cancelled'").all<{ title: string; starts_at: string }>(),
+	]);
+	const meetupOn = new Map(meetups.results.map((m) => [kst(m.starts_at), m.title]));
 	return results.map((p) => ({
 		id: p.id,
 		caption: p.caption,
 		season: p.season,
+		date: kst(p.taken_at),
+		...(meetupOn.has(kst(p.taken_at)) && { meetup: meetupOn.get(kst(p.taken_at)) }),
 		thumb: p.storage === 'r2' ? `${base}/photo/${p.id}/thumb` : `https://lh3.googleusercontent.com/d/${p.drive_id}=w720`,
 		large: p.storage === 'r2' ? `${base}/photo/${p.id}/large` : `https://lh3.googleusercontent.com/d/${p.drive_id}=w1800`,
 		...(me && (p.uploaded_by === me.id || me.role !== 'member') ? { mine: true } : {}),

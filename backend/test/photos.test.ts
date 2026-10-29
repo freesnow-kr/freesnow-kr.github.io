@@ -68,6 +68,11 @@ test('목록: 찍은 날 최신순, 내 사진, 운영진만 mine, 지우기는 
 	assert.equal(list[0].mine, true);
 	assert.equal(list[1].mine, undefined);
 	assert.match(list[0].thumb, /\/photo\/.+\/thumb$/);
+	// 찍은 날(한국 시간)과 그날 정모 제목 → 갤러리가 날짜별로 묶음
+	assert.match(list[0].date, /^\d{4}-\d{2}-\d{2}$/);
+	assert.equal(list[0].meetup, undefined);
+	await env.DB.prepare("INSERT INTO meetups (id, source, title, starts_at, first_seen_at, updated_at) VALUES ('mt', 'somoim', '시즌 오픈 정모', ?, '2026', '2026')").bind(`${list[0].date}T03:00:00.000Z`).run();
+	assert.equal((await post({ action: 'gallery', token: A })).photos[0].meetup, '시즌 오픈 정모');
 	assert.equal((await post({ action: 'gallery', token: S })).photos.filter((p: any) => p.mine).length, 2);
 	assert.match((await post({ action: 'photoDelete', id: idA }, B)).error, /내가 올린/);
 });

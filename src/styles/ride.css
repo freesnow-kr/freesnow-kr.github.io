@@ -388,51 +388,109 @@ a {
 	background: var(--white);
 	border-bottom: 1px solid var(--line);
 }
-/* TODAY 줄: 강촌 날씨 (메인, NOTICE 아래 — 사용자 요구 2026-10-29) */
+/* TODAY (시안 E, 2026-10-29): 흰 날씨 카드 + 주황 인원 카드, 메인 NOTICE 아래. 하나만 있으면 가로 전체(.both가 없을 때) */
 .today {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 6px 20px;
-	padding: 14px var(--gutter);
-	background: var(--white);
-	border-bottom: 1px solid var(--line);
-	font-size: 14px;
+	display: grid;
+	gap: 12px;
+	padding: 18px var(--gutter);
 }
-.today-tag {
-	padding: 4px 10px;
-	background: var(--black);
-	color: var(--white);
-	font-size: 12px;
-	font-weight: 700;
-	letter-spacing: 0.16em;
+.today.both {
+	grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.today-wx,
+.today-crew {
+	border-radius: 14px;
+	color: var(--black);
+	text-decoration: none;
+}
+.today-wx {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 18px;
+	padding: 16px 20px;
+	background: var(--white);
+}
+.today-icon {
+	font-size: 40px;
+	line-height: 1;
+}
+.today-text {
+	display: grid;
+	gap: 4px;
+	min-width: 0;
 }
 .today-now {
-	font-weight: 700;
+	font-size: 16px;
+	font-weight: 900;
+}
+.today-now small {
+	margin-left: 8px;
+	color: var(--gray);
+	font-size: 13px;
+	font-weight: 400;
 }
 .today-days {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px 18px;
 	color: #4a4d55;
-	white-space: pre;
+	font-size: 14px;
 }
-/* 오늘 출격, 시즌방 인원 — 주황 글자 */
-.today-crew {
+/* '오늘 −10° / −1° 눈 7cm'가 중간에서 끊기지 않게 한 덩어리로 */
+.today-days span {
+	white-space: nowrap;
+}
+.today-days b {
+	color: var(--black);
+}
+.today-days em {
 	color: #c2410c;
+	font-style: normal;
 	font-weight: 700;
 }
-.today-all {
-	margin-left: auto;
-	color: #4a4d55;
-	font-size: 13px;
+.today-go {
+	color: var(--gray);
+	font-size: 22px;
 }
-/* 좁은 화면: [TODAY] 지금 날씨 / 오늘, 내일 / 링크 (링크가 가운데 줄로 끼지 않게) */
-@media (max-width: 860px) {
-	.today-days {
-		flex-basis: 100%;
-		order: 1;
-		white-space: normal;
+.today-crew {
+	display: flex;
+	justify-content: space-around;
+	align-items: center;
+	padding: 14px 12px;
+	background: var(--accent);
+	text-align: center;
+}
+.today-crew span {
+	display: grid;
+	gap: 2px;
+}
+.today-crew b {
+	font-family: var(--display);
+	font-size: 34px;
+	font-weight: 400;
+	line-height: 1;
+}
+.today-crew small {
+	font-size: 12px;
+	font-weight: 700;
+}
+@media (hover: hover) {
+	.today-wx:hover,
+	.today-crew:hover {
+		box-shadow: 0 0 0 1.5px var(--black) inset;
 	}
-	.today-all {
-		order: 2;
+}
+@media (max-width: 860px) {
+	.today.both {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.today-wx {
+		gap: 14px;
+		padding: 14px 16px;
+	}
+	.today-icon {
+		font-size: 34px;
 	}
 }
 .notice-tag {

@@ -36,3 +36,14 @@ test('날씨: 비회원도, 1시간에 한 번만 받아 옴, 실패하면 지�
 		globalThis.fetch = real;
 	}
 });
+
+test('오늘 출격, 시즌방 인원: 숫자만, 비회원도, 취소는 안 셈', async () => {
+	const date = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+	await env.DB.batch([
+		env.DB.prepare("INSERT INTO members (id, name, status, role) VALUES ('m1', '가', 'active', 'member'), ('m2', '나', 'active', 'member')"),
+		env.DB.prepare("INSERT INTO ride_checks (member_id, date, status) VALUES ('m1', ?1, '출격'), ('m2', ?1, '취소')").bind(date),
+		env.DB.prepare("INSERT INTO room_stays (member_id, date, kind) VALUES ('m1', ?1, '휴식'), ('m2', '2000-01-01', '숙박')").bind(date),
+	]);
+	const { status, cors, ...r } = await post({ action: 'today' });
+	assert.deepEqual(r, { ok: true, date, rides: 1, stays: 1 });
+});

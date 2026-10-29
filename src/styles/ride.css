@@ -414,6 +414,11 @@ a {
 	color: #4a4d55;
 	white-space: pre;
 }
+/* 오늘 출격, 시즌방 인원 — 주황 글자 */
+.today-crew {
+	color: #c2410c;
+	font-weight: 700;
+}
 .today-all {
 	margin-left: auto;
 	color: #4a4d55;

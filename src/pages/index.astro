@@ -78,6 +78,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 			<section class="notice" aria-label="공지" hidden>
 				<span class="notice-tag">NOTICE</span>
 				<ul class="notice-list"></ul>
+				<button class="notice-count" type="button" aria-label="다음 공지" hidden></button>
 				<a class="notice-all" href={`${base}/board/?c=notice`}>전체 보기 →</a>
 			</section>
 
@@ -180,7 +181,7 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 					if (!r?.ok || !(r.rides || r.stays)) return;
 					const card = box.querySelector<HTMLElement>('.today-crew')!;
 					card.replaceChildren(
-						...[[r.rides, '오늘 출격'], [r.stays, '시즌방']].map(([n, t]) => {
+						...[[r.rides, '출격'], [r.stays, '시즌방']].map(([n, t]) => {
 							const d = el('span');
 							d.append(el('b', String(n)), el('small', String(t)));
 							return d;
@@ -192,11 +193,13 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 
 			const box = document.querySelector<HTMLElement>('.notice')!;
 			const res = await call({ action: 'board.list', category: 'notice', pinned: true }).catch(() => null);
-			const posts = (res?.posts ?? []).slice(0, 3);
+			const posts = (res?.posts ?? []).slice(0, 5);
 			if (posts.length) {
-				box.querySelector('.notice-list')!.replaceChildren(
-					...posts.map((p: { id: string; title: string; created_at: string }) => {
+				const list = box.querySelector('.notice-list')!;
+				list.replaceChildren(
+					...posts.map((p: { id: string; title: string; created_at: string }, i: number) => {
 						const li = document.createElement('li');
+						li.classList.toggle('on', i === 0);
 						const a = document.createElement('a');
 						a.href = `${base}/board/view/?id=${encodeURIComponent(p.id)}`;
 						a.textContent = p.title; // textContent로만 (HTML 주입 방지)
@@ -207,6 +210,26 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 					}),
 				);
 				box.hidden = false;
+				// 공지가 여러 개면 하나씩 바꿔 가며 (사용자 요구 2026-10-29): 4.5초마다, 마우스를 올리거나 포커스가 있으면 멈춤, 모션 줄이기면 안 넘김
+				const items = [...list.children] as HTMLElement[];
+				const count = box.querySelector<HTMLElement>('.notice-count')!;
+				let at = 0, hold = false;
+				const go = (i: number) => {
+					items[at].classList.remove('on');
+					at = (i + items.length) % items.length;
+					items[at].classList.add('on');
+					count.textContent = `${at + 1} / ${items.length}`;
+				};
+				if (items.length > 1) {
+					count.hidden = false;
+					go(0);
+					box.addEventListener('pointerenter', () => (hold = true));
+					box.addEventListener('pointerleave', () => (hold = false));
+					box.addEventListener('focusin', () => (hold = true));
+					box.addEventListener('focusout', () => (hold = false));
+					count.addEventListener('click', () => go(at + 1)); // 숫자를 누르면 다음 공지
+					if (!matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(() => !hold && !document.hidden && go(at + 1), 4500);
+				}
 			}
 		</script>
 		<script>

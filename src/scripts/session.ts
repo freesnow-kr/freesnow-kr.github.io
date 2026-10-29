@@ -80,10 +80,10 @@ export const photoSrc = (photo: string, w: number) => (/^(https:|data:image\/)/.
 // 갤러리 사진 목록: 이 브라우저에 저장해 두고 다시 열 때 바로 보여 줌
 // 저장본이 10분 지났으면 보여 주는 동시에 뒤에서 새로 받아 둠 → 새 사진은 그다음 방문에 (서버도 5분 캐시)
 // 회원이 올린 사진(R2, 보관한 드라이브)은 thumb, large 주소가 오고, 예전 드라이브 폴더 사진은 id만 (driveImg로)
-export type Photo = { id: string; caption: string; thumb?: string; large?: string; mine?: boolean };
+export type Photo = { id: string; caption: string; thumb?: string; large?: string; mine?: boolean; date?: string; meetup?: string }; // date: 찍은 날(예전 드라이브 사진은 없음)
 export const thumbOf = (p: Photo) => p.thumb ?? driveImg(p.id, 720);
 export const largeOf = (p: Photo) => p.large ?? driveImg(p.id, 1800);
-const GKEY = 'fs-gallery';
+const GKEY = 'fs-gallery2'; // 응답 모양이 바뀌면 숫자 올림 (예전 저장본엔 date가 없어서)
 const GTTL = 10 * 60 * 1000;
 // 로그인했으면 토큰도 → 내가 올린 사진(지울 수 있는 사진)에 mine
 export const fetchPhotos = async (): Promise<Photo[] | null> => {

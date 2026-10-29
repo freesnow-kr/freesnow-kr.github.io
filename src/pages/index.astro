@@ -81,11 +81,12 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 				<a class="notice-all" href={`${base}/board/?c=notice`}>전체 보기 →</a>
 			</section>
 
-			<!-- TODAY: 엘리시안 강촌 날씨 (사용자 요구 2026-10-29, scripts/weather.ts). 못 받아 오면 안 보임 -->
-			<section class="today" aria-label="오늘 강촌 날씨" hidden>
+			<!-- TODAY: 엘리시안 강촌 날씨 + 오늘 출격, 시즌방 인원 (숫자만, 사용자 요구 2026-10-29). 둘 다 없으면 안 보임 -->
+			<section class="today" aria-label="오늘" hidden>
 				<span class="today-tag">TODAY</span>
-				<p class="today-now"></p>
-				<p class="today-days"></p>
+				<p class="today-now" hidden></p>
+				<p class="today-crew" hidden></p>
+				<p class="today-days" hidden></p>
 				<a class="today-all" href={`${base}/webcam/`}>스키장 날씨, 웹캠 →</a>
 			</section>
 
@@ -145,18 +146,26 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 			// 메인 NOTICE 줄: 고정 공지 최대 3개 (공지는 누구나 볼 수 있음)
 			import { base, call, ymd } from '../scripts/session';
 			import { deg, sky, snow, weather } from '../scripts/weather';
-			// TODAY 줄: 엘리시안 강촌 지금 날씨 + 오늘, 내일
-			weather().then((list) => {
-				const w = list.find((r) => r.id === 'gangchon');
-				if (!w) return;
+			// TODAY 줄: 엘리시안 강촌 지금 날씨 + 오늘, 내일 / 오늘 출격, 시즌방 인원 (0명이면 그 칸은 안 보임)
+			{
 				const box = document.querySelector<HTMLElement>('.today')!;
-				const [icon, label] = sky(w.now.code);
-				box.querySelector('.today-now')!.textContent = `${w.name} ${icon} ${label} ${deg(w.now.temp)}`;
-				box.querySelector('.today-days')!.textContent = w.days
-					.map((d, i) => [i ? '내일' : '오늘', sky(d.code)[0], `${deg(d.min)} / ${deg(d.max)}`, snow(d.snow)].filter(Boolean).join(' '))
-					.join('   |   ');
-				box.hidden = false;
-			});
+				const show = (cls: string, text: string) => {
+					const el = box.querySelector<HTMLElement>(cls)!;
+					el.textContent = text;
+					el.hidden = !text;
+					if (text) box.hidden = false;
+				};
+				weather().then((list) => {
+					const w = list.find((r) => r.id === 'gangchon');
+					if (!w) return;
+					const [icon, label] = sky(w.now.code);
+					show('.today-now', `${w.name} ${icon} ${label} ${deg(w.now.temp)}`);
+					show('.today-days', w.days.map((d, i) => [i ? '내일' : '오늘', sky(d.code)[0], `${deg(d.min)} / ${deg(d.max)}`, snow(d.snow)].filter(Boolean).join(' ')).join('   |   '));
+				});
+				call({ action: 'today' }).then((r) => {
+					if (r?.ok) show('.today-crew', [r.rides && `출격 ${r.rides}명`, r.stays && `시즌방 ${r.stays}명`].filter(Boolean).join(' | '));
+				}).catch(() => {});
+			}
 
 			const box = document.querySelector<HTMLElement>('.notice')!;
 			const res = await call({ action: 'board.list', category: 'notice', pinned: true }).catch(() => null);

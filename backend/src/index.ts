@@ -9,7 +9,7 @@ import { avatar, serveProfile, signup, withdraw } from './members.ts';
 import { chatRank, gallery } from './gallery.ts';
 import * as admin from './admin.ts';
 import * as push from './push.ts';
-import { weather } from './weather.ts';
+import { today, weather } from './weather.ts';
 import * as photos from './photos.ts';
 import * as board from './board.ts';
 import * as teams from './teams.ts';
@@ -46,6 +46,7 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	snowlive,
 	somoim,
 	weather,
+	today,
 	signup,
 	avatar,
 	withdraw,

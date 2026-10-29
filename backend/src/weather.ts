@@ -76,3 +76,13 @@ export async function weather(c: Ctx) {
 		return { ok: false, error: '날씨를 불러오지 못했어요.' };
 	}
 }
+
+// {} → {ok, date, rides, stays} 오늘(한국 시간) 출격 체크, 시즌방(숙박+휴식) 인원 — 숫자만이라 비회원도 봄 (사용자 요구 2026-10-29, 메인 TODAY 줄)
+export async function today(c: Ctx) {
+	const date = new Date(c.now.getTime() + 9 * 3600e3).toISOString().slice(0, 10);
+	const r = await c.env.DB.prepare(
+		`SELECT (SELECT count(*) FROM ride_checks WHERE date = ?1 AND status = '출격' AND is_active = 1) AS rides,
+		        (SELECT count(*) FROM room_stays WHERE date = ?1 AND kind IN ('숙박', '휴식') AND is_active = 1) AS stays`,
+	).bind(date).first<{ rides: number; stays: number }>();
+	return { ok: true, date, rides: r!.rides, stays: r!.stays };
+}

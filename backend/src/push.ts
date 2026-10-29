@@ -93,6 +93,15 @@ export async function pushStaff(env: Env, msg: PushMsg) {
 	return sendPush(env, results, msg);
 }
 
+// 폭설 알림 (사용자 요구 2026-10-29): 앱 알림을 켠 활동 회원 기기 전부 (운영진도). 회원은 이 알림만 받음
+export async function pushMembers(env: Env, msg: PushMsg) {
+	const { results } = await env.DB.prepare(
+		`SELECT p.endpoint, p.p256dh, p.auth FROM push_subscriptions p JOIN members m ON m.id = p.member_id
+		 WHERE p.is_active = 1 AND m.status = 'active'`,
+	).all<Sub>();
+	return sendPush(env, results, msg);
+}
+
 // ── API ──
 // {} → {key} (브라우저가 구독할 때 쓰는 공개키). 준비 안 됐으면 key: null
 export async function key(c: Ctx) {
@@ -129,7 +138,13 @@ export async function test(c: Ctx) {
 	const me = await need(c);
 	if (!c.env.VAPID_JWK) throw bad('앱 알림이 아직 준비되지 않았어요. (backend/scripts/vapid.mjs)');
 	const { results } = await c.env.DB.prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE member_id = ? AND is_active = 1').bind(me.id).all<Sub>();
-	const r = await sendPush(c.env, results, { title: '앱 알림이 켜졌어요', body: '강습 요청, 가입 신청이 들어오면 여기로 알려 드려요.', url: '/admin/', tag: 'test' });
+	const staff = me.role === 'staff' || me.role === 'admin';
+	const r = await sendPush(c.env, results, {
+		title: '앱 알림이 켜졌어요',
+		body: staff ? '강습 요청, 가입 신청, 강촌 폭설 예보가 있으면 여기로 알려 드려요.' : '강촌에 눈이 많이 올 예보가 있으면 여기로 알려 드려요.',
+		url: staff ? '/admin/' : '/',
+		tag: 'test',
+	});
 	if (!r.sent) throw bad('알림을 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.');
 	return { ok: true, ...r };
 }

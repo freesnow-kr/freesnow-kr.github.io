@@ -104,3 +104,41 @@ test('앱 알림: 구독 검사, 해제, 운영진만 받음, 내용 복호화, 
 		delete env.VAPID_JWK;
 	}
 });
+
+test('폭설 알림: 강촌 내일 5cm 이상이면 알림 켠 회원 모두, 하루 한 번만, 적으면 안 보냄', async () => {
+	const { snowAlert } = await import('../src/weather.ts');
+	const resorts = (await import('../../src/data/resorts.json', { with: { type: 'json' } })).default;
+	const vk = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
+	env.VAPID_JWK = JSON.stringify(await crypto.subtle.exportKey('jwk', vk.privateKey));
+	const realFetch = globalThis.fetch;
+	const sent: { url: string; body: Uint8Array }[] = [];
+	let snow = 3;
+	globalThis.fetch = (async (url: string, init: any) => {
+		if (String(url).startsWith('https://push.test/')) {
+			sent.push({ url: String(url), body: new Uint8Array(init.body) });
+			return new Response('', { status: 201 });
+		}
+		if (String(url).includes('open-meteo')) {
+			const daily = { time: ['2026-12-12', '2026-12-13'], weather_code: [3, 73], temperature_2m_max: [1, -1], temperature_2m_min: [-6, -8], apparent_temperature_min: [-10, -14], snowfall_sum: [0, snow], wind_speed_10m_max: [5, 9] };
+			return new Response(JSON.stringify(resorts.map(() => ({ current: { temperature_2m: 0, weather_code: 3, wind_speed_10m: 4 }, daily }))));
+		}
+		return realFetch(url, init);
+	}) as any;
+	try {
+		const member = await device('https://push.test/snow-member'), staff = await device('https://push.test/snow-staff');
+		await post({ action: 'push.subscribe', subscription: member.sub }, A);
+		await post({ action: 'push.subscribe', subscription: staff.sub }, S);
+		assert.deepEqual(await snowAlert(env, new Date()), { sent: 0 }); // 3cm
+		await env.DB.prepare("DELETE FROM cache WHERE key = 'weather'").run();
+		snow = 8;
+		await snowAlert(env, new Date());
+		assert.deepEqual(['snow-member', 'snow-staff'].map((k) => sent.some((x) => x.url.endsWith(k))), [true, true]); // 회원, 운영진 모두 (앞 테스트에서 켠 기기도 받음)
+		const msg = await decrypt(member, sent.find((x) => x.url.endsWith('snow-member'))!.body);
+		assert.equal(msg.title, '❄️ 내일 강촌 눈 8cm 예보');
+		assert.equal(msg.url, '/seasonroom/');
+		assert.deepEqual(await snowAlert(env, new Date()), { sent: 0 }); // 같은 날 두 번 안 보냄
+	} finally {
+		globalThis.fetch = realFetch;
+		delete env.VAPID_JWK;
+	}
+});

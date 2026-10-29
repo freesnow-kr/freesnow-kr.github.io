@@ -263,11 +263,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const rode = dayRides.some((n) => n.me);
 				const asked = !!lessons?.includes(selected);
 				$('.ride-names').replaceChildren(...names(dayRides.map((n) => ({ ...n, lesson: n.me && asked }))));
-				// [출격] 누르면 체크, [출격 ✓] 다시 누르면 취소. 출격한 날만 [강습 요청]
+				// [출격] 누르면 체크(검정), 다시 누르면 취소. 출격한 날만 [강습 요청]
 				$('.ride-actions').replaceChildren(
 					...buttons([
-						rode ? ['출격 ✓', 'remove', '출격', true] : ['출격', 'add', '출격', false],
-						...(rode && lessons ? [asked ? ['강습 요청 ✓', 'remove', '강습', true] : ['강습 요청', 'add', '강습', false]] : []),
+						['출격', rode ? 'remove' : 'add', '출격', rode],
+						...(rode && lessons ? [['강습 요청', asked ? 'remove' : 'add', '강습', asked]] : []),
 					] as [string, string, string, boolean][]),
 				);
 				$('.lesson-note').hidden = !asked;
@@ -304,7 +304,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						(['숙박', '휴식'] as const).map((k) => {
 							const on = mine?.kind === k;
 							const text = k === '숙박' ? '숙박' : '4시간 휴식';
-							return [on ? `${text} ✓` : text, on ? 'remove' : 'add', k, on];
+							return [text, on ? 'remove' : 'add', k, on]; // 켜진 건 검정 바탕으로만 (✓ 없음 — 사용자 요구)
 						}),
 					),
 				);

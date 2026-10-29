@@ -178,6 +178,21 @@ const pick = {
 					<button class="btn btn-line-dark csv" type="button">이 시즌 지출 CSV 받기</button>
 				</section>
 
+				<!-- 장비 관리 (사용자 요구 2026-10-29): 왁싱, 엣지, 튠업 기록 + '마지막 왁싱 후 N회 출격' 안내. 시즌과 상관없이 전체 -->
+				<section class="block">
+					<h2>GEAR CARE</h2>
+					<p class="care-tip" aria-live="polite"></p>
+					<form class="care-form">
+						<div class="row">
+							<label>날짜<input name="date" type="date" required min="2024-07-01" max="2027-06-30" /></label>
+							<label>종류<select name="kind"><option>왁싱</option><option>엣지</option><option>튠업</option><option>기타</option></select></label>
+							<label class="wide">메모<input name="memo" maxlength="100" placeholder="예: 핫왁스, 엣지 88도" /></label>
+						</div>
+						<button class="btn btn-ink" type="submit">관리 기록 추가</button>
+					</form>
+					<div class="scroll"><table class="care-table"><thead><tr><th>날짜</th><th>종류</th><th>메모</th><th></th></tr></thead><tbody></tbody></table></div>
+				</section>
+
 				<section class="block">
 					<h2>COMPARE</h2>
 					<div class="scroll">
@@ -205,15 +220,17 @@ const pick = {
 
 			type Visit = { id: string; date: string; resort: string; [k: string]: string };
 			type Expense = { id: string; date: string; cat: string; amount: number; memo: string; visit?: string };
-			type Data = { visits: Visit[]; expenses: Expense[]; pass: Record<string, { price?: number; day?: number }> };
+			type Care = { id: string; date: string; kind: string; memo: string };
+			type Data = { visits: Visit[]; expenses: Expense[]; pass: Record<string, { price?: number; day?: number }>; cares: Care[] };
+			const WAX_EVERY = 5; // 왁싱 알림: 이만큼 출격하면 (사용자 확인 2026-10-29)
 
 			// 로그인 안 했으면 이 브라우저(localStorage)에만, 로그인하면 시트(회원 본인 기록)에 저장
 			const KEY = 'fs-shredlog';
-			const empty = (): Data => ({ visits: [], expenses: [], pass: {} });
+			const empty = (): Data => ({ visits: [], expenses: [], pass: {}, cares: [] });
 			const readLocal = (): Data => {
 				try {
 					const d = JSON.parse(localStorage.getItem(KEY) || 'null');
-					if (d && Array.isArray(d.visits) && Array.isArray(d.expenses)) return { ...d, pass: d.pass ?? {} };
+					if (d && Array.isArray(d.visits) && Array.isArray(d.expenses)) return { ...d, pass: d.pass ?? {}, cares: d.cares ?? [] };
 				} catch {}
 				return empty();
 			};
@@ -349,6 +366,27 @@ const pick = {
 				st.expenses.forEach((e) => (byCat[e.cat] = (byCat[e.cat] || 0) + e.amount));
 				$('.by-cat').textContent = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, t]) => `${c} ${won(t)}`).join('   ');
 
+				// 장비 관리: 전체 기록 최신순 + 마지막 왁싱 이후 출격 일수 (SHRED LOG 출격 + 스노우라이브 날짜, 같은 날은 한 번)
+				const cBody = $('.care-table tbody');
+				cBody.replaceChildren(
+					...[...data.cares].sort(byDate).map((x) =>
+						row([x.date, x.kind, x.memo], () => {
+							if (!confirm(`${x.date} ${x.kind} 기록을 지울까요?`)) return;
+							commit({ op: 'delete', care: x.id }, (d) => (d.cares = d.cares.filter((y) => y.id !== x.id)));
+						}),
+					),
+				);
+				if (!data.cares.length) cBody.append(row(['아직 장비 관리 기록이 없어요.']));
+				const lastWax = data.cares.filter((x) => x.kind === '왁싱').map((x) => x.date).sort().at(-1);
+				const rideDays = new Set(data.visits.map((v) => v.date));
+				Object.values(slCache).forEach((c) => c?.stats?.days?.forEach((d) => rideDays.add(d.date)));
+				const since = [...rideDays].filter((d) => !lastWax || d > lastWax).length;
+				const tip = $('.care-tip');
+				tip.classList.toggle('due', since >= WAX_EVERY);
+				tip.textContent = !lastWax
+					? since ? `아직 왁싱 기록이 없어요. 지금까지 출격 ${since}일이에요.` : '왁싱, 엣지 관리 날짜를 남겨 두면 다음 관리 때를 알려 드려요.'
+					: since >= WAX_EVERY ? `마지막 왁싱(${lastWax}) 후 ${since}회 출격했어요. 왁싱할 때예요! 🧴` : `마지막 왁싱(${lastWax}) 후 ${since}회 출격 (${WAX_EVERY}회마다 알려 드려요)`;
+
 				// 시즌 비교
 				const all = seasons.map(statsOf);
 				const metrics: [string, (s: ReturnType<typeof statsOf>) => string][] = [
@@ -429,6 +467,16 @@ const pick = {
 				expenseForm.querySelector<HTMLInputElement>('[name=date]')!.value = today;
 			});
 
+			const careForm = $<HTMLFormElement>('.care-form');
+			careForm.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const f = new FormData(careForm);
+				const x: Care = { id: crypto.randomUUID(), date: String(f.get('date')), kind: String(f.get('kind')), memo: String(f.get('memo')).trim() };
+				if (!(await commit({ op: 'add', cares: [x] }, (d) => d.cares.push(x)))) return;
+				careForm.reset();
+				careForm.querySelector<HTMLInputElement>('[name=date]')!.value = today;
+			});
+
 			const download = (name: string, text: string, type: string) => {
 				const a = document.createElement('a');
 				a.href = URL.createObjectURL(new Blob([text], { type }));
@@ -478,7 +526,7 @@ const pick = {
 					render(); // 시즌권 칸 등 입력값 되돌림
 					return false;
 				}
-				data = { visits: res.visits, expenses: res.expenses.map((e: Expense) => ({ ...e, visit: e.visit || undefined })), pass: res.pass };
+				data = { visits: res.visits, expenses: res.expenses.map((e: Expense) => ({ ...e, visit: e.visit || undefined })), pass: res.pass, cares: res.cares ?? [] };
 				if (!body.op) passSeason = ''; // 처음 불러온 시즌권 가격으로 칸 채우기
 				// 불러오거나 옮겼는데 지금 시즌에 기록이 없으면 가장 최근 기록의 시즌으로
 				const latest = [...data.visits, ...data.expenses].sort(byDate)[0];
@@ -623,7 +671,7 @@ const pick = {
 			else if (await send({})) {
 				syncMsg.textContent = '로그인돼 있어서 기록이 내 계정에 저장돼요. 어느 기기에서든 불러올 수 있어요.';
 				const local = readLocal();
-				moveBtn.hidden = !(local.visits.length + local.expenses.length);
+				moveBtn.hidden = !(local.visits.length + local.expenses.length + local.cares.length);
 				moveBtn.textContent = `이 브라우저에 있던 기록(출격 ${local.visits.length}개 | 지출 ${local.expenses.length}개)을 내 계정으로 옮기기`;
 			} else if (online) syncMsg.textContent = '기록을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.';
 		</script>
@@ -631,6 +679,16 @@ const pick = {
 </html>
 
 <style>
+	/* 장비 관리 안내: 왁싱할 때가 되면 주황 */
+	.care-tip {
+		margin-bottom: 12px;
+		color: #4a4d55;
+		font-size: 14px;
+	}
+	.care-tip.due {
+		color: #c2410c;
+		font-weight: 700;
+	}
 	.seasons {
 		display: flex;
 		flex-wrap: wrap;

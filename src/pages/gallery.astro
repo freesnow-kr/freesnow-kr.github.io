@@ -58,7 +58,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					<p class="up-msg" role="status"></p>
 				</div>
 				<p class="mem-msg g-msg" role="status">사진 불러오는 중…</p>
-				<!-- 찍은 날짜별로 묶음 (사용자 요구 2026-10-29): 날짜 제목 + 사진 격자, 그날 정모가 있었으면 정모 표시. 예전 드라이브 사진은 맨 아래 '예전 사진' -->
+				<!-- 기본은 전체 사진 한 격자, '날짜별로 보기'를 켜면 찍은 날짜로 묶음 + 그날 정모 표시 (사용자 요구 2026-10-29, 고른 보기는 기억). 예전 드라이브 사진은 맨 아래 '예전 사진' -->
+				<div class="by-day" role="group" aria-label="보기" hidden>
+					<button type="button" data-day="0">전체</button>
+					<button type="button" data-day="1">날짜별</button>
+				</div>
 				<div class="days"></div>
 			</section>
 		</main>
@@ -95,6 +99,20 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			let at = 0;
 
 			// 파일 이름, 설명은 textContent, 속성으로만 넣음 (HTML 주입 방지)
+			// 날짜별로 보기 (기본은 끔, 고른 것은 이 브라우저에 기억)
+			const BY_DAY = 'fs-gallery-byday';
+			let byDay = (() => { try { return localStorage.getItem(BY_DAY) === '1'; } catch { return false; } })();
+			const dayBtns = [...document.querySelectorAll<HTMLButtonElement>('.by-day button')];
+			const markDay = () => dayBtns.forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.day === '1') === byDay)));
+			markDay();
+			dayBtns.forEach((b) =>
+				b.addEventListener('click', () => {
+					byDay = b.dataset.day === '1';
+					try { localStorage.setItem(BY_DAY, byDay ? '1' : '0'); } catch {}
+					markDay();
+					render(photos);
+				}),
+			);
 			function render(list: Photo[] | null) {
 				photos = list ?? [];
 				msg.textContent = !list ? '사진을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' : photos.length ? '' : '아직 사진이 없어요.';
@@ -108,6 +126,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						last.meetup ??= p.meetup;
 					} else groups.push({ date: p.date, meetup: p.meetup, items: [i] });
 				});
+				const toggle = document.querySelector<HTMLElement>('.by-day')!;
+				toggle.hidden = !photos.length;
+				if (!byDay) {
+					// 전체 보기: 날짜 제목 없이 한 격자
+					const ul = document.createElement('ul');
+					ul.className = 'grid';
+					ul.append(...photos.map((p, i) => tile(p, i)));
+					days.replaceChildren(ul);
+					return;
+				}
 				const WD = '일월화수목금토';
 				days.replaceChildren(
 					...groups.map((g) => {
@@ -229,10 +257,30 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 <style>
 	/* 날짜 묶음: 날짜 제목 줄 + 그날 사진 격자 */
+	/* 전체 / 날짜별 (게시판 말머리 버튼과 같은 모양) */
+	.by-day {
+		display: flex;
+		gap: 6px;
+		margin-top: 12px;
+	}
+	.by-day button {
+		min-height: 32px;
+		padding: 0 14px;
+		border: 1.5px solid var(--black);
+		border-radius: 99px;
+		background: var(--white);
+		color: var(--black);
+		font: 700 13px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.by-day button[aria-pressed='true'] {
+		background: var(--black);
+		color: var(--white);
+	}
 	.days {
 		display: grid;
 		gap: 28px;
-		margin-top: 16px;
+		margin-top: 12px;
 	}
 	.days :global(.day-head) {
 		display: flex;

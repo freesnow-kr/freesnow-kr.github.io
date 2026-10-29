@@ -81,7 +81,7 @@ const regions = [
 								{'embed' in c ? (
 									<details class="cam-item">
 										<summary>
-											<span class="cam-name">{c.name}</span>
+											<span class="cam-head"><span class="cam-name">{c.name}</span><span class="cam-wx" data-resort={c.name}></span></span>
 											<span class="cam-note">{c.note}</span>
 											<span class="cam-go cam-toggle" aria-hidden="true"></span>
 										</summary>
@@ -92,7 +92,7 @@ const regions = [
 									</details>
 								) : (
 									<a href={c.url} target="_blank" rel="noopener">
-										<span class="cam-name">{c.name}</span>
+										<span class="cam-head"><span class="cam-name">{c.name}</span><span class="cam-wx" data-resort={c.name}></span></span>
 										<span class="cam-note">{c.note}</span>
 										<span class="cam-go" aria-hidden="true">↗</span>
 									</a>
@@ -116,6 +116,17 @@ const regions = [
 		</footer>
 		<script>
 			import '../scripts/session';
+			import { deg, sky, snow, weather } from '../scripts/weather';
+
+			// 스키장마다 날씨 한 줄 (사용자 요구 2026-10-29): 지금 + 오늘, 내일 최저/최고 + 눈. 이름은 src/data/resorts.json과 같음
+			weather().then((list) => {
+				for (const el of document.querySelectorAll<HTMLElement>('.cam-wx')) {
+					const w = list.find((r) => r.name === el.dataset.resort);
+					if (!w) continue;
+					const day = (d: (typeof w.days)[number], label: string) => [label, sky(d.code)[0], `${deg(d.min)} / ${deg(d.max)}`, snow(d.snow)].filter(Boolean).join(' ');
+					el.textContent = [`지금 ${sky(w.now.code)[0]} ${deg(w.now.temp)}`, ...w.days.map((d, i) => day(d, i ? '내일' : '오늘'))].join('   |   ');
+				}
+			});
 
 			// 펼칠 때만 웹캠 로드, 접으면 about:blank로 재생 중지
 			document.querySelectorAll<HTMLDetailsElement>('.cam-item').forEach((item) => {
@@ -197,6 +208,20 @@ const regions = [
 	.cam-list summary:hover {
 		padding-left: 16px;
 		color: var(--accent);
+	}
+	.cam-head {
+		display: grid;
+		gap: 4px;
+		min-width: 0;
+	}
+	/* 날씨 한 줄 (scripts/weather.ts) — 비어 있으면 자리 안 차지 */
+	.cam-wx {
+		color: #4a4d55;
+		font-size: 13px;
+		white-space: pre-wrap;
+	}
+	.cam-wx:empty {
+		display: none;
 	}
 	.cam-name {
 		font-size: clamp(1.2rem, 2.2vw, 1.7rem);

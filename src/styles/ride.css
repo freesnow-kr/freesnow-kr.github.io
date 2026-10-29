@@ -388,6 +388,48 @@ a {
 	background: var(--white);
 	border-bottom: 1px solid var(--line);
 }
+/* TODAY 줄: 강촌 날씨 (메인, NOTICE 아래 — 사용자 요구 2026-10-29) */
+.today {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 20px;
+	padding: 14px var(--gutter);
+	background: var(--white);
+	border-bottom: 1px solid var(--line);
+	font-size: 14px;
+}
+.today-tag {
+	padding: 4px 10px;
+	background: var(--black);
+	color: var(--white);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+}
+.today-now {
+	font-weight: 700;
+}
+.today-days {
+	color: #4a4d55;
+	white-space: pre;
+}
+.today-all {
+	margin-left: auto;
+	color: #4a4d55;
+	font-size: 13px;
+}
+/* 좁은 화면: [TODAY] 지금 날씨 / 오늘, 내일 / 링크 (링크가 가운데 줄로 끼지 않게) */
+@media (max-width: 860px) {
+	.today-days {
+		flex-basis: 100%;
+		order: 1;
+		white-space: normal;
+	}
+	.today-all {
+		order: 2;
+	}
+}
 .notice-tag {
 	padding: 4px 10px;
 	background: var(--accent);

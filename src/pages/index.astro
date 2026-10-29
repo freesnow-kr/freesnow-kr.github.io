@@ -81,13 +81,18 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 				<a class="notice-all" href={`${base}/board/?c=notice`}>전체 보기 →</a>
 			</section>
 
-			<!-- TODAY: 엘리시안 강촌 날씨 + 오늘 출격, 시즌방 인원 (숫자만, 사용자 요구 2026-10-29). 둘 다 없으면 안 보임 -->
+			<!-- TODAY (사용자가 고른 시안 E, 2026-10-29): 왼쪽 흰 날씨 카드(엘리시안 강촌 지금 + 오늘, 내일 → 웹캠 페이지), 오른쪽 주황 카드(오늘 출격, 시즌방 인원 → RIDE & STAY)
+			     하나만 있으면 그 카드가 가로 전체. 둘 다 없으면 안 보임 -->
 			<section class="today" aria-label="오늘" hidden>
-				<span class="today-tag">TODAY</span>
-				<p class="today-now" hidden></p>
-				<p class="today-crew" hidden></p>
-				<p class="today-days" hidden></p>
-				<a class="today-all" href={`${base}/webcam/`}>스키장 날씨, 웹캠 →</a>
+				<a class="today-wx" href={`${base}/webcam/`} hidden>
+					<span class="today-icon" aria-hidden="true"></span>
+					<span class="today-text">
+						<span class="today-now"></span>
+						<span class="today-days"></span>
+					</span>
+					<span class="today-go" aria-hidden="true">›</span>
+				</a>
+				<a class="today-crew" href={`${base}/seasonroom/`} hidden></a>
 			</section>
 
 			<section id="season" class="season">
@@ -146,24 +151,42 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 			// 메인 NOTICE 줄: 고정 공지 최대 3개 (공지는 누구나 볼 수 있음)
 			import { base, call, ymd } from '../scripts/session';
 			import { deg, sky, snow, weather } from '../scripts/weather';
-			// TODAY 줄: 엘리시안 강촌 지금 날씨 + 오늘, 내일 / 오늘 출격, 시즌방 인원 (0명이면 그 칸은 안 보임)
+			// TODAY 카드: 날씨(엘리시안 강촌) / 오늘 출격, 시즌방 인원(0명이면 그 칸 없음). 글자는 textContent로만
 			{
 				const box = document.querySelector<HTMLElement>('.today')!;
-				const show = (cls: string, text: string) => {
-					const el = box.querySelector<HTMLElement>(cls)!;
-					el.textContent = text;
-					el.hidden = !text;
-					if (text) box.hidden = false;
+				const el = (tag: string, text = '', cls = '') => Object.assign(document.createElement(tag), { textContent: text, className: cls });
+				const reveal = (card: HTMLElement) => {
+					card.hidden = false;
+					box.hidden = false;
+					box.classList.toggle('both', !box.querySelector<HTMLElement>('.today-wx')!.hidden && !box.querySelector<HTMLElement>('.today-crew')!.hidden);
 				};
 				weather().then((list) => {
 					const w = list.find((r) => r.id === 'gangchon');
 					if (!w) return;
 					const [icon, label] = sky(w.now.code);
-					show('.today-now', `${w.name} ${icon} ${label} ${deg(w.now.temp)}`);
-					show('.today-days', w.days.map((d, i) => [i ? '내일' : '오늘', sky(d.code)[0], `${deg(d.min)} / ${deg(d.max)}`, snow(d.snow)].filter(Boolean).join(' ')).join('   |   '));
+					const card = box.querySelector<HTMLElement>('.today-wx')!;
+					card.querySelector('.today-icon')!.textContent = icon;
+					card.querySelector('.today-now')!.replaceChildren(`${w.name} ${deg(w.now.temp)}`, el('small', `지금 ${label}`));
+					card.querySelector('.today-days')!.replaceChildren(
+						...w.days.map((d, i) => {
+							const s = el('span', `${i ? '내일' : '오늘'} `);
+							s.append(el('b', `${deg(d.min)} / ${deg(d.max)}`), ' ', d.snow > 0 ? el('em', snow(d.snow)) : sky(d.code)[0]);
+							return s;
+						}),
+					);
+					reveal(card);
 				});
 				call({ action: 'today' }).then((r) => {
-					if (r?.ok) show('.today-crew', [r.rides && `출격 ${r.rides}명`, r.stays && `시즌방 ${r.stays}명`].filter(Boolean).join(' | '));
+					if (!r?.ok || !(r.rides || r.stays)) return;
+					const card = box.querySelector<HTMLElement>('.today-crew')!;
+					card.replaceChildren(
+						...[[r.rides, '오늘 출격'], [r.stays, '시즌방']].map(([n, t]) => {
+							const d = el('span');
+							d.append(el('b', String(n)), el('small', String(t)));
+							return d;
+						}),
+					);
+					reveal(card);
 				}).catch(() => {});
 			}
 

@@ -58,7 +58,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 								<button class="month-btn month-next" type="button" aria-label="다음 달">›</button>
 							</div>
 							<div class="view-row">
-								<button class="view-btn" type="button"></button>
+								<div class="filter" role="group" aria-label="보기">
+									<button type="button" data-view="weeks">3주</button>
+									<button type="button" data-view="month">한 달</button>
+								</div>
 							</div>
 							<div class="cal">
 								{['일', '월', '화', '수', '목', '금', '토'].map((d) => <span class="wd">{d}</span>)}
@@ -215,7 +218,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const { dates, blanks } = visible();
 				const md = (date: string) => date.slice(5).split('-').map(Number).join('.'); // '10.11'
 				$('.month-label').textContent = view === 'weeks' ? `${md(dates[0])} – ${md(dates.at(-1)!)}` : `${month.slice(0, 4)}년 ${Number(month.slice(5))}월`;
-				$('.view-btn').textContent = view === 'weeks' ? '한 달 보기' : '3주 보기';
+				document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
 				$('.month-prev').ariaLabel = view === 'weeks' ? '이전 주' : '이전 달';
 				$('.month-next').ariaLabel = view === 'weeks' ? '다음 주' : '다음 달';
 
@@ -333,10 +336,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				await ensure();
 				render();
 			}
-			$('.view-btn').addEventListener('click', () => {
-				try { localStorage.setItem(VIEW_KEY, view === 'weeks' ? 'month' : 'weeks'); } catch {}
-				setView(view === 'weeks' ? 'month' : 'weeks');
-			});
+			document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((b) =>
+				b.addEventListener('click', () => {
+					const v = b.dataset.view as 'weeks' | 'month';
+					try { localStorage.setItem(VIEW_KEY, v); } catch {}
+					setView(v);
+				}),
+			);
 			narrow.addEventListener('change', () => setView(wanted())); // 창 크기를 바꾸면 그 화면 규칙으로
 
 			// 누른 버튼만 스피너, 나머지 버튼은 잠금
@@ -519,16 +525,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		.view-row {
 			display: flex;
 		}
-	}
-	.view-btn {
-		min-height: 32px;
-		padding: 0 12px;
-		border: 1px solid var(--line);
-		border-radius: 99px;
-		background: var(--white);
-		color: var(--black);
-		font: 700 12px 'Noto Sans KR', sans-serif;
-		cursor: pointer;
 	}
 	/* 달력: 요일 줄 + 날짜 칸 (JS가 만든 칸이라 :global) */
 	.cal {

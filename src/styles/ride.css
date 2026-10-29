@@ -1816,3 +1816,58 @@ a {
 	color: #c4320a;
 	font-size: 13px;
 }
+
+/* 공통 선택 필터 (사용자가 시안 12개 중 고른 4번, 2026-10-29): '전체 / 날짜별'처럼 글자 + 슬래시, 고른 것만 굵은 검정.
+   <div class="filter"> 안의 button에 aria-pressed(또는 탭이면 aria-selected)="true"가 고른 것. 어두운 바탕 위면 .filter-dark
+   쓰는 곳: 갤러리 전체/날짜별, 게시판 말머리, SHRED LOG 시즌, RIDE & STAY 3주/한 달 */
+.filter {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 0;
+}
+.filter button {
+	display: inline-flex;
+	align-items: center;
+	min-height: 32px;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--gray);
+	font: 400 14px 'Noto Sans KR', sans-serif;
+	cursor: pointer;
+}
+.filter button + button::before {
+	content: '/';
+	margin: 0 10px;
+	color: var(--line);
+	font-weight: 400;
+}
+.filter button[aria-pressed='true'],
+.filter button[aria-selected='true'] {
+	color: var(--black);
+	font-weight: 900;
+}
+@media (hover: hover) {
+	.filter button:hover {
+		color: var(--black);
+	}
+}
+.filter button:focus-visible {
+	outline-offset: 2px;
+}
+.filter-dark button {
+	color: rgb(255 255 255 / 0.55);
+}
+.filter-dark button + button::before {
+	color: rgb(255 255 255 / 0.3);
+}
+.filter-dark button[aria-pressed='true'],
+.filter-dark button[aria-selected='true'] {
+	color: var(--white);
+}
+@media (hover: hover) {
+	.filter-dark button:hover {
+		color: var(--white);
+	}
+}

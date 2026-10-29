@@ -52,7 +52,7 @@ const pick = {
 			<section class="mem-intro">
 				<p class="kicker">MY SEASON</p>
 				<h1>SHRED LOG.</h1>
-				<div class="seasons" role="group" aria-label="시즌 고르기">
+				<div class="seasons filter filter-dark" role="group" aria-label="시즌 고르기">
 					{seasons.map((s) => <button type="button" data-season={s} aria-pressed="false">{s}</button>)}
 				</div>
 				<p class="season-note" hidden></p>
@@ -690,25 +690,7 @@ const pick = {
 		font-weight: 700;
 	}
 	.seasons {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		margin-top: 24px;
-	}
-	.seasons button {
-		min-height: 44px;
-		padding: 0 20px;
-		border: 1.5px solid var(--white);
-		background: transparent;
-		color: var(--white);
-		font: 1.2rem var(--display);
-		letter-spacing: 0.04em;
-		cursor: pointer;
-	}
-	.seasons button[aria-pressed='true'] {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: var(--black);
+		margin-top: 20px;
 	}
 	/* 오픈 전 시즌: 'OPEN 11.28' 작은 표시 (JS가 붙임) */
 	.seasons :global(small) {

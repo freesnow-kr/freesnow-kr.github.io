@@ -52,7 +52,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				<!-- 한 줄: 왼쪽 [전체][날짜별], 오른쪽 작은 '사진 올리기' (사용자 요구 2026-10-29) -->
 				<div class="up">
 					<!-- 기본은 전체 사진 한 격자, '날짜별'을 누르면 찍은 날짜로 묶음 + 그날 정모 표시 (고른 보기는 기억). 예전 드라이브 사진은 맨 아래 '예전 사진' -->
-					<div class="by-day" role="group" aria-label="보기" hidden>
+					<div class="by-day filter" role="group" aria-label="보기" hidden>
 						<button type="button" data-day="0">전체</button>
 						<button type="button" data-day="1">날짜별</button>
 					</div>
@@ -258,25 +258,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 
 <style>
 	/* 날짜 묶음: 날짜 제목 줄 + 그날 사진 격자 */
-	/* 전체 / 날짜별 (게시판 말머리 버튼과 같은 모양) */
-	.by-day {
-		display: flex;
-		gap: 6px;
-	}
-	.by-day button {
-		min-height: 32px;
-		padding: 0 14px;
-		border: 1.5px solid var(--black);
-		border-radius: 99px;
-		background: var(--white);
-		color: var(--black);
-		font: 700 13px 'Noto Sans KR', sans-serif;
-		cursor: pointer;
-	}
-	.by-day button[aria-pressed='true'] {
-		background: var(--black);
-		color: var(--white);
-	}
 	.days {
 		display: grid;
 		gap: 28px;

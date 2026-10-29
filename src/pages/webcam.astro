@@ -11,25 +11,25 @@ const regions = [
 	{
 		name: '강원',
 		resorts: [
-			{ name: '모나 용평', embed: true, url: 'https://www.yongpyong.co.kr/kor/guide/realTimeNews/ypResortWebcam.do', note: 'HD 웹캠 5곳' },
-			{ name: '하이원', embed: true, url: 'https://www.high1.com/ski/slopeView.do?key=748&mode=p', note: '슬로프별 웹캠 | 30초 후 자동 종료' },
-			{ name: '휘닉스 평창', embed: true, url: 'https://phoenixhnr.co.kr/', note: '홈페이지 메뉴에서 웹캠 선택' },
-			{ name: '비발디파크', embed: true, url: 'https://mice.sonohotelsresorts.com/daemyung.vp.utill.09_02_02_01.ds/dmparse.dm?areaType=S', note: '온라인캠 | 20초 후 자동 종료' },
-			{ name: '웰리힐리파크', embed: true, url: 'https://wellihillipark.com/home/customer/webcam', note: '실시간 HD 웹캠' },
-			{ name: '엘리시안 강촌', embed: true, url: 'https://www.elysian.co.kr/about-gangchon/ski#guide-to-using-slopes', note: '슬로프 이용안내 | 유튜브 라이브' },
-			{ name: '오크밸리', embed: true, url: 'https://oakvalley.co.kr/ski/introduction/realtime', note: '스키광장 | 슬로프별 실시간' },
+			{ name: '모나 용평', site: 'https://www.yongpyong.co.kr', embed: true, url: 'https://www.yongpyong.co.kr/kor/guide/realTimeNews/ypResortWebcam.do', note: 'HD 웹캠 5곳' },
+			{ name: '하이원', site: 'https://www.high1.com', embed: true, url: 'https://www.high1.com/ski/slopeView.do?key=748&mode=p', note: '슬로프별 웹캠 | 30초 후 자동 종료' },
+			{ name: '휘닉스 평창', site: 'https://phoenixhnr.co.kr', embed: true, url: 'https://phoenixhnr.co.kr/', note: '홈페이지 메뉴에서 웹캠 선택' },
+			{ name: '비발디파크', site: 'https://www.sonohotelsresorts.com/daemyung.vp.main.ds/dmparse.dm', embed: true, url: 'https://mice.sonohotelsresorts.com/daemyung.vp.utill.09_02_02_01.ds/dmparse.dm?areaType=S', note: '온라인캠 | 20초 후 자동 종료' },
+			{ name: '웰리힐리파크', site: 'https://wellihillipark.com', embed: true, url: 'https://wellihillipark.com/home/customer/webcam', note: '실시간 HD 웹캠' },
+			{ name: '엘리시안 강촌', site: 'https://www.elysian.co.kr', embed: true, url: 'https://www.elysian.co.kr/about-gangchon/ski#guide-to-using-slopes', note: '슬로프 이용안내 | 유튜브 라이브' },
+			{ name: '오크밸리', site: 'https://oakvalley.co.kr', embed: true, url: 'https://oakvalley.co.kr/ski/introduction/realtime', note: '스키광장 | 슬로프별 실시간' },
 		],
 	},
 	{
 		name: '경기',
 		resorts: [
-			{ name: '곤지암', embed: true, url: 'https://m.konjiamresort.co.kr/ski/skiLveCam.dev', note: '라이브캠 5곳 | 24시간' },
-			{ name: '지산 포레스트', url: 'https://www.jisanresort.co.kr/m/ski/slopes/webcam.asp', note: '탑승장 | 슬로프 웹캠' },
+			{ name: '곤지암', site: 'https://www.konjiamresort.co.kr', embed: true, url: 'https://m.konjiamresort.co.kr/ski/skiLveCam.dev', note: '라이브캠 5곳 | 24시간' },
+			{ name: '지산 포레스트', site: 'https://www.jisanresort.co.kr', url: 'https://www.jisanresort.co.kr/m/ski/slopes/webcam.asp', note: '탑승장 | 슬로프 웹캠' },
 		],
 	},
 	{
 		name: '전북',
-		resorts: [{ name: '무주 덕유산', embed: true, url: 'https://www.mdysresort.com/guide/webcam.asp', note: '1분 후 자동 종료' }],
+		resorts: [{ name: '무주 덕유산', site: 'https://www.mdysresort.com', embed: true, url: 'https://www.mdysresort.com/guide/webcam.asp', note: '1분 후 자동 종료' }],
 	},
 ];
 ---
@@ -91,12 +91,14 @@ const regions = [
 										<a class="cam-open" href={c.url} target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
 									</details>
 								) : (
-									<a href={c.url} target="_blank" rel="noopener">
+									<a class="cam-row" href={c.url} target="_blank" rel="noopener">
 										<span class="cam-head"><span class="cam-name">{c.name}</span><span class="cam-wx" data-resort={c.name}></span></span>
 										<span class="cam-note">{c.note}</span>
 										<span class="cam-go" aria-hidden="true">↗</span>
 									</a>
 								)}
+								{/* 스키장 공식 사이트 (슬로프 지도, 개장 현황, 셔틀버스, 리프트권은 여기서 — 사용자 요구 2026-10-29. 깊은 주소는 자주 바뀌어서 첫 화면만, 확인 2026-10) */}
+								<a class="cam-site" href={c.site} target="_blank" rel="noopener">공식 사이트 (슬로프 지도, 개장 현황, 셔틀, 리프트권) ↗</a>
 							</li>
 						))}
 					</ul>
@@ -193,14 +195,17 @@ const regions = [
 		padding: 0;
 		border-top: 1.5px solid var(--black);
 	}
-	.cam-list > li > a,
+	/* 줄 구분선은 li에 (아래 '공식 사이트' 링크까지 한 칸) */
+	.cam-list > li {
+		border-bottom: 1px solid var(--line);
+	}
+	.cam-list > li > .cam-row,
 	.cam-list summary {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) auto auto;
 		align-items: center;
 		gap: 24px;
-		padding: 22px 0;
-		border-bottom: 1px solid var(--line);
+		padding: 22px 0 10px;
 		text-decoration: none;
 		transition: padding 0.25s, color 0.2s;
 	}
@@ -208,6 +213,15 @@ const regions = [
 	.cam-list summary:hover {
 		padding-left: 16px;
 		color: var(--accent);
+	}
+	.cam-site {
+		display: inline-block;
+		margin: 0 0 18px;
+		color: #4a4d55;
+		font-size: 12px;
+	}
+	.cam-item[open] + .cam-site {
+		margin-top: 10px;
 	}
 	.cam-head {
 		display: grid;

@@ -47,9 +47,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			<section class="mem-body">
 				<p class="mem-msg loading">불러오는 중…</p>
 				<div class="room" hidden>
-					<p class="room-hint">날짜를 누르면 그날 출격, 시즌방을 쓴 사람이 보이고, 내 출격, 숙박, 4시간 휴식을 체크하거나 바꾸거나 취소할 수 있어요.<br />출격한 날엔 강습도 요청할 수 있어요.</p>
+					<p class="room-hint">날짜를 누르면 그날 출격, 시즌방을 쓴 사람이 보여요. 버튼으로 내 출격, 숙박, 4시간 휴식을 체크하고, 한 번 더 누르면 취소돼요.<br />출격한 날엔 강습도 요청할 수 있어요.</p>
 
-					<!-- 넓은 화면: 달력 오른쪽에 고른 날 명단 (달력 높이만큼, 넘치면 안에서 스크롤) / 좁은 화면: 달력 아래 -->
+					<!-- 화면은 사용자가 고른 시안 A (2026-10-29): 얇은 선, 둥근 칸. 넓은 화면은 달력 오른쪽에 [고른 날 카드 + 출격 순위 카드], 좁은 화면은 달력 아래 -->
 					<div class="room-main">
 						<div class="cal-col">
 							<div class="room-head">
@@ -66,6 +66,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 							</div>
 						</div>
 
+						<div class="side">
 						<form class="day-panel">
 							<h3 class="day-title"></h3>
 							<div class="day-group ride-group">
@@ -81,15 +82,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 								<div class="day-actions stay-actions"></div>
 							</div>
 						</form>
+						<!-- 이번 시즌 출격 순위 + 내 배지 (사용자 요구 2026-10-29, Worker rideRank — 회원만, 성 뺀 이름) -->
+						<section class="rank" hidden>
+							<h2 class="rank-title">이번 시즌 출격 순위</h2>
+							<p class="rank-me"></p>
+							<ul class="badges"></ul>
+							<ol class="rank-list"></ol>
+						</section>
+						</div>
 					</div>
 
-					<!-- 이번 시즌 출격 순위 + 내 배지 (사용자 요구 2026-10-29, Worker rideRank — 회원만, 성 뺀 이름) -->
-					<section class="rank" hidden>
-						<h2 class="rank-title">이번 시즌 출격 순위</h2>
-						<p class="rank-me"></p>
-						<ul class="badges"></ul>
-						<ol class="rank-list"></ol>
-					</section>
 				</div>
 			</section>
 		</main>
@@ -187,12 +189,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				return (seasons[season] = { nights: res.nights, rides: Array.isArray(res.rides) ? res.rides : null, lessons: Array.isArray(res.lessons) ? res.lessons : null });
 			}
 
-			// 버튼 묶음: [글자, op, kind, 진한 버튼?]
+			// 토글 버튼 묶음: [글자, op, kind, 지금 켜짐?] — 켜진 버튼을 다시 누르면 취소 (op remove)
 			const buttons = (list: [string, string, string, boolean][]) =>
-				list.map(([text, op, kind, main]) => {
+				list.map(([text, op, kind, on]) => {
 					const b = document.createElement('button');
 					b.type = 'submit';
-					b.className = `btn ${main ? 'btn-ink' : 'btn-line-dark'}`;
+					b.className = `tog${on ? ' on' : ''}`;
+					b.setAttribute('aria-pressed', String(on));
 					b.textContent = text;
 					b.dataset.op = op;
 					b.dataset.kind = kind;
@@ -202,7 +205,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				(list.length ? list : [null]).map((n) => {
 					const li = document.createElement('li');
 					// 주주는 여기선 따로 안 적음 (정산표에만)
-					li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}${n.lesson ? ' | 강습 요청' : ''}` : '아직 아무도 없어요.';
+					li.textContent = n ? `${n.name}${n.me ? ' (나)' : ''}` : '아직 아무도 없어요.';
 					li.className = n?.me ? 'me' : n ? '' : 'empty';
 					return li;
 				});
@@ -260,12 +263,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				const rode = dayRides.some((n) => n.me);
 				const asked = !!lessons?.includes(selected);
 				$('.ride-names').replaceChildren(...names(dayRides.map((n) => ({ ...n, lesson: n.me && asked }))));
+				// [출격] 누르면 체크, [출격 ✓] 다시 누르면 취소. 출격한 날만 [강습 요청]
 				$('.ride-actions').replaceChildren(
-					...buttons(
-						!rode
-							? [['출격', 'add', '출격', true]]
-							: [['출격 취소', 'remove', '출격', false], ...(lessons ? [asked ? ['강습 요청 취소', 'remove', '강습', false] : ['강습 요청', 'add', '강습', false]] : [])] as [string, string, string, boolean][],
-					),
+					...buttons([
+						rode ? ['출격 ✓', 'remove', '출격', true] : ['출격', 'add', '출격', false],
+						...(rode && lessons ? [asked ? ['강습 요청 ✓', 'remove', '강습', true] : ['강습 요청', 'add', '강습', false]] : []),
+					] as [string, string, string, boolean][]),
 				);
 				$('.lesson-note').hidden = !asked;
 
@@ -295,13 +298,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					parts.push(ul);
 				}
 				$('.stay-names').replaceChildren(...parts);
+				// [숙박] [4시간 휴식]: 고른 쪽이 검정, 다른 쪽을 누르면 바꿈, 고른 쪽을 다시 누르면 취소 ('안 씀' 버튼은 없음 — 사용자 요구)
 				$('.stay-actions').replaceChildren(
 					...buttons(
-						!mine
-							? [['시즌방 숙박', 'add', '숙박', true], ['4시간 휴식', 'add', '휴식', false]]
-							: mine.kind === '숙박'
-								? [['4시간 휴식으로 변경', 'add', '휴식', false], ['취소', 'remove', '', false]]
-								: [['시즌방 숙박으로 변경', 'add', '숙박', false], ['취소', 'remove', '', false]],
+						(['숙박', '휴식'] as const).map((k) => {
+							const on = mine?.kind === k;
+							const text = k === '숙박' ? '숙박' : '4시간 휴식';
+							return [on ? `${text} ✓` : text, on ? 'remove' : 'add', k, on];
+						}),
 					),
 				);
 			}
@@ -389,15 +393,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	/* 출격 순위 + 내 배지 */
 	.rank {
 		display: grid;
-		gap: 10px;
-		max-width: 520px;
-		margin-top: 12px;
-		padding: 20px;
-		border: 1.5px solid var(--black);
+		gap: 8px;
+		padding: 16px 18px;
+		border: 1px solid var(--line);
+		border-radius: 12px;
 		background: var(--white);
 	}
 	.rank-title {
-		font-size: 1.1rem;
+		font-size: 16px;
 		font-weight: 900;
 	}
 	.rank-me {
@@ -430,14 +433,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		display: grid;
 		grid-template-columns: 32px minmax(0, 1fr) auto;
 		align-items: baseline;
-		padding: 8px 0;
+		padding: 6px 0;
 		border-top: 1px solid var(--line);
-		font-size: 14px;
+		font-size: 13px;
 	}
 	.rank-list :global(li b) {
 		font-family: var(--display);
 		font-weight: 400;
-		font-size: 18px;
+		font-size: 16px;
 	}
 	.rank-list :global(li small) {
 		color: #4a4d55;
@@ -489,11 +492,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		font-weight: 400;
 	}
 	.month-btn {
-		width: 44px;
-		height: 44px;
-		border: 1.5px solid var(--black);
+		width: 38px;
+		height: 38px;
+		border: 1px solid var(--line);
+		border-radius: 50%;
 		background: var(--white);
-		font-size: 22px;
+		font-size: 18px;
 		line-height: 1;
 		cursor: pointer;
 	}
@@ -519,7 +523,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.view-btn {
 		min-height: 32px;
 		padding: 0 12px;
-		border: 1.5px solid var(--black);
+		border: 1px solid var(--line);
+		border-radius: 99px;
 		background: var(--white);
 		color: var(--black);
 		font: 700 12px 'Noto Sans KR', sans-serif;
@@ -552,6 +557,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		min-height: 80px;
 		padding: 8px;
 		border: 1px solid var(--line);
+		border-radius: 8px;
 		background: var(--white);
 		color: var(--black);
 		font: 400 12px 'Noto Sans KR', sans-serif;
@@ -567,8 +573,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		outline-offset: -2px;
 	}
 	.cal :global(.day.is-mine) {
-		background: #fff1ea;
-		border-color: var(--accent);
+		background: #fff7f2;
+		border-color: #ffb899;
 	}
 	.cal :global(.num) {
 		font-size: 14px;
@@ -585,7 +591,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	/* 칸에는 숫자만: 출격 N명 / 숙박 N명 (명단은 옆 칸에서) */
 	.cal :global(.count) {
-		font-weight: 700;
+		color: #4a4d55;
+		font-weight: 500;
 		line-height: 1.35;
 		white-space: nowrap;
 	}
@@ -599,87 +606,117 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			letter-spacing: -0.03em;
 		}
 	}
+	/* 오른쪽 칸: 고른 날 카드 + 출격 순위 카드 (시안 A) */
+	.side {
+		display: grid;
+		gap: 12px;
+		align-content: start;
+	}
 	.day-panel {
 		display: grid;
-		gap: 16px;
+		gap: 12px;
 		align-content: start;
-		/* 달력 높이만큼은 차지하고, 명단이 길어지면 안에서 스크롤하지 않고 칸이 같이 길어짐 (사용자 요구 2026-10-26) */
-		min-height: 100%;
-		padding: 20px;
-		border: 1.5px solid var(--black);
+		padding: 16px 18px;
+		border: 1px solid var(--line);
+		border-radius: 12px;
 		background: var(--white);
 	}
-	@media (max-width: 860px) {
-		.day-panel {
-			min-height: 0;
-		}
+	.day-title {
+		font-size: 17px;
+		font-weight: 900;
 	}
 	.day-group {
 		display: grid;
-		gap: 10px;
-		padding-top: 14px;
-		border-top: 1px solid var(--line);
-	}
-	.group-title {
-		font-weight: 900;
-	}
-	.day-names :global(li.empty) {
-		color: #4a4d55;
-	}
-	.day-title {
-		font-size: 1.2rem;
-		font-weight: 900;
-	}
-	.stay-names {
-		display: grid;
 		gap: 8px;
 	}
-	.stay-names :global(.stay-part) {
-		display: flex;
-		align-items: baseline;
-		gap: 12px;
-	}
-	.stay-names :global(.stay-kind) {
-		flex: none;
+	.group-title {
 		color: var(--gray);
-		font-size: 13px;
+		font-size: 12px;
 		font-weight: 700;
+		letter-spacing: 0.04em;
 	}
-	/* 여기 명단은 화면 코드가 만든 ul이라 :global로 */
-	.stay-names :global(li.me) {
-		font-weight: 700;
-		color: #c2410c;
-	}
-	.stay-names :global(li.empty) {
-		color: #4a4d55;
-	}
+	/* 이름은 칩, 내 이름은 주황 */
 	.day-names,
 	.stay-names :global(.day-names) {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 4px 12px;
-		font-size: 14px; /* 사용자 요구: 명단 이름 살짝 작게 */
+		gap: 6px;
 		margin: 0;
 		padding: 0;
 		list-style: none;
-	}
-	.day-names :global(li.me) {
-		font-weight: 700;
-		color: #c2410c;
-	}
-	.day-actions {
-		display: grid;
-		gap: 8px;
-	}
-	.lesson-note {
-		margin-top: 8px;
-		color: #4a4d55;
 		font-size: 13px;
 	}
-	.day-actions :global(.btn) {
-		justify-content: center;
-		min-height: 44px;
-		padding: 0 16px;
+	.day-names :global(li),
+	.stay-names :global(.day-names li) {
+		padding: 3px 10px;
+		border-radius: 99px;
+		background: var(--bone);
+	}
+	.day-names :global(li.me),
+	.stay-names :global(li.me) {
+		background: #fff1ea;
+		color: #c2410c;
+		font-weight: 700;
+	}
+	.day-names :global(li.empty),
+	.stay-names :global(li.empty) {
+		padding: 0;
+		background: none;
+		color: #4a4d55;
+	}
+	/* 시즌방: '숙박 [길동] [영희]' / '휴식 [철수]' */
+	.stay-names {
+		display: grid;
+		gap: 6px;
+	}
+	.stay-names :global(.stay-part) {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.stay-names :global(.stay-kind) {
+		flex: none;
+		width: 30px;
+		color: var(--gray);
+		font-size: 12px;
+		font-weight: 700;
+	}
+	/* 토글 버튼: 켜진 쪽 검정, 다시 누르면 취소 */
+	.day-actions {
+		display: flex;
+		gap: 6px;
+	}
+	.day-actions :global(.tog) {
+		flex: 1;
+		min-height: 38px;
+		padding: 0 10px;
+		border: 1px solid var(--line);
+		border-radius: 8px;
+		background: var(--white);
+		color: var(--black);
+		font: 700 13px 'Noto Sans KR', sans-serif;
+		cursor: pointer;
+	}
+	.day-actions :global(.tog.on) {
+		border-color: var(--black);
+		background: var(--black);
+		color: var(--white);
+	}
+	@media (hover: hover) {
+		.day-actions :global(.tog:not(.on):hover) {
+			border-color: var(--black);
+		}
+	}
+	.day-actions :global(.tog.is-loading) {
+		opacity: 0.6;
+	}
+	.lesson-note {
+		color: #4a4d55;
+		font-size: 12px;
+	}
+	.day-group + .day-group {
+		padding-top: 12px;
+		border-top: 1px solid var(--line);
 	}
 	/* 시즌방 사용 이력, 정산은 운영진 화면(/admin '시즌방 정산'), 본인 것은 마이페이지 (사용자 요구 2026-10-23) */
 </style>

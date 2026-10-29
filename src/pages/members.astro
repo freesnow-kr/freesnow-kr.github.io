@@ -175,7 +175,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					setupStays(res.season?.season);
 					// 운영진, 관리자에게만 링크 (권한은 서버가 따로 확인)
 					dash.querySelector<HTMLElement>('.staff-link')!.hidden = !['staff', 'admin'].includes(res.me.role);
-					if (['staff', 'admin'].includes(res.me.role)) setupPush();
+					setupPush(['staff', 'admin'].includes(res.me.role)); // 회원도 켤 수 있음 (폭설 알림, 2026-10-29)
 					// 배지, 출격 순위 (실패하면 안 보임)
 					call({ action: 'rideRank', token }).then((r) => {
 						if (!r?.ok || (!r.me.count && !r.me.badges.length)) return;
@@ -374,11 +374,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				});
 			}
 
-			// 앱 알림 (운영진만, 사용자 요구 2026-10-26): 강습 요청, 가입 신청을 휴대폰 알림으로. 기기마다 켜야 함
-			async function setupPush() {
+			// 앱 알림 (사용자 요구 2026-10-26, 회원은 2026-10-29부터): 운영진은 강습 요청, 가입 신청, 폭설 예보 / 회원은 폭설 예보. 기기마다 켜야 함
+			async function setupPush(staff: boolean) {
 				const row = dash.querySelector<HTMLButtonElement>('.push-row')!;
 				const label = row.querySelector('.push-state')!;
-				const TEXT: Record<string, string> = { on: '켜짐 | 강습 요청, 가입 신청', off: '꺼짐 | 눌러서 켜기', denied: '휴대폰 설정에서 막혀 있어요', install: '아이폰은 앱으로 설치한 뒤 켤 수 있어요', unsupported: '이 브라우저는 알림을 못 받아요' };
+				const TEXT: Record<string, string> = { on: staff ? '켜짐 | 강습 요청, 가입 신청, 폭설 예보' : '켜짐 | 강촌 폭설 예보', off: '꺼짐 | 눌러서 켜기', denied: '휴대폰 설정에서 막혀 있어요', install: '아이폰은 앱으로 설치한 뒤 켤 수 있어요', unsupported: '이 브라우저는 알림을 못 받아요' };
 				let state = await pushState().catch(() => 'unsupported');
 				const show = () => (label.textContent = TEXT[state]);
 				row.hidden = false;

@@ -4,6 +4,7 @@
 import type { Ctx, Env } from './index.ts';
 import resorts from '../../src/data/resorts.json' with { type: 'json' };
 import { iso, later } from './lib.ts';
+import { pushMembers } from './push.ts';
 
 const CACHE_MS = 60 * 60 * 1000;
 const API = 'https://api.open-meteo.com/v1/forecast';
@@ -85,4 +86,24 @@ export async function today(c: Ctx) {
 		        (SELECT count(*) FROM room_stays WHERE date = ?1 AND kind IN ('숙박', '휴식') AND is_active = 1) AS stays`,
 	).bind(date).first<{ rides: number; stays: number }>();
 	return { ok: true, date, rides: r!.rides, stays: r!.stays };
+}
+
+// 폭설 알림 (사용자 요구 2026-10-29): 매일 저녁 6시(Cron) 엘리시안 강촌 내일 눈 예보가 SNOW_ALERT_CM 이상이면 앱 알림을 켠 회원 모두에게
+// 같은 날 두 번 안 보냄 (cache 'snowalert:날짜')
+export const SNOW_ALERT_CM = 5;
+export async function snowAlert(env: Env, now: Date) {
+	const f = await forecast(env, now);
+	const w = f.resorts.find((r) => r.id === 'gangchon');
+	const tomorrow = w?.days[1];
+	if (!w || !tomorrow || tomorrow.snow < SNOW_ALERT_CM) return { sent: 0 };
+	const key = `snowalert:${tomorrow.date}`;
+	if (await env.DB.prepare('SELECT 1 FROM cache WHERE key = ?').bind(key).first()) return { sent: 0 };
+	await env.DB.prepare('INSERT INTO cache (key, value, expires_at) VALUES (?, ?, ?)').bind(key, '1', iso(later(now, 3 * 864e5))).run();
+	const deg = (n: number) => `${n}°`;
+	return pushMembers(env, {
+		title: `❄️ 내일 강촌 눈 ${tomorrow.snow}cm 예보`,
+		body: `${w.name} 내일 ${deg(tomorrow.min)} / ${deg(tomorrow.max)}. 출격 체크하러 가기`,
+		url: '/seasonroom/',
+		tag: 'snow',
+	});
 }

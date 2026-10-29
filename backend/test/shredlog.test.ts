@@ -18,7 +18,7 @@ const pass = { id: 'e2', date: '2025-10-01', cat: '🎟️ 시즌권 / 리프트
 
 test('회원만, 처음엔 빈 기록', async () => {
 	assert.equal((await post({ action: 'shredlog' })).expired, true);
-	assert.deepEqual(await log(A), { ok: true, visits: [], expenses: [], pass: {} });
+	assert.deepEqual(await log(A), { ok: true, visits: [], expenses: [], pass: {}, cares: [] });
 });
 
 test('추가: 응답 모양은 화면이 받던 그대로, 숫자 칸은 숫자로 저장', async () => {
@@ -49,7 +49,7 @@ test('잘못된 값 거부 (하나라도 틀리면 아무것도 안 들어감)',
 });
 
 test('다른 회원 기록은 안 보이고, 남의 ID로 지워도 그대로. 출격을 지우면 묶인 지출도', async () => {
-	assert.deepEqual(await log(B), { ok: true, visits: [], expenses: [], pass: {} });
+	assert.deepEqual(await log(B), { ok: true, visits: [], expenses: [], pass: {}, cares: [] });
 	await log(B, { op: 'delete', visit: 'v1', expense: 'e2' });
 	let r = await log(A);
 	assert.deepEqual([r.visits.length, r.expenses.length], [1, 2]);
@@ -72,4 +72,15 @@ test('지우면 소프트 삭제(is_active = 0)라 줄은 남고, 시각은 자�
 	assert.equal((await log(A)).visits.some((v: any) => v.id === 'v9'), false);
 	await log(A, { op: 'add', visits: [{ id: 'v9', date: '2025-12-20', resort: '휘닉스' }] });
 	assert.equal((await log(A)).visits.some((v: any) => v.id === 'v9'), false, '지운 ID로 다시 보내도 되살리지 않음');
+});
+
+test('장비 관리: 추가(같은 ID는 한 번), 형식 검사, 지우기, 본인 것만', async () => {
+	const A = await sessionFor('m-a'), B = await sessionFor('m-b');
+	const care = { id: 'c1', date: '2026-12-01', kind: '왁싱', memo: '  핫왁스  ' };
+	assert.match((await post({ action: 'shredlog', op: 'add', cares: [{ ...care, kind: '세차' }] }, A)).error, /장비 관리/);
+	let r = await post({ action: 'shredlog', op: 'add', cares: [care, care] }, A);
+	assert.deepEqual(r.cares, [{ id: 'c1', date: '2026-12-01', kind: '왁싱', memo: '핫왁스' }]);
+	assert.deepEqual((await post({ action: 'shredlog' }, B)).cares, []);
+	r = await post({ action: 'shredlog', op: 'delete', care: 'c1' }, A);
+	assert.deepEqual(r.cares, []);
 });

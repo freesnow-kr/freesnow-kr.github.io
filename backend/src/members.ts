@@ -92,7 +92,7 @@ export async function withdraw(c: Ctx) {
 	await db.batch([
 		db.prepare("UPDATE members SET status = 'withdrawn', name = '탈퇴 회원', gender = NULL, birth_year = NULL, region = '', area = '', login_key = NULL, phone_enc = NULL, email = NULL, role = 'member', updated_at = ?2 WHERE id = ?1")
 			.bind(me.id, iso(c.now)), // 번호도 비움 → 같은 번호로 다시 가입 가능
-		...['sessions', 'member_credentials', 'profiles', 'push_subscriptions', 'ride_logs', 'expense_logs', 'season_passes', 'snowlive_records', 'snowlive_links'].map(del),
+		...['sessions', 'member_credentials', 'profiles', 'push_subscriptions', 'ride_logs', 'expense_logs', 'season_passes', 'snowlive_records', 'snowlive_links', 'gear_care'].map(del),
 		db.prepare('INSERT INTO admin_logs (at, actor_id, action, target_id, detail) VALUES (?, ?, ?, ?, ?)').bind(iso(c.now), me.id, 'member.withdraw', me.id, '{}'),
 	]);
 	if (photo?.photo.startsWith('r2:')) await c.env.PHOTOS.delete(photo.photo.slice(3));

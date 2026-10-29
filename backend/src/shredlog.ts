@@ -1,5 +1,5 @@
 // SHRED LOG 출격, 지출, 시즌권 — Apps Script shredLog와 같은 규칙, 응답 (AGENTS.md 'SHRED LOG')
-// {op?: 'add'|'delete'} → 본인 기록 전체 {visits, expenses, pass}. 다른 회원 줄은 읽지도 지우지도 않음 (WHERE member_id)
+// {op?: 'add'|'delete'} → 본인 기록 전체 {visits, expenses, pass, cares}. cares = 장비 관리(왁싱, 엣지, 튠업 — 2026-10-29). 다른 회원 줄은 읽지도 지우지도 않음 (WHERE member_id)
 import type { Ctx } from './index.ts';
 import { need } from './auth.ts';
 import { iso } from './lib.ts';
@@ -8,6 +8,7 @@ import { iso } from './lib.ts';
 const TEXT = ['slot', 'snow', 'style', 'weather', 'crew', 'gear', 'memo'] as const;
 const NUM = ['temp', 'runs', 'hours', 'rating'] as const;
 const LOG_MAX = 3000; // 회원당 출격+지출 줄 상한
+const CARE_KINDS = ['왁싱', '엣지', '튠업', '기타'];
 
 const isId = (v: unknown) => /^[\w-]{1,64}$/.test(String(v ?? ''));
 const isYmd = (v: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(v ?? ''));
@@ -25,6 +26,8 @@ export async function shredLog(c: Ctx) {
 		const visits: any[] = Array.isArray(b.visits) ? b.visits : [];
 		const expenses: any[] = Array.isArray(b.expenses) ? b.expenses : [];
 		const pass: Record<string, any> = b.pass && typeof b.pass === 'object' ? b.pass : {};
+		const cares: any[] = Array.isArray(b.cares) ? b.cares.slice(0, 500) : [];
+		if (cares.some((x) => !x || !isId(x.id) || !isYmd(x.date) || !CARE_KINDS.includes(x.kind))) return { ok: false, error: '장비 관리 기록(날짜, 종류)을 확인해 주세요.' };
 		if (visits.some((v) => !v || !isId(v.id) || !isYmd(v.date) || !clean(v.resort, 40))) return { ok: false, error: '출격 기록(날짜, 스키장)을 확인해 주세요.' };
 		if (expenses.some((e) => !e || !isId(e.id) || !isYmd(e.date) || !clean(e.cat, 40) || !(Number(e.amount) > 0) || !won(e.amount) || (e.visit && !isId(e.visit)))) return { ok: false, error: '지출 기록(날짜, 금액)을 확인해 주세요.' };
 		if (Object.keys(pass).some((s) => !/^\d{2}-\d{2}$/.test(s) || !won(pass[s]?.price || 0) || !won(pass[s]?.day || 0))) return { ok: false, error: '시즌권 가격을 확인해 주세요.' };
@@ -45,6 +48,9 @@ export async function shredLog(c: Ctx) {
 				db.prepare('INSERT INTO expense_logs (member_id, id, date, cat, amount, memo, visit_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING')
 					.bind(me.id, String(e.id), e.date, clean(e.cat, 40), Number(e.amount), clean(e.memo, 100), e.visit ? String(e.visit) : null, now),
 			),
+			...cares.map((x) =>
+				db.prepare('INSERT INTO gear_care (member_id, id, date, kind, memo) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING').bind(me.id, String(x.id), x.date, x.kind, clean(x.memo, 100)),
+			),
 			// 시즌권: 회원, 시즌당 한 줄 (있으면 고침)
 			...Object.keys(pass).map((s) =>
 				db.prepare(
@@ -63,18 +69,20 @@ export async function shredLog(c: Ctx) {
 			stmts.push(db.prepare('UPDATE expense_logs SET is_active = 0 WHERE member_id = ? AND visit_id = ?').bind(me.id, String(b.visit)));
 		}
 		if (b.expense) stmts.push(db.prepare('UPDATE expense_logs SET is_active = 0 WHERE member_id = ? AND id = ?').bind(me.id, String(b.expense)));
+		if (b.care) stmts.push(db.prepare('UPDATE gear_care SET is_active = 0 WHERE member_id = ? AND id = ?').bind(me.id, String(b.care)));
 		if (stmts.length) await db.batch(stmts);
 	}
 
-	const [V, E, P] = await db.batch([
+	const [V, E, P, G] = await db.batch([
 		db.prepare('SELECT * FROM ride_logs WHERE member_id = ? AND is_active = 1 ORDER BY rowid').bind(me.id),
 		db.prepare('SELECT * FROM expense_logs WHERE member_id = ? AND is_active = 1 ORDER BY rowid').bind(me.id),
 		db.prepare('SELECT * FROM season_passes WHERE member_id = ? AND is_active = 1').bind(me.id),
+		db.prepare('SELECT id, date, kind, memo FROM gear_care WHERE member_id = ? AND is_active = 1 ORDER BY date, rowid').bind(me.id),
 	]);
 	// 화면이 받던 그대로: 출격 칸은 전부 글자 (빈 칸 '')
 	const str = (v: unknown) => (v == null ? '' : String(v));
 	const visits = V.results.map((r: any) => ({ id: r.id, date: r.date, resort: r.resort, ...Object.fromEntries([...TEXT, ...NUM].map((k) => [k, str(r[k])])) }));
 	const expenses = E.results.map((r: any) => ({ id: r.id, date: r.date, cat: r.cat, amount: r.amount, memo: str(r.memo), visit: str(r.visit_id) }));
 	const pass = Object.fromEntries(P.results.map((r: any) => [r.season, { price: r.price, day: r.day_price }]));
-	return { ok: true, visits, expenses, pass };
+	return { ok: true, visits, expenses, pass, cares: G.results };
 }

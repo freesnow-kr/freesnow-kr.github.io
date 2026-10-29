@@ -81,6 +81,14 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 				<a class="notice-all" href={`${base}/board/?c=notice`}>전체 보기 →</a>
 			</section>
 
+			<!-- TODAY: 엘리시안 강촌 날씨 (사용자 요구 2026-10-29, scripts/weather.ts). 못 받아 오면 안 보임 -->
+			<section class="today" aria-label="오늘 강촌 날씨" hidden>
+				<span class="today-tag">TODAY</span>
+				<p class="today-now"></p>
+				<p class="today-days"></p>
+				<a class="today-all" href={`${base}/webcam/`}>스키장 날씨, 웹캠 →</a>
+			</section>
+
 			<section id="season" class="season">
 				<div class="head">
 					<h2>THE SEASON</h2>
@@ -136,6 +144,20 @@ const ticker = ['SKI', 'SNOWBOARD', 'CARPOOL', 'NIGHT RIDE', 'APRÈS', 'FIRST CH
 		<script>
 			// 메인 NOTICE 줄: 고정 공지 최대 3개 (공지는 누구나 볼 수 있음)
 			import { base, call, ymd } from '../scripts/session';
+			import { deg, sky, snow, weather } from '../scripts/weather';
+			// TODAY 줄: 엘리시안 강촌 지금 날씨 + 오늘, 내일
+			weather().then((list) => {
+				const w = list.find((r) => r.id === 'gangchon');
+				if (!w) return;
+				const box = document.querySelector<HTMLElement>('.today')!;
+				const [icon, label] = sky(w.now.code);
+				box.querySelector('.today-now')!.textContent = `${w.name} ${icon} ${label} ${deg(w.now.temp)}`;
+				box.querySelector('.today-days')!.textContent = w.days
+					.map((d, i) => [i ? '내일' : '오늘', sky(d.code)[0], `${deg(d.min)} / ${deg(d.max)}`, snow(d.snow)].filter(Boolean).join(' '))
+					.join('   |   ');
+				box.hidden = false;
+			});
+
 			const box = document.querySelector<HTMLElement>('.notice')!;
 			const res = await call({ action: 'board.list', category: 'notice', pinned: true }).catch(() => null);
 			const posts = (res?.posts ?? []).slice(0, 3);

@@ -10,6 +10,7 @@ import { chatRank, gallery } from './gallery.ts';
 import * as admin from './admin.ts';
 import * as push from './push.ts';
 import { today, weather } from './weather.ts';
+import { rideRank } from './rank.ts';
 import * as photos from './photos.ts';
 import * as board from './board.ts';
 import * as teams from './teams.ts';
@@ -47,6 +48,7 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	somoim,
 	weather,
 	today,
+	rideRank,
 	signup,
 	avatar,
 	withdraw,

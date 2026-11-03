@@ -81,6 +81,7 @@ const actions: Record<string, (c: Ctx) => Promise<object>> = {
 	'board.photoDelete': board.photoRemove,
 	'admin.photoStatus': photos.archiveStatus,
 	'admin.photoArchive': photos.archiveAction,
+	'admin.photos': photos.adminPhotos,
 	'admin.teams.list': teams.list,
 	'admin.teams.get': teams.get,
 	'admin.teams.save': teams.save,

@@ -61,7 +61,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<button type="button" data-tab="room">시즌방 정산</button>
 						<button type="button" data-tab="owners">시즌방 주주</button>
 						<button type="button" data-tab="chat">채팅 랭킹</button>
-						<button type="button" data-tab="photos">사진 보관</button>
+						<button type="button" data-tab="photos">사진</button>
 						<button type="button" data-tab="logins">로그인 이력</button>
 						<button type="button" data-tab="teams">조 편성</button>
 						<button type="button" data-tab="audit" class="admin-only">운영 기록</button>
@@ -160,6 +160,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 						<p class="photo-ready hint"></p>
 						<div class="scroll"><table><thead><tr><th>시즌</th><th>Cloudflare</th><th>드라이브</th><th></th></tr></thead><tbody class="photo-rows"></tbody></table></div>
 						<p class="photo-msg" role="status"></p>
+						<h3 class="photo-title">갤러리 사진</h3>
+						<p class="hint">회원은 자기가 올린 사진만 지울 수 있어요. 여기서는 누가 올렸든 지울 수 있고, 운영 기록에 남아요.</p>
+						<div class="scroll"><table><thead><tr><th>사진</th><th>올린 사람</th><th>찍은 날</th><th>올린 날</th><th></th></tr></thead><tbody class="photo-list"></tbody></table></div>
 					</section>
 
 					<!-- 강습 요청: 회원이 출격한 날 요청 → 운영진이 회원 중 한 명과 연결. 요청, 연결은 운영진만 봄(요청한 회원은 자기 요청만) -->
@@ -228,7 +231,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 		</footer>
 
 		<script>
-			import { call, loginUrl, store } from '../scripts/session';
+			import { call, loginUrl, store, ymd } from '../scripts/session';
 			import { parseChat } from '../scripts/chat';
 			import { xlsx, type Cell } from '../scripts/xlsx';
 			import { pick, type PickOpt } from '../scripts/picker';
@@ -928,6 +931,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			// 사진 보관: 시즌별 Cloudflare/드라이브 장 수, 보관할 수 있는 시즌은 버튼 → 남은 게 없을 때까지 묶음으로 반복
 			const mb = (b: number) => `${(b / 1024 / 1024).toFixed(b > 1e8 ? 0 : 1)}MB`;
 			async function loadPhotos() {
+				api('admin.photos').then((r) => r && drawPhotos(r.photos));
 				const res = await api('admin.photoStatus');
 				if (!res) return;
 				$('.photo-ready').textContent = res.ready ? '구글 드라이브 연결됨.' : '구글 드라이브가 아직 연결되지 않았어요 — 보관하려면 개발 담당이 backend/scripts/google-auth.mjs로 한 번 연결해야 해요.';
@@ -959,6 +963,31 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 					}),
 				);
 			}
+
+			// 갤러리 사진 전체 (최근 올린 순): 줄마다 작은 사진, 올린 사람, 날짜, 지우기
+			const drawPhotos = (list: any[]) => {
+				const body = $('.photo-list');
+				if (!list.length) return empty(body, 5, '아직 올린 사진이 없어요.');
+				body.replaceChildren(
+					...list.map((p) => {
+						const img = document.createElement('img');
+						img.className = 'photo-thumb';
+						img.src = p.thumb;
+						img.alt = '';
+						img.loading = 'lazy';
+						const link = document.createElement('a');
+						link.href = p.thumb.replace(/\/thumb$/, '/large');
+						link.target = '_blank';
+						link.rel = 'noopener';
+						link.append(img);
+						return tr([link, p.name || '-', ymd(p.taken), ymd(p.uploaded), button('지우기', async () => {
+							if (!confirm(`${p.name || '알 수 없는 회원'}님이 올린 이 사진을 지울까요? 되돌릴 수 없어요.`)) return;
+							const res = await api('admin.photos', { remove: p.id });
+							if (res) loadPhotos();
+						})]);
+					}),
+				);
+			};
 
 			// 시즌방 정산: 시즌(7/1~6/30)을 한 번 받아 달(또는 시즌 전체)별로 사람마다 숙박, 휴식, 금액
 			const roomSeason = $<HTMLSelectElement>('.room-season');
@@ -1196,6 +1225,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	.hint {
 		font-size: 14px;
 		color: #4a4d55;
+	}
+	.photo-title {
+		margin: 28px 0 4px;
+		font-size: 16px;
+	}
+	.photo-thumb {
+		display: block;
+		width: 64px;
+		height: 64px;
+		object-fit: cover;
+		background: var(--line);
 	}
 	.scroll {
 		overflow-x: auto;

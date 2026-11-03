@@ -179,6 +179,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 	}
 	/* 화살표 모양은 ride.css 공통, 여기선 크기, 글씨만 */
 	.rank-month {
+		min-width: 10.5em; /* 자동 폭은 기본 글꼴로 재서 굵은 '2026년 10월'이 잘림 */
 		min-height: 44px;
 		padding: 0 34px 0 12px;
 		border: 1.5px solid var(--black);

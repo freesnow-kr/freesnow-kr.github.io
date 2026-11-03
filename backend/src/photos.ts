@@ -61,10 +61,10 @@ export async function serve(env: Env, id: string, size: string): Promise<Respons
 	return Response.redirect(`https://lh3.googleusercontent.com/d/${row.drive_id}=w${DRIVE_W[size as keyof typeof DRIVE_W]}`, 302);
 }
 
-// 갤러리 목록에 넣을 사진들 (찍은 날 최신순). 로그인했으면 내가 지울 수 있는 사진에 mine
+// 갤러리 목록에 넣을 사진들 (찍은 날 최신순). 로그인했으면 내가 올린 사진에 mine (운영진도 남의 사진은 운영진 화면에서만 지움, 사용자 요구 2026-11-03)
 // date = 찍은 날(한국 시간), 그날 정모가 있었으면 meetup = 정모 제목 (갤러리가 날짜별로 묶음, 사용자 요구 2026-10-29)
 export async function listPhotos(c: Ctx) {
-	let me: { id: string; role: string } | null = null;
+	let me: { id: string } | null = null;
 	if (c.body.token) me = await need(c).catch(() => null);
 	const base = new URL(c.req.url).origin;
 	const kst = (t: string) => new Date(Date.parse(t) + 9 * 3600e3).toISOString().slice(0, 10);
@@ -81,19 +81,49 @@ export async function listPhotos(c: Ctx) {
 		...(meetupOn.has(kst(p.taken_at)) && { meetup: meetupOn.get(kst(p.taken_at)) }),
 		thumb: p.storage === 'r2' ? `${base}/photo/${p.id}/thumb` : `https://lh3.googleusercontent.com/d/${p.drive_id}=w720`,
 		large: p.storage === 'r2' ? `${base}/photo/${p.id}/large` : `https://lh3.googleusercontent.com/d/${p.drive_id}=w1800`,
-		...(me && (p.uploaded_by === me.id || me.role !== 'member') ? { mine: true } : {}),
+		...(me && p.uploaded_by === me.id ? { mine: true } : {}),
 	}));
 }
 
-// {id} 올린 사람 또는 운영진. R2에 있으면 파일도 지움 (드라이브로 옮긴 건 목록에서만 뺌)
+// R2에 있으면 파일도 지움 (드라이브로 옮긴 건 목록에서만 뺌), 기록은 소프트 삭제
+const drop = async (env: Env, id: string) => {
+	await env.PHOTOS.delete(SIZES.map((s) => `gallery/${s}/${id}`));
+	await env.DB.prepare('UPDATE photos SET is_active = 0 WHERE id = ?').bind(id).run();
+};
+
+// {id} 갤러리에서 지우기: 올린 사람만
 export async function deletePhoto(c: Ctx) {
 	const me = await need(c);
 	const p = await c.env.DB.prepare('SELECT id, uploaded_by FROM photos WHERE id = ? AND is_active = 1').bind(String(c.body.id ?? '')).first<{ id: string; uploaded_by: string }>();
 	if (!p) return { ok: false, error: '사진을 찾지 못했어요.' };
-	if (p.uploaded_by !== me.id && me.role === 'member') return { ok: false, error: '내가 올린 사진만 지울 수 있어요.' };
-	await c.env.PHOTOS.delete(SIZES.map((s) => `gallery/${s}/${p.id}`));
-	await c.env.DB.prepare('UPDATE photos SET is_active = 0 WHERE id = ?').bind(p.id).run(); // 기록은 소프트 삭제, R2 파일은 지움
+	if (p.uploaded_by !== me.id) return { ok: false, error: '내가 올린 사진만 지울 수 있어요.' };
+	await drop(c.env, p.id);
 	return { ok: true };
+}
+
+// 운영진 화면 사진 목록 (올린 사람 전체 이름, 최신 올린 순). {remove: id}면 누가 올렸든 지우고 운영 기록 photo.delete
+export async function adminPhotos(c: Ctx) {
+	const me = await need(c, 'staff');
+	if (c.body.remove) {
+		const p = await c.env.DB.prepare('SELECT id, uploaded_by FROM photos WHERE id = ? AND is_active = 1').bind(String(c.body.remove)).first<{ id: string; uploaded_by: string | null }>();
+		if (!p) return { ok: false, error: '사진을 찾지 못했어요.' };
+		await drop(c.env, p.id);
+		await c.env.DB.prepare('INSERT INTO admin_logs (at, actor_id, action, target_id, detail) VALUES (?, ?, ?, ?, ?)').bind(iso(c.now), me.id, 'photo.delete', p.id, JSON.stringify({ uploadedBy: p.uploaded_by })).run();
+	}
+	const base = new URL(c.req.url).origin;
+	const { results } = await c.env.DB.prepare(
+		'SELECT p.id, p.storage, p.drive_id, p.taken_at, p.created_at, m.name FROM photos p LEFT JOIN members m ON m.id = p.uploaded_by WHERE p.is_active = 1 ORDER BY p.created_at DESC',
+	).all<any>();
+	return {
+		ok: true,
+		photos: results.map((p) => ({
+			id: p.id,
+			name: p.name ?? '',
+			taken: p.taken_at,
+			uploaded: p.created_at,
+			thumb: p.storage === 'r2' ? `${base}/photo/${p.id}/thumb` : `https://lh3.googleusercontent.com/d/${p.drive_id}=w720`,
+		})),
+	};
 }
 
 // ── 시즌 보관: R2 → 드라이브 '프리스노우 {시즌}' 폴더 (원본), 링크가 있는 모든 사용자 보기 ──

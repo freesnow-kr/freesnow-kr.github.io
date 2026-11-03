@@ -62,7 +62,7 @@ test('올리기: 회원만, 원본 그대로 R2, 찍은 날로 시즌, 이상한
 	idOld = (await send(B, new Date(now.getTime() - 2 * 365 * 864e5))).id;
 });
 
-test('목록: 찍은 날 최신순, 내 사진, 운영진만 mine, 지우기는 올린 사람, 운영진', async () => {
+test('목록: 찍은 날 최신순, 내가 올린 사진만 mine(운영진도), 지우기는 올린 사람만', async () => {
 	const list = (await post({ action: 'gallery', token: A })).photos.filter((p: any) => p.thumb);
 	assert.deepEqual(list.map((p: any) => p.id), [idA, idOld]);
 	assert.equal(list[0].mine, true);
@@ -73,8 +73,9 @@ test('목록: 찍은 날 최신순, 내 사진, 운영진만 mine, 지우기는 
 	assert.equal(list[0].meetup, undefined);
 	await env.DB.prepare("INSERT INTO meetups (id, source, title, starts_at, first_seen_at, updated_at) VALUES ('mt', 'somoim', '시즌 오픈 정모', ?, '2026', '2026')").bind(`${list[0].date}T03:00:00.000Z`).run();
 	assert.equal((await post({ action: 'gallery', token: A })).photos[0].meetup, '시즌 오픈 정모');
-	assert.equal((await post({ action: 'gallery', token: S })).photos.filter((p: any) => p.mine).length, 2);
+	assert.equal((await post({ action: 'gallery', token: S })).photos.filter((p: any) => p.mine).length, 0);
 	assert.match((await post({ action: 'photoDelete', id: idA }, B)).error, /내가 올린/);
+	assert.match((await post({ action: 'photoDelete', id: idA }, S)).error, /내가 올린/);
 });
 
 test('보관: 이번, 지난 시즌은 안 됨, 지난 시즌 원본을 드라이브 시즌 폴더로 → R2에서 지움, 주소는 드라이브로', async () => {
@@ -111,4 +112,14 @@ test('보관: 이번, 지난 시즌은 안 됨, 지난 시즌 원본을 드라�
 test('지우기: 올린 사람은 지우면 R2에서도 사라짐', async () => {
 	assert.equal((await post({ action: 'photoDelete', id: idA }, A)).ok, true);
 	assert.equal((await get(`/photo/${idA}/thumb`)).status, 404);
+});
+
+test('운영진 화면: 회원은 못 봄, 운영진은 전체 이름과 함께 보고 누구 사진이든 지움 (운영 기록)', async () => {
+	assert.equal((await post({ action: 'admin.photos' }, B)).ok, false);
+	const list = await post({ action: 'admin.photos' }, S);
+	assert.ok(list.photos.some((p: any) => p.id === idOld && p.name));
+	const r = await post({ action: 'admin.photos', remove: idOld }, S);
+	assert.ok(r.ok && !r.photos.some((p: any) => p.id === idOld));
+	const logged = await env.DB.prepare("SELECT count(*) AS n FROM admin_logs WHERE action = 'photo.delete' AND target_id = ?").bind(idOld).first<{ n: number }>();
+	assert.equal(logged!.n, 1);
 });

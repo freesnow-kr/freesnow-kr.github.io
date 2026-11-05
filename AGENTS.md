@@ -6,7 +6,7 @@
 
 - **스택**: Astro 7 정적 사이트 (프레임워크, CSS 라이브러리 없음, 의존성 `astro` 하나). Node ≥ 22.22 (로컬 24).
 - **호스팅**: GitHub Pages, 저장소 `freesnow-kr/freesnow-kr.github.io` (조직 `freesnow-kr`, public), `main` push → `.github/workflows/deploy.yml` (withastro/action, `node-version: 24`).
-- **주소**: `https://freesnow-kr.github.io/` — 하위 경로 없음(`astro.config.mjs`에 `base` 없음).
+- **주소**: `https://freesnow.org/` — 하위 경로 없음(`astro.config.mjs`에 `base` 없음). 2026-11-05 GitHub Pages 사용자 지정 도메인으로 옮김(DNS Cloudflare, DNS only, 조직에서 도메인 인증). 예전 `freesnow-kr.github.io`는 GitHub가 넘김. 백엔드 `ALLOWED_ORIGINS`에 둘 다 둠(안드로이드 앱이 예전 주소를 열 수 있어서). 같은 도메인의 `game.freesnow.org`는 게임(freesnow-game 저장소)
 - **서버 = Cloudflare Worker `backend/` + D1**(2026-10-23 이전, 사용자 요구: Apps Script 쓰는 코드 제거). 주소 `https://api.freesnow.workers.dev`, D1 `freesnow`. 사이트는 `club.api`(`PUBLIC_API_URL`)만 부름. 자세한 건 아래 '서버 (Cloudflare Worker)'.
 - 예전 **Apps Script**(`apps-script/`)는 저장소에서 뺌(`.gitignore`) — 이 컴퓨터에만 되돌리기용으로 보관, 사이트는 안 씀. 아래 기능별 절에 나오는 '탭', 스크립트 속성, `Code.gs` 설명은 **옮기기 전 기준**: 규칙, 응답 모양은 Worker가 그대로 따르고, 저장 위치는 D1 테이블(`backend/migrations/`, `docs/migration/02-design.md` §8).
 - **사용자**: 한국어 사용. 화면 문구는 한국어 존댓말(해요체), 디자인 문구는 영문 대문자.

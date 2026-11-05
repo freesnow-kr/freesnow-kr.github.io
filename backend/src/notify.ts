@@ -5,7 +5,7 @@ import { accessToken } from './photos.ts';
 import { pushStaff } from './push.ts';
 
 export const EMAIL = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
-const ADMIN_URL = 'https://freesnow-kr.github.io/admin/';
+const ADMIN_URL = 'https://freesnow.org/admin/';
 
 // 알림 받을 운영진: 활동 중 + 운영진, 관리자 + 메일 있음
 export async function staffEmails(env: Env) {

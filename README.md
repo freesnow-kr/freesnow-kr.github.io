@@ -2,7 +2,7 @@
 
 스키, 스노우보드 동호회 Free Snow 웹사이트. Astro 정적 사이트 → GitHub Pages.
 
-- 공개 주소: https://freesnow-kr.github.io/
+- 공개 주소: https://freesnow.org/ (예전 https://freesnow-kr.github.io/ 는 여기로 넘어감)
 - 저장소: https://github.com/freesnow-kr/freesnow-kr.github.io
 
 ## 페이지

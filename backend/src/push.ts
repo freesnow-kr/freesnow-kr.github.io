@@ -5,7 +5,7 @@ import type { Ctx, Env } from './index.ts';
 import { need, Reply } from './auth.ts';
 
 const bad = (error: string) => new Reply({ ok: false, error });
-const SITE = 'https://freesnow-kr.github.io'; // VAPID 연락처(sub) — 메일 대신 사이트 주소
+const SITE = 'https://freesnow.org'; // VAPID 연락처(sub) — 메일 대신 사이트 주소
 
 export type PushMsg = { title: string; body: string; url?: string; tag?: string };
 

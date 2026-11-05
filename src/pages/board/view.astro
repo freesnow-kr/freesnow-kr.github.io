@@ -98,7 +98,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			function draw(p: any, member: boolean) {
 				$('.v-cat').textContent = CAT[p.category] + (p.pinned ? ' | 📌 고정' : '');
 				$('.v-title').textContent = p.title;
-				document.title = `${p.title} — Free Snow`;
+				document.title = `${p.title} — Freesnow`;
 				$('.v-meta').textContent = `${p.author} | ${`${ymd(p.created_at)} ${hm(p.created_at)}`}${p.updated_at > p.created_at ? ' (수정됨)' : ''}`;
 				$('.v-body').textContent = p.body;
 				$('.v-photos').replaceChildren(

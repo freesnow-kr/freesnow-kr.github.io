@@ -2,7 +2,7 @@
 // 링크, API 주소는 코드에 안 둠 → 빌드할 때 환경변수로 (로컬: .env, 배포: GitHub 저장소 Secrets/Variables → deploy.yml)
 // 브라우저가 쓰는 값이라 배포된 사이트에선 보임 (숨길 값은 Worker secret에 — backend/wrangler.jsonc)
 export const club = {
-	name: 'Free Snow',
+	name: 'Freesnow',
 	footer: 'SINCE 2024', // 모든 페이지 푸터 오른쪽 (동호회 시작 연도)
 	joinUrl: import.meta.env.PUBLIC_JOIN_URL ?? '', // 카카오 오픈채팅
 	// 소모임 모임 페이지 ('소모임에서 전체 일정 보기' 링크). Worker secret SOMOIM_URL 과 같게

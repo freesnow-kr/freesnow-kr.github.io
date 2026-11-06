@@ -146,9 +146,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 			if (!token) location.replace(loginUrl);
 			else {
 				const res = await call({ action: 'me', token }).catch(() => null);
-				if (!res?.ok) {
+				if (res?.expired) {
 					store.clear();
-					location.replace(res ? `${loginUrl}?expired` : loginUrl);
+					location.replace(`${loginUrl}?expired`);
+				} else if (!res?.ok) {
+					// 서버 오류, 연결 끊김은 로그아웃하지 않음 (예전엔 여기서 토큰을 지워서 로그인이 풀림)
+					document.querySelector('.loading')!.textContent = res?.error ?? '서버에 연결하지 못했어요. 잠시 뒤 다시 열어 주세요.';
 				} else {
 					document.querySelector('.loading')!.remove();
 					dash.hidden = false;

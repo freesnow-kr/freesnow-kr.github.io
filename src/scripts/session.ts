@@ -111,7 +111,7 @@ export const busy = (form: HTMLFormElement, on: boolean, label: string) => {
 	form.setAttribute('aria-busy', String(on));
 };
 
-// 로그인 연장: 로그인은 30일, 사이트를 쓰는 동안은 하루에 한 번 다시 30일로 → 한 달 안에 한 번만 들어와도 안 풀림
+// 로그인 연장: 로그인은 1년, 사이트를 쓰는 동안은 하루에 한 번 다시 1년으로 → 1년 안에 한 번만 들어와도 안 풀림
 // (사용자 요구 2026-10-23). 서버가 세션 기한을 늘림 (토큰은 그대로, res.token이 오면 바꿔 씀)
 const RENEWED = 'fs-member-renewed';
 {

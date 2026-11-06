@@ -5,8 +5,8 @@ import { regionOf } from './region.ts';
 import { PBKDF2_ITER, ROOM_PRICES, seasonOf, seasonRange, hmac, iso, later, maskIp, normPhone, pbkdf2, phoneKey, randomB64, randomToken, safeEqual, sha256 } from './lib.ts';
 
 const HOUR = 60 * 60 * 1000;
-// 세션은 30일, 쓰는 동안 하루 넘게 지났으면 다시 30일로 늘림 (사용자 요구 2026-10-23: 최대한 안 풀리게)
-const SESSION_MS = 30 * 24 * HOUR;
+// 세션은 1년, 쓰는 동안 하루 넘게 지났으면 다시 1년으로 늘림 (사용자 요구 2026-10-23 최대한 안 풀리게, 2026-11-06 상시 로그인 → 30일에서 늘림)
+const SESSION_MS = 365 * 24 * HOUR;
 const RESET_MS = 72 * HOUR; // 초기화 후 공용 초기화 비밀번호가 통하는 시간
 const MAX_FAILS = 5; // 같은 아이디, 1시간
 const MAX_IP_FAILS = 30; // 같은 IP, 1시간
@@ -49,7 +49,7 @@ export async function need(c: Ctx, role: Role = 'member', allowMustChange = fals
 	return me;
 }
 
-// {loginId, password} → {ok, token, name, exp, mustChange}. 세션 30일
+// {loginId, password} → {ok, token, name, exp, mustChange}. 세션 1년
 // 아이디 = 010 뺀 휴대폰 번호(→ login_key로 찾음)
 export async function login(c: Ctx) {
 	const db = c.env.DB;

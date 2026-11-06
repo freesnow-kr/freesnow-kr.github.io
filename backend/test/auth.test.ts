@@ -98,14 +98,14 @@ test('로그아웃하면 그 세션 끝, 로그인 이력엔 비밀번호, 토�
 	assert.equal(sessions.includes(s.token), false); // 토큰은 해시로만
 });
 
-test('세션은 30일, 쓰는 동안 하루 넘게 지났으면 다시 30일', async () => {
+test('세션은 1년, 쓰는 동안 하루 넘게 지났으면 다시 1년', async () => {
 	const s = await login('5555-6666', PASSWORD);
 	const days = (await env.DB.prepare('SELECT expires_at FROM sessions ORDER BY created_at DESC LIMIT 1').first()).expires_at;
-	assert.ok(Date.parse(days) - Date.now() > 29.9 * 864e5);
+	assert.ok(Date.parse(days) - Date.now() > 364.9 * 864e5);
 	await env.DB.prepare('UPDATE sessions SET expires_at = ? WHERE member_id = ? AND revoked_at IS NULL').bind(new Date(Date.now() + 3 * 864e5).toISOString(), 'm-boss').run();
 	assert.equal((await post({ action: 'renew' }, s.token)).ok, true);
 	const after = (await env.DB.prepare("SELECT max(expires_at) AS e FROM sessions WHERE member_id = 'm-boss' AND revoked_at IS NULL").first()).e;
-	assert.ok(Date.parse(after) - Date.now() > 29.9 * 864e5);
+	assert.ok(Date.parse(after) - Date.now() > 364.9 * 864e5);
 	await post({ action: 'logout' }, s.token);
 });
 

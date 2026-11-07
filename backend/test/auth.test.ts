@@ -40,13 +40,15 @@ test('비밀번호 변경: 지금 비밀번호 확인, 다른 기기 세션은 �
 	assert.equal((await post({ action: 'me' }, b.token)).ok, true); // 바꾼 기기는 그대로
 });
 
-test('실패 문구는 하나, 5번 틀리면 맞는 비밀번호도 1시간 잠금', async () => {
+test('실패 문구는 하나, 5번 틀리면 맞는 비밀번호도 1분 잠금, 1분 지나면 풀림', async () => {
 	const msg = (await login('1357-1357', 'whatever1')).error; // 없는 회원
 	assert.equal((await login('9999-0000', PASSWORD)).error, msg); // 탈퇴 회원
 	for (let i = 0; i < 4; i++) assert.equal((await login('3333-4444', 'wrong-pass')).error, msg);
 	assert.equal((await login('3333-4444', 'second-pass-2')).ok, true); // 4번까진 괜찮고 성공하면 다시 0부터
 	for (let i = 0; i < 5; i++) await login('3333-4444', 'wrong-pass');
-	assert.match((await login('3333-4444', 'second-pass-2')).error, /시도 횟수/);
+	assert.match((await login('3333-4444', 'second-pass-2')).error, /1분 뒤/);
+	await env.DB.prepare("UPDATE login_logs SET at = ? WHERE ok = 0").bind(new Date(Date.now() - 61e3).toISOString()).run(); // 실패 기록을 1분 전으로
+	assert.equal((await login('3333-4444', 'second-pass-2')).ok, true);
 });
 
 test('같은 IP에서 30번 실패하면 다른 아이디도 막힘', async () => {
@@ -66,6 +68,8 @@ test('초기화: 운영진 이상(관리자 계정은 관리자만), 그 회원 
 	assert.match((await post({ action: 'admin.reset', memberId: 'm-boss' }, staff.token)).error, /관리자만/); // 운영진이 관리자 계정은 안 됨
 	assert.equal((await login('5555-6666', RESET)).ok, false); // 초기화 안 된 계정엔 공용 비밀번호가 안 통함
 
+	for (let i = 0; i < 5; i++) await login('1111-2222', 'wrong-pass');
+	assert.match((await login('1111-2222', PASSWORD)).error, /시도 횟수/); // 잠김 → 초기화하면 바로 풀림
 	const r = await post({ action: 'admin.reset', memberId: 'm-kim' }, staff.token); // 운영진도 됨
 	assert.equal(r.ok, true);
 	assert.equal((await post({ action: 'me' }, kim.token)).expired, true);

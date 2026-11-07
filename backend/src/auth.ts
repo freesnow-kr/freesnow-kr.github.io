@@ -8,12 +8,13 @@ const HOUR = 60 * 60 * 1000;
 // 세션은 1년, 쓰는 동안 하루 넘게 지났으면 다시 1년으로 늘림 (사용자 요구 2026-10-23 최대한 안 풀리게, 2026-11-06 상시 로그인 → 30일에서 늘림)
 const SESSION_MS = 365 * 24 * HOUR;
 const RESET_MS = 72 * HOUR; // 초기화 후 공용 초기화 비밀번호가 통하는 시간
-const MAX_FAILS = 5; // 같은 아이디, 1시간
-const MAX_IP_FAILS = 30; // 같은 IP, 1시간
+const LOCK_MS = 60 * 1000; // 잠금 시간 (사용자 요구 2026-11-07: 1시간은 너무 길어서 1분)
+const MAX_FAILS = 5; // 같은 아이디, 1분
+const MAX_IP_FAILS = 30; // 같은 IP, 1분
 const DUMMY_SALT = 'AAAAAAAAAAAAAAAAAAAAAA==';
 
 const FAIL = { ok: false, error: '아이디 또는 비밀번호가 맞지 않아요.' }; // 무엇이 틀렸는지, 회원인지 구분 안 함
-const LOCKED = { ok: false, error: '시도 횟수를 넘었어요. 1시간 뒤에 다시 시도해 주세요.' };
+const LOCKED = { ok: false, error: '시도 횟수를 넘었어요. 1분 뒤에 다시 시도해 주세요.' };
 const EXPIRED = { ok: false, expired: true, error: '다시 로그인해 주세요.' };
 const MUST_CHANGE = { ok: false, mustChange: true, error: '새 비밀번호를 먼저 정해 주세요.' };
 const FORBIDDEN = { ok: false, error: '권한이 없어요.' };
@@ -65,12 +66,14 @@ export async function login(c: Ctx) {
 		db.prepare('INSERT INTO login_logs (at, member_id, login_key, ok, reason, ip_masked, ip_hash, ua) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
 			.bind(iso(c.now), memberId, key, ok ? 1 : 0, reason, maskIp(ip), ipHash, ua);
 
-	// 잠금: 마지막 성공 이후 1시간 안의 실패 수 ('잠김'으로 막힌 시도는 안 셈 → 1시간 지나면 풀림)
-	const since = iso(later(c.now, -HOUR));
+	// 잠금: 마지막 성공, 비밀번호 초기화(변경) 이후 1분 안의 실패 수 ('잠김'으로 막힌 시도는 안 셈 → 1분 지나면 풀림)
+	// 운영진이 초기화하면 그 회원의 실패 기록은 안 셈 → 바로 풀림 (사용자 요구 2026-11-07)
+	const since = iso(later(c.now, -LOCK_MS));
 	const n = await db.prepare(
 		`SELECT
 		   (SELECT count(*) FROM login_logs WHERE login_key = ?1 AND ok = 0 AND reason != 'locked' AND at > ?2
-		      AND at > coalesce((SELECT max(at) FROM login_logs WHERE login_key = ?1 AND ok = 1), '')) AS fails,
+		      AND at > coalesce((SELECT max(at) FROM login_logs WHERE login_key = ?1 AND ok = 1), '')
+		      AND at > coalesce((SELECT changed_at FROM member_credentials mc WHERE mc.member_id = login_logs.member_id), '')) AS fails,
 		   (SELECT count(*) FROM login_logs WHERE ?3 != '' AND ip_hash = ?3 AND ok = 0 AND reason != 'locked' AND at > ?2) AS ipFails`,
 	).bind(key, since, ipHash).first<{ fails: number; ipFails: number }>();
 	if (n!.fails >= MAX_FAILS || n!.ipFails >= MAX_IP_FAILS) {

@@ -60,13 +60,16 @@ const pick = {
 
 			<div class="mem-body log">
 				<div class="summary">
-				<dl class="stats">
-					<div><dt>출격</dt><dd data-stat="visits"></dd></div>
-					<div><dt>총 지출</dt><dd data-stat="total"></dd></div>
-					<div><dt>1회 평균</dt><dd data-stat="avg"></dd></div>
-					<div><dt>라이딩 시간</dt><dd data-stat="hours"></dd></div>
-					<div><dt>베이스</dt><dd data-stat="base"></dd></div>
-				</dl>
+				<div class="ticket">
+					<div class="ticket-head"></div>
+					<dl class="stats">
+						<div class="pri"><dt>출격</dt><dd data-stat="visits"><b></b><span class="u"></span></dd></div>
+						<div><dt>총 지출</dt><dd data-stat="total"><b></b><span class="u"></span></dd></div>
+						<div><dt>1회 평균</dt><dd data-stat="avg"><b></b><span class="u"></span></dd></div>
+						<div><dt>라이딩 시간</dt><dd data-stat="hours"><b></b><span class="u"></span></dd></div>
+						<div><dt>베이스</dt><dd data-stat="base"><b></b><span class="u"></span></dd></div>
+					</dl>
+				</div>
 				<!-- 저장 위치 안내: 표 아래 작은 글씨 -->
 				<p class="sync" aria-live="polite">
 					<span class="sync-msg">불러오는 중…</span>
@@ -349,7 +352,14 @@ const pick = {
 				}
 				const st = statsOf(season);
 				const stat = { visits: `${st.rides}일`, total: won(st.total), avg: won(st.avg), hours: `${st.hours}시간`, base: st.base };
-				Object.entries(stat).forEach(([k, v]) => ($(`[data-stat=${k}]`).textContent = v));
+				Object.entries(stat).forEach(([k, v]) => {
+					const dd = $(`[data-stat=${k}]`);
+					const m = String(v).match(/^([0-9,.\-]+)?\s*(.*)$/); // 숫자 부분 / 단위 분리 (34일, 0원, -)
+					dd.querySelector('b')!.textContent = (m && m[1]) || String(v);
+					dd.querySelector('.u')!.textContent = (m && m[1] && m[2]) || '';
+				});
+				const ticketHead = document.querySelector('.ticket-head');
+				if (ticketHead) ticketHead.textContent = `${season} SEASON · SHRED LOG`;
 
 				// 시즌권 칸: 시즌이 바뀌거나 기록을 새로 불러왔을 때만 저장된 가격으로 채움 (입력 중인 값을 덮지 않게). 계산은 '계산하기'를 눌러야
 				if (passSeason !== season) {
@@ -755,28 +765,75 @@ const pick = {
 		display: grid;
 		gap: clamp(28px, 4vw, 48px); /* 섹션 사이 (예전 40~72px) */
 	}
-	.stats {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		margin: 0;
-		padding: 0.75px;
+	/* 리프트 티켓 (사용자 선택 옵션 3, 2026-11-10) */
+	.ticket {
+		border: 1.5px solid var(--black);
+		border-radius: 16px;
+		overflow: hidden;
 	}
-	/* 칸마다 테두리를 겹쳐 그림 (칸 수가 홀수여도 빈 칸이 안 칠해짐) */
-	.stats :global(div) {
-		padding: 18px 20px;
+	.ticket-head {
+		background: var(--accent);
+		color: var(--white);
+		font: 900 13px 'Noto Sans KR', sans-serif;
+		letter-spacing: 0.08em;
+		padding: 12px 18px;
+	}
+	.stats {
+		display: flex;
+		margin: 0;
 		background: var(--white);
-		box-shadow: 0 0 0 1.5px var(--black);
+	}
+	.stats :global(div) {
+		flex: 1;
+		min-width: 0;
+		padding: 16px 16px;
+		border-right: 1px dashed var(--line); /* 티켓 절취선 느낌 */
+	}
+	.stats :global(div:last-child) {
+		border-right: 0;
 	}
 	.stats :global(dt) {
 		font-size: 12px;
 		font-weight: 700;
-		letter-spacing: 0.15em;
+		letter-spacing: 0.08em;
 		color: #4a4d55;
 	}
 	.stats :global(dd) {
 		margin: 6px 0 0;
-		font: clamp(1.4rem, 2.6vw, 2rem) var(--display);
 		overflow-wrap: anywhere;
+	}
+	.stats :global(dd b) {
+		font-family: var(--display);
+		font-weight: 400;
+		font-size: clamp(1.5rem, 2.4vw, 2rem);
+		line-height: 0.9;
+		letter-spacing: 0.01em;
+	}
+	.stats :global(dd .u) {
+		font-size: 0.5em;
+		font-weight: 800;
+		color: #8b8e97;
+		margin-left: 2px;
+	}
+	.stats :global(.pri dd b) {
+		color: var(--accent);
+	}
+	/* 모바일: 한 줄에 5개는 좁아 → 2열로 접고 절취선은 가로세로 */
+	@media (max-width: 640px) {
+		.stats {
+			flex-wrap: wrap;
+		}
+		.stats :global(div) {
+			flex: 1 1 50%;
+			border-bottom: 1px dashed var(--line);
+		}
+		.stats :global(div:nth-child(2n)) {
+			border-right: 0;
+		}
+		.stats :global(div:last-child),
+		.stats :global(div:nth-last-child(2):nth-child(odd)) {
+			border-bottom: 0;
+		}
 	}
 	.block {
 		display: grid;
@@ -1135,6 +1192,15 @@ const pick = {
 		min-height: 0;
 		overflow-y: auto;
 		overflow-x: hidden;
+	}
+	/* 모바일은 카드 높이 고정(syncSlHeight)이 없어서 전부 보임 → 5개쯤만 보이고 나머지는 스크롤 */
+	@media (max-width: 720px) {
+		.sl-slopes {
+			max-height: 150px;
+		}
+		.sl-days-wrap {
+			max-height: 184px; /* 표 머리 + 약 5줄 */
+		}
 	}
 	.sl-days {
 		font-size: 13px;

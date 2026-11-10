@@ -116,7 +116,8 @@ const pick = {
 								</div>
 								<div class="sl-col">
 									<h4 class="sl-h">DAYS</h4>
-									<div class="sl-days-wrap"><table class="sl-days"><thead><tr><th>날짜</th><th>런</th><th>많이 탄 슬로프</th></tr></thead><tbody></tbody></table></div>
+									<table class="sl-days sl-days-head"><colgroup><col style="width:44%" /><col style="width:20%" /><col style="width:36%" /></colgroup><thead><tr><th>날짜</th><th>런</th><th>많이 탄 슬로프</th></tr></thead></table>
+									<div class="sl-days-wrap"><table class="sl-days sl-days-body"><colgroup><col style="width:44%" /><col style="width:20%" /><col style="width:36%" /></colgroup><tbody></tbody></table></div>
 								</div>
 							</div>
 						</div>
@@ -695,7 +696,7 @@ const pick = {
 							return li;
 						}),
 					);
-					$('.sl-days tbody').replaceChildren(...[...st.days!].reverse().map((d) => row([d.date, `${d.count}런`, d.slope])));
+					$('.sl-days-body tbody').replaceChildren(...[...st.days!].reverse().map((d) => row([d.date, `${d.count}런`, d.slope])));
 					st.days!.forEach((d) => (slDays[d.date] = d.count));
 					requestAnimationFrame(syncSlHeight);
 				}
@@ -1208,13 +1209,18 @@ const pick = {
 			max-height: 150px;
 		}
 		.sl-days-wrap {
-			max-height: 184px; /* 표 머리 + 약 5줄 */
+			max-height: 150px; /* 약 5줄 (헤더는 위에 따로 고정) */
 		}
 	}
 	.sl-days {
+		width: 100%;
+		table-layout: fixed; /* 헤더 테이블과 바디 테이블의 열 너비를 colgroup으로 맞춤 */
 		font-size: 13px;
 		border-collapse: separate;
 		border-spacing: 0;
+	}
+	.sl-days-head {
+		flex: none; /* 헤더는 스크롤 밖에 고정 */
 	}
 	.sl-days :global(th),
 	.sl-days :global(td) {

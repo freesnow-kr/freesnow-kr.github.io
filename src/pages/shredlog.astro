@@ -635,10 +635,7 @@ const pick = {
 					slMsg.textContent = '스노우라이브 앱 > 내 프로필 > 공유 링크를 붙여 넣으면 시즌 라이딩 통계를 보여줘요.';
 					return render();
 				}
-				// 값은 textContent, 속성으로만
-				const photo = $<HTMLImageElement>('.sl-photo');
-				photo.hidden = !st.photo;
-				if (st.photo) photo.src = st.photo;
+				// 값은 textContent, 속성으로만 (아바타 .sl-photo는 A2 카드에서 뺌)
 				const tier = $('.sl-tier');
 				tier.hidden = !st.tier?.name;
 				if (st.tier) {

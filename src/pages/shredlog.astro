@@ -85,28 +85,36 @@ const pick = {
 						<button class="btn btn-ink" type="submit">연결</button>
 					</form>
 					<div class="sl-box" hidden>
-						<div class="sl-head">
-							<img class="sl-photo" alt="" referrerpolicy="no-referrer" hidden />
-							<div class="sl-who">
+						<div class="sl-wrap">
+							<!-- 티어 플레이어 카드 (사용자 선택 A2: 검정 + 주황) -->
+							<div class="sl-card">
+								<div class="sl-card-top">
+									<span class="sl-tier" hidden><img alt="" referrerpolicy="no-referrer" /><span></span></span>
+									<span class="sl-rank"></span>
+								</div>
+								<p class="sl-score"><small>SCORE</small><b></b></p>
 								<p class="sl-name"></p>
 								<p class="sl-sub"></p>
+								<dl class="sl-mini">
+									<div><dd class="sl-runs"></dd><dt>RUNS</dt></div>
+									<div><dd class="sl-daysn"></dd><dt>DAYS</dt></div>
+									<div><dd class="sl-topslope"></dd><dt>TOP SLOPE</dt></div>
+								</dl>
 							</div>
-							<span class="sl-tier" hidden><img alt="" referrerpolicy="no-referrer" /><span></span></span>
-							<button class="btn-mini sl-refresh" type="button" title="스노우라이브에서 지금 기록을 새로 가져와요">재연결</button>
-							<button class="del sl-unlink" type="button">연결 해제</button>
-						</div>
-						<div class="sl-stats-wrap">
-							<dl class="stats sl-stats"></dl>
-							<div class="sl-cols">
+							<div class="sl-side">
 								<div>
-									<h3>SLOPES</h3>
+									<h4 class="sl-h">SLOPES · 많이 탄 슬로프</h4>
 									<ol class="sl-slopes"></ol>
 								</div>
 								<div>
-									<h3>DAYS</h3>
+									<h4 class="sl-h">DAYS · 날짜별 런</h4>
 									<div class="scroll sl-days-wrap"><table class="sl-days"><thead><tr><th>날짜</th><th>런</th><th>많이 탄 슬로프</th></tr></thead><tbody></tbody></table></div>
 								</div>
 							</div>
+						</div>
+						<div class="sl-actions">
+							<button class="btn-mini sl-refresh" type="button" title="스노우라이브에서 지금 기록을 새로 가져와요">재연결</button>
+							<button class="del sl-unlink" type="button">연결 해제</button>
 						</div>
 					</div>
 				</section>
@@ -630,34 +638,28 @@ const pick = {
 				const photo = $<HTMLImageElement>('.sl-photo');
 				photo.hidden = !st.photo;
 				if (st.photo) photo.src = st.photo;
-				$('.sl-name').textContent = st.name;
-				$('.sl-sub').textContent = [st.crew, st.resort, st.board].filter(Boolean).join(' | ');
 				const tier = $('.sl-tier');
 				tier.hidden = !st.tier?.name;
 				if (st.tier) {
-					tier.style.color = st.tier.color;
-					tier.style.background = st.tier.bg;
+					// 티어 글자는 카드 톤에 맞춰 흰색, 배지 배경만 티어 색 (A2 카드)
+					tier.style.color = '#fff';
 					tier.querySelector('span')!.textContent = st.tier.name;
 					const icon = tier.querySelector('img')!;
 					icon.hidden = !st.tier.icon;
 					if (st.tier.icon) icon.src = st.tier.icon;
 				}
 				const has = !st.hidden && !!st.total;
-				$('.sl-stats-wrap').hidden = !has;
+				$('.sl-wrap').hidden = !has;
 				slMsg.textContent = st.hidden ? '스노우라이브에서 프로필을 숨겨 두어서 통계를 볼 수 없어요.' : has ? '' : `${season} 시즌 스노우라이브 기록이 없어요.`;
 				if (has) {
-					const tiles = [['총 런', `${st.total!.toLocaleString()}런`], ['점수', st.score!.toLocaleString()], ['랭킹', `${st.rank!.toLocaleString()}위`], ['상위', `${st.top}%`], ['라이딩 일수', `${st.days!.length}일`]];
-					$('.sl-stats').replaceChildren(
-						...tiles.map(([k, v]) => {
-							const div = document.createElement('div');
-							const dt = document.createElement('dt');
-							const dd = document.createElement('dd');
-							dt.textContent = k;
-							dd.textContent = v;
-							div.append(dt, dd);
-							return div;
-						}),
-					);
+					// A2 카드 채우기
+					$('.sl-score b').textContent = st.score!.toLocaleString();
+					$('.sl-rank').textContent = `#${st.rank!.toLocaleString()}`;
+					$('.sl-name').textContent = `${st.name} · 상위 ${st.top}%`;
+					$('.sl-sub').textContent = [st.crew, st.resort, st.board].filter(Boolean).join(' · ');
+					$('.sl-runs').textContent = st.total!.toLocaleString();
+					$('.sl-daysn').textContent = `${st.days!.length}`;
+					$('.sl-topslope').textContent = st.slopes![0]?.slope ?? '-';
 					const max = st.slopes![0]?.count || 1;
 					$('.sl-slopes').replaceChildren(
 						...st.slopes!.map((x) => {
@@ -673,9 +675,18 @@ const pick = {
 					);
 					$('.sl-days tbody').replaceChildren(...[...st.days!].reverse().map((d) => row([d.date, `${d.count}런`, d.slope])));
 					st.days!.forEach((d) => (slDays[d.date] = d.count));
+					requestAnimationFrame(syncSlHeight);
 				}
 				render(); // 출격 표의 '스노우라이브' 칸
 			}
+			// 오른쪽 카드를 왼쪽 플레이어 카드와 같은 높이로 (넓은 화면만, 좁으면 세로라 자동)
+			function syncSlHeight() {
+				const card = $<HTMLElement>('.sl-card');
+				const side = $<HTMLElement>('.sl-side');
+				if (!card || !side) return;
+				side.style.height = window.innerWidth > 720 && !slBox.hidden ? `${card.offsetHeight}px` : '';
+			}
+			addEventListener('resize', syncSlHeight);
 
 			slForm.addEventListener('submit', (e) => {
 				e.preventDefault();
@@ -913,35 +924,137 @@ const pick = {
 		min-height: 44px;
 		padding: 0 20px;
 	}
-	.sl-head {
+	/* 스노우라이브 — 티어 플레이어 카드 (사용자 선택 A2) */
+	.sl-box {
+		display: grid;
+		gap: 16px;
+	}
+	.sl-wrap {
+		display: grid;
+		grid-template-columns: 300px minmax(0, 1fr);
+		gap: 16px;
+		align-items: start;
+	}
+	@media (max-width: 720px) {
+		.sl-wrap {
+			grid-template-columns: 1fr;
+		}
+	}
+	.sl-card {
+		position: relative;
+		overflow: hidden;
+		padding: 20px 22px;
+		border: 1px solid #23262e;
+		border-radius: 18px;
+		background: var(--black);
+		color: #fff;
+	}
+	.sl-card::after {
+		content: '';
+		position: absolute;
+		left: -40px;
+		bottom: -60px;
+		width: 220px;
+		height: 220px;
+		background: radial-gradient(circle, rgba(255, 90, 31, 0.25), transparent 70%);
+		pointer-events: none;
+	}
+	.sl-card > * {
+		position: relative;
+	}
+	.sl-card-top {
 		display: flex;
-		flex-wrap: wrap;
+		justify-content: space-between;
 		align-items: center;
-		gap: 12px 16px;
-	}
-	.sl-photo {
-		width: 56px;
-		height: 56px;
-		border-radius: 50%;
-		object-fit: cover;
-	}
-	.sl-who {
-		margin-right: auto;
-	}
-	.sl-name {
-		font-size: 1.3rem;
-		font-weight: 900;
-	}
-	.sl-sub {
-		color: #4a4d55;
-		font-size: 14px;
+		gap: 10px;
 	}
 	.sl-tier {
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
-		padding: 6px 12px;
+		padding: 5px 11px;
+		border-radius: 999px;
+		background: rgba(255, 90, 31, 0.18);
+		color: var(--accent);
+		font: 900 13px 'Noto Sans KR', sans-serif;
+		letter-spacing: 0.04em;
+	}
+	.sl-tier img {
+		width: 20px;
+		height: 20px;
+	}
+	.sl-rank {
+		padding: 5px 11px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.14);
+		font: 900 12px 'Noto Sans KR', sans-serif;
+	}
+	.sl-score {
+		margin: 16px 0 0;
+		font: 400 clamp(2.8rem, 7vw, 3.6rem) / 0.9 var(--display);
+	}
+	.sl-score small {
+		display: block;
+		font: 700 11px 'Noto Sans KR', sans-serif;
+		letter-spacing: 0.25em;
+		color: rgba(255, 255, 255, 0.5);
+		margin-bottom: 2px;
+	}
+	.sl-name {
+		margin: 12px 0 0;
+		font-size: 15px;
 		font-weight: 900;
+	}
+	.sl-sub {
+		margin: 2px 0 0;
+		font-size: 12px;
+		font-weight: 700;
+		color: rgba(255, 255, 255, 0.5);
+	}
+	.sl-sub:empty {
+		display: none;
+	}
+	.sl-mini {
+		display: flex;
+		justify-content: space-between;
+		gap: 10px;
+		margin: 14px 0 0;
+		padding-top: 14px;
+		border-top: 1px solid rgba(255, 255, 255, 0.14);
+	}
+	.sl-mini :global(dd) {
+		margin: 0;
+		font: 400 1.3rem var(--display);
+		overflow-wrap: anywhere;
+	}
+	.sl-mini :global(dt) {
+		margin-top: 2px;
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		color: rgba(255, 255, 255, 0.5);
+	}
+	.sl-side {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+		gap: 20px 32px;
+		align-items: start;
+		background: var(--white);
+		border: 1px solid var(--line);
+		border-radius: 18px;
+		padding: 18px 20px;
+		overflow: auto; /* 왼쪽 카드 높이에 맞춰 넘치면 안에서 스크롤 (높이는 JS syncSlHeight) */
+	}
+	.sl-h {
+		margin: 0 0 10px;
+		font-size: 11px;
+		font-weight: 900;
+		letter-spacing: 0.1em;
+		color: #4a4d55;
+	}
+	.sl-actions {
+		display: flex;
+		gap: 8px;
 	}
 	.btn-mini {
 		min-height: 34px;
@@ -959,43 +1072,39 @@ const pick = {
 		opacity: 0.5;
 		cursor: progress;
 	}
-	.sl-tier img {
-		width: 22px;
-		height: 22px;
-	}
-	.sl-box,
-	.sl-stats-wrap {
-		display: grid;
-		gap: 24px;
-	}
-	.sl-cols {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-		gap: 24px 40px;
-		align-items: start;
-	}
-	.sl-cols h3 {
-		font: 1.2rem var(--display);
-		font-weight: 400;
-		letter-spacing: 0.04em;
-		margin-bottom: 8px;
-	}
 	.sl-slopes {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 	}
-	/* 막대 = 가장 많이 탄 슬로프 대비 */
+	/* 막대 = 가장 많이 탄 슬로프 대비 (주황 채움) */
 	.sl-slopes :global(li) {
 		display: flex;
 		justify-content: space-between;
-		padding: 8px 10px;
-		border-bottom: 1px solid var(--line);
-		background: linear-gradient(90deg, var(--white) var(--w), transparent var(--w));
+		padding: 4px 10px;
+		font-size: 11px;
+		font-weight: 400;
+		border-radius: 5px;
+		background: linear-gradient(90deg, #ffd9c7 var(--w), var(--bone) var(--w));
+		margin-bottom: 4px;
+	}
+	/* 횟수(b)만 굵게, 슬로프명은 보통 */
+	.sl-slopes :global(li b) {
+		font-weight: 900;
 	}
 	.sl-days-wrap {
-		max-height: 360px;
-		overflow-y: auto;
+		overflow-x: auto;
+	}
+	/* DAYS 표 글씨도 작게 (슬로프 막대와 톤 맞춤) */
+	.sl-days {
+		font-size: 12px;
+	}
+	.sl-days :global(th),
+	.sl-days :global(td) {
+		padding: 6px 8px;
+	}
+	.sl-days :global(th) {
+		font-size: 11px;
 	}
 	.summary {
 		display: grid;

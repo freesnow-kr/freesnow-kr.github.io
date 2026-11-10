@@ -79,7 +79,9 @@ const regions = [
 ];
 // 지역 순서대로, 지역 안에선 가나다. 처음엔 곤지암 (영상이 바로 나오는 곳)
 type Resort = { id: string; name: string; site: string; url: string; note: string; embed?: boolean; cams?: { name: string; src: string }[] };
-const resorts = regions.flatMap((r) => (r.resorts as Resort[]).toSorted((a, b) => a.name.localeCompare(b.name, 'ko')).map((c) => ({ ...c, region: r.name })));
+const ordered = regions.flatMap((r) => (r.resorts as Resort[]).toSorted((a, b) => a.name.localeCompare(b.name, 'ko')).map((c) => ({ ...c, region: r.name })));
+// 영상 바로 재생되는 곳 먼저, 공식 웹캠 버튼만 있는 곳(하이원·비발디·오투)은 맨 뒤로 (사용자 요구 2026-11-10)
+const resorts = [...ordered.filter((c) => c.cams), ...ordered.filter((c) => !c.cams)];
 const first = 'konjiam';
 ---
 

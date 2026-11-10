@@ -610,6 +610,7 @@ const pick = {
 				let res = body.op ? null : slCache[key];
 				if (!res) {
 					slMsg.textContent = '스노우라이브 기록 불러오는 중…';
+					slBox.hidden = true; // 불러오는 동안 빈 카드 안 보이게, 안내 문구만 (사용자 요구 2026-11-10)
 					const r = await call({ action: 'snowlive', token, season: key, ...body }).catch(() => null);
 					if (r?.expired) {
 						store.clear();

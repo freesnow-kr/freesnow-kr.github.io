@@ -76,7 +76,13 @@ const pick = {
 				</div>
 
 				<section class="block">
-					<h2>SNOWLIVE</h2>
+					<div class="sl-head">
+						<h2>SNOWLIVE</h2>
+						<div class="sl-actions" hidden>
+							<button class="btn-mini sl-refresh" type="button" title="스노우라이브에서 지금 기록을 새로 가져와요">재연결</button>
+							<button class="del sl-unlink" type="button">연결 해제</button>
+						</div>
+					</div>
 					<p class="sl-msg" aria-live="polite"></p>
 					<form class="sl-form" hidden>
 						<div class="row">
@@ -102,19 +108,15 @@ const pick = {
 								</dl>
 							</div>
 							<div class="sl-side">
-								<div>
-									<h4 class="sl-h">SLOPES · 많이 탄 슬로프</h4>
+								<div class="sl-col">
+									<h4 class="sl-h">SLOPES</h4>
 									<ol class="sl-slopes"></ol>
 								</div>
-								<div>
-									<h4 class="sl-h">DAYS · 날짜별 런</h4>
-									<div class="scroll sl-days-wrap"><table class="sl-days"><thead><tr><th>날짜</th><th>런</th><th>많이 탄 슬로프</th></tr></thead><tbody></tbody></table></div>
+								<div class="sl-col">
+									<h4 class="sl-h">DAYS</h4>
+									<div class="sl-days-wrap"><table class="sl-days"><thead><tr><th>날짜</th><th>런</th><th>많이 탄 슬로프</th></tr></thead><tbody></tbody></table></div>
 								</div>
 							</div>
-						</div>
-						<div class="sl-actions">
-							<button class="btn-mini sl-refresh" type="button" title="스노우라이브에서 지금 기록을 새로 가져와요">재연결</button>
-							<button class="del sl-unlink" type="button">연결 해제</button>
 						</div>
 					</div>
 				</section>
@@ -241,6 +243,12 @@ const pick = {
 			type Care = { id: string; date: string; kind: string; memo: string };
 			type Data = { visits: Visit[]; expenses: Expense[]; pass: Record<string, { price?: number; day?: number }>; cares: Care[] };
 			const WAX_EVERY = 5; // 왁싱 알림: 이만큼 출격하면 (사용자 확인 2026-10-29)
+			const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+			// 스노우라이브 티어명 → 우리가 저장한 배지 이미지 (public/tiers). API가 티어별 이미지를 안 줘서 직접 보관
+			const TIER_BADGE: Record<string, string> = {
+				'그랜드마스터': 'grandmaster', '마스터': 'master', '다이아몬드': 'diamond',
+				'플래티넘': 'platinum', '골드': 'gold', '실버': 'silver', '브론즈': 'bronze',
+			};
 
 			// 로그인 안 했으면 이 브라우저(localStorage)에만, 로그인하면 시트(회원 본인 기록)에 저장
 			const KEY = 'fs-shredlog';
@@ -598,10 +606,11 @@ const pick = {
 			const slMsg = $('.sl-msg');
 			const slForm = $<HTMLFormElement>('.sl-form');
 			const slBox = $('.sl-box');
+			const slActions = $('.sl-actions');
 
 			async function snowlive(body: { op?: string; id?: string } = {}) {
 				if (!online) {
-					slForm.hidden = slBox.hidden = true;
+					slForm.hidden = slBox.hidden = slActions.hidden = true;
 					slMsg.textContent = '로그인하면 스노우라이브 라이딩 통계를 연결할 수 있어요.';
 					slDays = {};
 					return;
@@ -610,7 +619,7 @@ const pick = {
 				let res = body.op ? null : slCache[key];
 				if (!res) {
 					slMsg.textContent = '스노우라이브 기록 불러오는 중…';
-					slBox.hidden = true; // 불러오는 동안 빈 카드 안 보이게, 안내 문구만 (사용자 요구 2026-11-10)
+					slBox.hidden = slActions.hidden = true; // 불러오는 동안 빈 카드 안 보이게, 안내 문구만 (사용자 요구 2026-11-10)
 					const r = await call({ action: 'snowlive', token, season: key, ...body }).catch(() => null);
 					if (r?.expired) {
 						store.clear();
@@ -629,7 +638,7 @@ const pick = {
 
 			function showSnowlive(id: string, st: SL | null) {
 				slForm.hidden = !!id;
-				slBox.hidden = !id;
+				slBox.hidden = slActions.hidden = !id;
 				slDays = {};
 				if (!id || !st) {
 					slMsg.textContent = '스노우라이브 앱 > 내 프로필 > 공유 링크를 붙여 넣으면 시즌 라이딩 통계를 보여줘요.';
@@ -643,8 +652,10 @@ const pick = {
 					tier.style.color = '#fff';
 					tier.querySelector('span')!.textContent = st.tier.name;
 					const icon = tier.querySelector('img')!;
-					icon.hidden = !st.tier.icon;
-					if (st.tier.icon) icon.src = st.tier.icon;
+					const file = TIER_BADGE[(st.tier.name || '').replace(/\s+/g, '')];
+					const url = file ? `${base}/tiers/${file}.png` : st.tier.icon; // 모르는 티어명은 API 아이콘
+					icon.hidden = !url;
+					if (url) icon.src = url;
 				}
 				const has = !st.hidden && !!st.total;
 				$('.sl-wrap').hidden = !has;
@@ -923,6 +934,9 @@ const pick = {
 		padding: 0 20px;
 	}
 	/* 스노우라이브 — 티어 플레이어 카드 (사용자 선택 A2) */
+	.sl-msg:empty {
+		display: none;
+	}
 	.sl-box {
 		display: grid;
 		gap: 16px;
@@ -978,8 +992,9 @@ const pick = {
 		letter-spacing: 0.04em;
 	}
 	.sl-tier img {
-		width: 20px;
-		height: 20px;
+		height: 1.5em;
+		width: auto;
+		margin: -2px 0; /* 배지가 핀 높이를 키우지 않게 */
 	}
 	.sl-rank {
 		padding: 5px 11px;
@@ -1035,20 +1050,42 @@ const pick = {
 	.sl-side {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+		grid-template-rows: minmax(0, 1fr); /* 한 행을 고정 높이에 맞춰 컬럼이 줄어들고 안에서 스크롤 (좁은 화면은 자동 행이라 영향 없음) */
 		gap: 20px 32px;
-		align-items: start;
+		align-items: stretch;
 		background: var(--white);
 		border: 1px solid var(--line);
 		border-radius: 18px;
-		padding: 18px 20px;
-		overflow: auto; /* 왼쪽 카드 높이에 맞춰 넘치면 안에서 스크롤 (높이는 JS syncSlHeight) */
+		padding: 0 20px 18px;
+		overflow: hidden; /* 높이는 JS syncSlHeight, 스크롤은 각 컬럼(.sl-col)이 따로 */
+	}
+	.sl-col {
+		display: flex;
+		flex-direction: column;
+		min-height: 0; /* 안의 목록이 flex:1로 줄어들어 스크롤되게 */
 	}
 	.sl-h {
-		margin: 0 0 10px;
-		font-size: 11px;
+		flex: none;
+		margin: 0 0 8px;
+		padding: 16px 0 8px;
+		font-size: 14px;
 		font-weight: 900;
-		letter-spacing: 0.1em;
-		color: #4a4d55;
+		letter-spacing: 0.06em;
+		color: var(--black);
+	}
+	.sl-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px 16px;
+		flex-wrap: wrap;
+		border-bottom: 1.5px solid var(--black); /* 밑줄은 full-width인 이 줄에 (h2에 두면 글자 폭만큼만 그려져 끊김) */
+		padding-bottom: 8px;
+	}
+	.sl-head h2 {
+		margin: 0;
+		border-bottom: 0;
+		padding-bottom: 0;
 	}
 	.sl-actions {
 		display: flex;
@@ -1074,6 +1111,9 @@ const pick = {
 		list-style: none;
 		margin: 0;
 		padding: 0;
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
 	}
 	/* 막대 = 가장 많이 탄 슬로프 대비 (주황 채움) */
 	.sl-slopes :global(li) {
@@ -1091,18 +1131,28 @@ const pick = {
 		font-weight: 900;
 	}
 	.sl-days-wrap {
-		overflow-x: auto;
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
 	}
-	/* DAYS 표 글씨도 작게 (슬로프 막대와 톤 맞춤) */
 	.sl-days {
-		font-size: 12px;
+		font-size: 13px;
+		border-collapse: separate;
+		border-spacing: 0;
 	}
 	.sl-days :global(th),
 	.sl-days :global(td) {
-		padding: 6px 8px;
+		padding: 7px 8px;
 	}
+	/* 표 머리(날짜/런/슬로프)도 스크롤 시 제목 아래에 고정 */
 	.sl-days :global(th) {
-		font-size: 11px;
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background: var(--white);
+		font-size: 12px;
+		border-bottom: 1.5px solid var(--black);
 	}
 	.summary {
 		display: grid;

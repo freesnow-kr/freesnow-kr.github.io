@@ -58,7 +58,13 @@ const regions = [
 	},
 	{
 		name: '전북',
-		resorts: [{ id: 'muju', name: '무주 덕유산', site: 'https://www.mdysresort.com', embed: true, url: 'https://www.mdysresort.com/guide/webcam.asp', note: '1분 후 자동 종료' }],
+		resorts: [{
+			id: 'muju', name: '무주 덕유산', site: 'https://www.mdysresort.com', embed: true, url: 'https://www.mdysresort.com/guide/webcam.asp', note: '슬로프별 웹캠 11곳',
+			cams: [
+				['만선하우스', '01'], ['만선봉 정상', '02'], ['하이디하우스', '03'], ['서역기행 / 썬다운', '04'], ['설천하우스', '05'], ['설천 상단 슬로프', '06'],
+				['설천봉 정상', '07'], ['모차르트 / 미뉴에트', '08'], ['폴카', '09'], ['실크로드 / 미뉴에트 하단', '10'], ['커넥션', '11'],
+			].map(([name, n]) => ({ name, src: `${club.api}/cam/muju/start/${n}` })),
+		}],
 	},
 	{
 		name: '경남',
@@ -157,13 +163,13 @@ const first = 'konjiam';
 											<button type="button" class="cam-full" aria-label={`${v.name} 전체 화면`}>⤢</button>
 										</p>
 										<div class="cam-frame">
-											{v.src.includes('.m3u8') ? (
+											{/youtube\.com|rtsp\.ru/.test(v.src) ? (
+												<iframe data-src={v.src} title={`${c.name} ${v.name} 실시간 웹캠`} allow="autoplay; fullscreen" allowfullscreen></iframe>
+											) : (
 												<>
 													<video data-src={v.src} muted playsinline aria-label={`${c.name} ${v.name} 실시간 웹캠`}></video>
 													<p class="cam-state">연결 중…</p>
 												</>
-											) : (
-												<iframe data-src={v.src} title={`${c.name} ${v.name} 실시간 웹캠`} allow="autoplay; fullscreen" allowfullscreen></iframe>
 											)}
 										</div>
 									</li>

@@ -156,8 +156,8 @@ const first = 'konjiam';
 
 						{c.cams ? (
 							<ul class={`cam-grid${c.cams.length === 1 ? ' one' : ''}`}>
-								{c.cams.map((v) => (
-									<li class="cam-card">
+								{c.cams.map((v, i) => (
+									<li class="cam-card" data-i={i}>
 										<p class="cam-card-head">
 											<span>{v.name}</span>
 											<button type="button" class="cam-full" aria-label={`${v.name} 전체 화면`}>⤢</button>
@@ -233,16 +233,33 @@ const first = 'konjiam';
 
 			// 영상(HLS) 하나: Safari, 최신 Chrome은 기본으로, 그 밖엔 hls.js (처음 쓸 때만 불러옴)
 			type Player = { start(): void; stop(): void };
+			// 연결 안 되는 캠(실패 or 일정 시간 안에 못 불러옴)은 그 스키장 격자 맨 뒤로 (사용자 요구 2026-11-10).
+			// 꺼진 카드에 .off를 달고, .off 카드만 원래 순서대로 끝으로 모음 (재생 중 카드는 DOM에서 안 옮겨서 안 끊김)
+			const sink = (video: HTMLVideoElement) => {
+				const card = video.closest<HTMLElement>('.cam-card');
+				const grid = card?.parentElement;
+				if (!card || !grid) return;
+				card.classList.add('off');
+				[...grid.querySelectorAll<HTMLElement>('.cam-card.off')]
+					.sort((a, b) => Number(a.dataset.i) - Number(b.dataset.i))
+					.forEach((c) => grid.appendChild(c));
+			};
+			const CONNECT_WAIT = 12000; // 이 시간 안에 영상이 안 뜨면 꺼진 걸로 보고 뒤로
 			const player = (video: HTMLVideoElement): Player => {
 				const state = video.parentElement!.querySelector<HTMLElement>('.cam-state')!;
 				let hls: { destroy(): void } | null = null;
 				let on = false;
+				let timer = 0;
 				const show = (text: string) => ((state.textContent = text), (state.hidden = !text));
-				const fail = () => on && show('지금은 영상을 불러오지 못했어요. 위 \'공식 웹캠\'에서 봐 주세요.');
-				video.addEventListener('playing', () => show(''));
+				const offline = () => { show('지금은 영상을 불러오지 못했어요. 위 \'공식 웹캠\'에서 봐 주세요.'); sink(video); };
+				const fail = () => on && offline();
+				const live = () => { clearTimeout(timer); show(''); }; // 영상이 떴음 → 안내 지우고 그대로 둠
+				video.addEventListener('playing', live);
+				video.addEventListener('loadeddata', live);
 				video.addEventListener('error', fail);
 				const stop = () => {
 					on = false;
+					clearTimeout(timer);
 					hls?.destroy();
 					hls = null;
 					video.removeAttribute('src');
@@ -254,6 +271,8 @@ const first = 'konjiam';
 						if (on) return;
 						on = true;
 						show('연결 중…');
+						clearTimeout(timer);
+						timer = window.setTimeout(() => { if (on && video.readyState < 1) offline(); }, CONNECT_WAIT);
 						const src = video.dataset.src!;
 						if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = src;
 						else {

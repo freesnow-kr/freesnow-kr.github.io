@@ -19,12 +19,12 @@ const regions = [
 				id: 'yongpyong', name: '모나 용평', site: 'https://www.yongpyong.co.kr', embed: true, url: 'https://www.yongpyong.co.kr/kor/guide/realTimeNews/ypResortWebcam.do', note: 'HD 웹캠 5곳',
 				cams: hls('https://live.yongpyong.co.kr/', [['발왕산 스카이워크', 'cam01/index.m3u8'], ['발왕산 천년주목숲길', 'cam02/index.m3u8'], ['옐로우 슬로프', 'cam11/index.m3u8'], ['베이스 전경 / 레드 슬로프', 'cam08/index.m3u8'], ['진입로', 'cam05/index.m3u8']]),
 			},
-			{ id: 'high1', name: '하이원', site: 'https://www.high1.com', embed: true, url: 'https://www.high1.com/ski/slopeView.do?key=748&mode=p', note: '슬로프별 웹캠 | 30초 후 자동 종료' },
+			{ id: 'high1', name: '하이원', site: 'https://www.high1.com', url: 'https://www.high1.com/ski/slopeView.do?key=748&mode=p', note: '슬로프별 웹캠 | 새 탭에서' },
 			{
 				id: 'phoenix', name: '휘닉스 평창', site: 'https://phoenixhnr.co.kr', embed: true, url: 'https://phoenixhnr.co.kr/', note: '슬로프별 웹캠 7곳',
 				cams: hls('https://streaming.phoenixhnr.co.kr/hls/', [['호크 / 스패로우', 'yh_02_02.m3u8'], ['도도', 'sp_01_01.m3u8'], ['불새마루', 'ht_01_01.m3u8'], ['베이스', 'bc_02_01.m3u8'], ['루지랜드', 'bc_01.m3u8'], ['스노우 빌리지', 'yh_01_01.m3u8'], ['몽블랑 정상', 'mb_03_02.m3u8']]),
 			},
-			{ id: 'vivaldi', name: '비발디파크', site: 'https://www.sonohotelsresorts.com/daemyung.vp.main.ds/dmparse.dm', embed: true, url: 'https://mice.sonohotelsresorts.com/daemyung.vp.utill.09_02_02_01.ds/dmparse.dm?areaType=S', note: '온라인캠 | 20초 후 자동 종료' },
+			{ id: 'vivaldi', name: '비발디파크', site: 'https://www.sonohotelsresorts.com/daemyung.vp.main.ds/dmparse.dm', url: 'https://mice.sonohotelsresorts.com/daemyung.vp.utill.09_02_02_01.ds/dmparse.dm?areaType=S', note: '온라인캠 | 새 탭에서' },
 			{
 				id: 'welli', name: '웰리힐리파크', site: 'https://wellihillipark.com', embed: true, url: 'https://wellihillipark.com/home/customer/webcam', note: '실시간 HD 웹캠 6곳',
 				cams: hls('https://live.wellihillipark.com/wellihillipark/_definst_/', [['알파', 'cam02.stream/playlist.m3u8'], ['베이스', 'cam03.stream/playlist.m3u8'], ['슬로프 광장 / 전경', 'cam04.stream/playlist.m3u8'], ['정상 광장', 'cam05.stream/playlist.m3u8'], ['슬로프 전경', 'cam06.stream/playlist.m3u8'], ['워터플래닛', 'cam07.stream/playlist.m3u8']]),
@@ -41,6 +41,7 @@ const regions = [
 				id: 'oak', name: '오크밸리', site: 'https://oakvalley.co.kr', embed: true, url: 'https://oakvalley.co.kr/ski/introduction/realtime', note: '스키광장 | 슬로프별 실시간',
 				cams: hls('https://cctv-oak9.ktcdn.co.kr/cctv/', [['베이스', 'ch2.stream/chunklist.m3u8'], ['I 슬로프', 'ch9.stream/chunklist.m3u8'], ['G 슬로프 하단', 'ch7.stream/chunklist.m3u8'], ['F 슬로프 상단', 'ch6.stream/chunklist.m3u8'], ['플라워 휴게소', 'ch5.stream/chunklist.m3u8']]),
 			},
+			{ id: 'o2', name: '오투리조트', site: 'https://www.o2resort.com', url: 'https://www.o2resort.com', note: '공식 사이트 웹캠' },
 		],
 	},
 	{
@@ -181,7 +182,7 @@ const first = 'konjiam';
 							</div>
 						) : (
 							<div class="cam-card cam-link">
-								<p>{c.name}은 공식 사이트가 다른 사이트 안에서 보이는 걸 막아서 새 탭으로 열어요.</p>
+								<p>{c.name}은 여기서 바로 재생되지 않아 공식 웹캠을 새 탭에서 열어요.</p>
 								<a class="cam-btn ink" href={c.url} target="_blank" rel="noopener">공식 웹캠 열기 ↗</a>
 							</div>
 						)}

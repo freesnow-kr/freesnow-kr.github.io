@@ -9,6 +9,7 @@ import type { Env } from './index.ts';
 type Fixed = { base: string; referer?: string }; // 고정 경로 중계
 type Popup = { popup: string; base: string; referer: string }; // 팝업에서 서명 주소 받아 중계
 export const CAM_SOURCES: Record<string, Fixed | Popup> = {
+	// 무주: 팝업이 서명된(9시간 만료) 주소를 줌 → start/<n>에서 받아 중계
 	muju: { popup: 'http://www.mdysresort.com/guide/webcam_popup_jh.asp?cam_num=', base: 'http://muju.cache.cdn.cloudn.co.kr', referer: 'http://www.mdysresort.com/' },
 };
 
@@ -19,21 +20,23 @@ const cors = () => ({ 'Access-Control-Allow-Origin': '*' });
 export async function proxy(env: Env, resort: string, rest: string, reqUrl: URL): Promise<Response> {
 	const src = CAM_SOURCES[resort];
 	if (!src) return new Response('Unknown cam', { status: 404 });
+	if (!src.base) return new Response('이 스키장 영상 주소가 아직 설정되지 않았어요.', { status: 503 });
 
+	// 하위목록, 조각 중계 (m3u8 안에서 /cam/<resort>/p/ 로 바뀐 주소) — 두 형식 공통
+	if (rest.startsWith('p/')) return relay(`${src.base}/${rest.slice(2)}${reqUrl.search}`, src, resort);
+
+	// 팝업형(무주): start/<n> → 팝업에서 서명 주소 받아 중계
 	if ('popup' in src) {
 		const start = /^start\/(\w+)$/.exec(rest);
-		if (start) {
-			const html = await fetchText(src.popup + start[1], src.referer);
-			if (html == null) return new Response('Upstream error', { status: 502, headers: cors() });
-			const m = /src=["']([^"']+\.m3u8[^"']*)["']/i.exec(html);
-			if (!m || !m[1].startsWith(src.base + '/')) return new Response('영상 주소를 찾지 못했어요.', { status: 502, headers: cors() });
-			return relay(m[1], src, resort);
-		}
-		if (rest.startsWith('p/')) return relay(`${src.base}/${rest.slice(2)}${reqUrl.search}`, src, resort);
-		return new Response('Bad cam path', { status: 404 });
+		if (!start) return new Response('Bad cam path', { status: 404 });
+		const html = await fetchText(src.popup + start[1], src.referer);
+		if (html == null) return new Response('Upstream error', { status: 502, headers: cors() });
+		const m = /src=["']([^"']+\.m3u8[^"']*)["']/i.exec(html);
+		if (!m || !m[1].startsWith(src.base + '/')) return new Response('영상 주소를 찾지 못했어요.', { status: 502, headers: cors() });
+		return relay(m[1], src, resort);
 	}
 
-	if (!src.base) return new Response('이 스키장 영상 주소가 아직 설정되지 않았어요.', { status: 503 });
+	// 고정형(하이원): 원본 경로 그대로 중계
 	return relay(`${src.base}/${rest}${reqUrl.search}`, src, resort);
 }
 

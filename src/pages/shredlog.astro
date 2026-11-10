@@ -64,9 +64,8 @@ const pick = {
 					<div class="ticket-head"></div>
 					<dl class="stats">
 						<div class="pri"><dt>출격</dt><dd data-stat="visits"><b></b><span class="u"></span></dd></div>
-						<div><dt>총 지출</dt><dd data-stat="total"><b></b><span class="u"></span></dd></div>
-						<div><dt>1회 평균</dt><dd data-stat="avg"><b></b><span class="u"></span></dd></div>
-						<div><dt>라이딩 시간</dt><dd data-stat="hours"><b></b><span class="u"></span></dd></div>
+						<div><dt>총 런수</dt><dd data-stat="runs"><b></b><span class="u"></span></dd></div>
+						<div><dt>평균 런</dt><dd data-stat="avgrun"><b></b><span class="u"></span></dd></div>
 						<div><dt>베이스</dt><dd data-stat="base"><b></b><span class="u"></span></dd></div>
 					</dl>
 				</div>
@@ -307,12 +306,14 @@ const pick = {
 				const hours = visits.reduce((t, v) => t + (Number(v.hours) || 0), 0);
 				const count: Record<string, number> = {};
 				visits.forEach((v) => (count[v.resort] = (count[v.resort] || 0) + 1));
-				const base = Object.keys(count).sort((a, b) => count[b] - count[a])[0] ?? '-';
+				const base = slCache[s]?.stats?.resort || Object.keys(count).sort((a, b) => count[b] - count[a])[0] || '-'; // 베이스 = 즐겨찾는 스키장(스노우라이브) → 없으면 최다 출격 스키장
 				// 라이딩 = SHRED LOG 출격 날짜 + 스노우라이브 기록 날짜 (같은 날은 한 번)
 				const days = new Set(visits.map((v) => v.date));
 				slCache[s]?.stats?.days?.forEach((d) => days.add(d.date));
 				const rides = days.size;
-				return { visits, expenses, total, hours, base, rides, avg: rides ? total / rides : 0 };
+				const runs = slCache[s]?.stats?.total ?? 0; // 총 런수 (스노우라이브)
+				const avgRun = rides ? Math.round(runs / rides) : 0; // 하루 평균 런
+				return { visits, expenses, total, hours, base, rides, runs, avgRun, avg: rides ? total / rides : 0 };
 			};
 
 			// 표 한 줄: 값은 textContent로만
@@ -351,12 +352,14 @@ const pick = {
 					note.textContent = `${season} 시즌은 아직 오픈 전이에요. ${m}월 ${d}일에 오픈해요.`;
 				}
 				const st = statsOf(season);
-				const stat = { visits: `${st.rides}일`, total: won(st.total), avg: won(st.avg), hours: `${st.hours}시간`, base: st.base };
+				const stat = { visits: `${st.rides}일`, runs: `${st.runs.toLocaleString()}런`, avgrun: `${st.avgRun}런`, base: st.base };
 				Object.entries(stat).forEach(([k, v]) => {
 					const dd = $(`[data-stat=${k}]`);
-					const m = String(v).match(/^([0-9,.\-]+)?\s*(.*)$/); // 숫자 부분 / 단위 분리 (34일, 0원, -)
-					dd.querySelector('b')!.textContent = (m && m[1]) || String(v);
+					const m = String(v).match(/^([0-9,.\-]+)?\s*(.*)$/); // 숫자 부분 / 단위 분리 (34일, 0원, 엘리시안강촌)
+					const numPart = (m && m[1]) || String(v);
+					dd.querySelector('b')!.textContent = numPart;
 					dd.querySelector('.u')!.textContent = (m && m[1] && m[2]) || '';
+					dd.classList.toggle('txt', !/^[0-9-]/.test(numPart)); // 스키장 이름 등 텍스트는 작게
 				});
 				const ticketHead = document.querySelector('.ticket-head');
 				if (ticketHead) ticketHead.textContent = `${season} SEASON · SHRED LOG`;
@@ -815,6 +818,12 @@ const pick = {
 		color: #8b8e97;
 		margin-left: 2px;
 	}
+	.stats :global(dd.txt b) {
+		font-family: 'Noto Sans KR', sans-serif;
+		font-weight: 800;
+		font-size: clamp(1rem, 1.8vw, 1.3rem);
+		line-height: 1.2;
+	}
 	.stats :global(.pri dd b) {
 		color: var(--accent);
 	}
@@ -1213,9 +1222,6 @@ const pick = {
 	}
 	/* 표 머리(날짜/런/슬로프)도 스크롤 시 제목 아래에 고정 */
 	.sl-days :global(th) {
-		position: sticky;
-		top: 0;
-		z-index: 1;
 		background: var(--white);
 		font-size: 12px;
 		border-bottom: 1.5px solid var(--black);

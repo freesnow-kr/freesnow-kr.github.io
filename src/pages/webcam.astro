@@ -118,7 +118,8 @@ const first = 'konjiam';
 				<nav class="cam-pick" aria-label="스키장 고르기">
 					{resorts.map((c) => (
 						<a href={`#${c.id}`} data-id={c.id} aria-current={c.id === first ? 'true' : undefined}>
-							{c.name}{c.cams && <span class="cam-count">{c.cams.length}</span>}
+							<span class="cam-pick-name">{c.name}{c.cams && <span class="cam-count">{c.cams.length}</span>}</span>
+							<span class="cam-pick-wx" data-resort={c.id}></span>
 						</a>
 					))}
 				</nav>
@@ -195,8 +196,10 @@ const first = 'konjiam';
 
 			// 스키장 날씨 (사용자 요구 2026-10-29): 지금 기온 + 오늘 최저/최고 + 눈. id는 src/data/resorts.json과 같음
 			weather().then((list) => {
+				const byId = new Map(list.map((r) => [r.id, r]));
+				// 고른 스키장 카드 오른쪽 큰 날씨 상자
 				for (const el of document.querySelectorAll<HTMLElement>('.cam-wx')) {
-					const w = list.find((r) => r.id === el.dataset.resort);
+					const w = byId.get(el.dataset.resort!);
 					if (!w) continue;
 					const d = w.days[0];
 					const big = document.createElement('b');
@@ -204,6 +207,12 @@ const first = 'konjiam';
 					const small = document.createElement('small');
 					small.textContent = [sky(w.now.code)[1], d && `오늘 ${deg(d.min)} / ${deg(d.max)}`, d && snow(d.snow)].filter(Boolean).join(' | ');
 					el.replaceChildren(big, small);
+				}
+				// 스키장 고르기 칸: 이름 아래 아이콘 + 지금 기온 (눈이면 뒤에 붙임)
+				for (const el of document.querySelectorAll<HTMLElement>('.cam-pick-wx')) {
+					const w = byId.get(el.dataset.resort!);
+					if (!w) continue;
+					el.textContent = [`${sky(w.now.code)[0]} ${deg(w.now.temp)}`, snow(w.days[0]?.snow ?? 0)].filter(Boolean).join(' ');
 				}
 			});
 
@@ -362,10 +371,10 @@ const first = 'konjiam';
 	}
 	.cam-pick a {
 		display: flex;
-		justify-content: center;
-		align-items: baseline;
-		gap: 6px;
-		padding: 10px 8px;
+		flex-direction: column;
+		align-items: center;
+		gap: 3px;
+		padding: 9px 8px;
 		border-radius: 10px;
 		font-size: 15px;
 		font-weight: 700;
@@ -382,9 +391,25 @@ const first = 'konjiam';
 		background: var(--black);
 		color: var(--white);
 	}
+	.cam-pick-name {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 5px;
+	}
 	.cam-count {
 		font-size: 12px;
 		color: var(--accent);
+	}
+	.cam-pick-wx {
+		font-size: 12px;
+		font-weight: 700;
+		color: #4a4d55;
+	}
+	.cam-pick-wx:empty {
+		display: none;
+	}
+	.cam-pick a[aria-current] .cam-pick-wx {
+		color: rgb(255 255 255 / 0.75);
 	}
 	.cam-panel {
 		padding: clamp(18px, 2.5vw, 28px);

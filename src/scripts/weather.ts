@@ -5,7 +5,7 @@ import { call } from './session';
 export type Day = { date: string; code: number; max: number; min: number; feel: number; snow: number; wind: number };
 export type ResortWeather = { id: string; name: string; now: { temp: number; code: number; wind: number }; days: Day[] };
 
-const KEY = 'fs-weather';
+const KEY = 'fs-weather2'; // 스키장 목록이 바뀌면 숫자 올림 (예전 저장본에 새 스키장이 없어서 — 오투 추가 2026-11-10)
 export async function weather(): Promise<ResortWeather[]> {
 	try {
 		const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null');

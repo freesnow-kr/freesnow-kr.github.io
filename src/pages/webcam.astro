@@ -123,6 +123,10 @@ const first = 'konjiam';
 						</a>
 					))}
 				</nav>
+				{/* 모바일은 알약 대신 선택 박스 (터치 기기는 picker.ts가 편한 선택 시트로 바꿈) */}
+				<select class="cam-select" aria-label="스키장 고르기">
+					{resorts.map((c) => <option value={c.id} data-resort={c.id} data-name={c.name}>{c.name}</option>)}
+				</select>
 
 				{resorts.map((c) => (
 					<article class="cam-panel" id={c.id} data-id={c.id} hidden={c.id !== first}>
@@ -214,6 +218,11 @@ const first = 'konjiam';
 					if (!w) continue;
 					el.textContent = [`${sky(w.now.code)[0]} ${deg(w.now.temp)}`, snow(w.days[0]?.snow ?? 0)].filter(Boolean).join(' ');
 				}
+				// 모바일 선택 박스 항목에도 이름 옆에 날씨
+				for (const opt of document.querySelectorAll<HTMLOptionElement>('.cam-select option')) {
+					const w = byId.get(opt.dataset.resort!);
+					if (w) opt.textContent = `${opt.dataset.name}  ${sky(w.now.code)[0]} ${deg(w.now.temp)}${snow(w.days[0]?.snow ?? 0) ? ' ' + snow(w.days[0]?.snow ?? 0) : ''}`;
+				}
 			});
 
 			// 영상(HLS) 하나: Safari, 최신 Chrome은 기본으로, 그 밖엔 hls.js (처음 쓸 때만 불러옴)
@@ -287,6 +296,7 @@ const first = 'konjiam';
 			// 스키장 고르기: 주소 #id (공유, 뒤로 가기), 마지막으로 본 곳 기억. 고른 곳만 영상, iframe을 엶
 			const panels = [...document.querySelectorAll<HTMLElement>('.cam-panel')];
 			const tabs = [...document.querySelectorAll<HTMLAnchorElement>('.cam-pick a')];
+			const sel = document.querySelector<HTMLSelectElement>('.cam-select')!;
 			const KEY = 'fs-cam';
 			const pick = (id: string) => {
 				const panel = panels.find((p) => p.dataset.id === id) ?? panels.find((p) => !p.hidden) ?? panels[0];
@@ -301,11 +311,13 @@ const first = 'konjiam';
 					if (frame) frame.src = open ? frame.dataset.src! : 'about:blank';
 				}
 				for (const t of tabs) t.toggleAttribute('aria-current', t.dataset.id === panel.dataset.id);
+				if (sel.value !== panel.dataset.id) sel.value = panel.dataset.id!;
 				try { localStorage.setItem(KEY, panel.dataset.id!); } catch {}
 			};
 			let saved = '';
 			try { saved = localStorage.getItem(KEY) ?? ''; } catch {}
 			pick(location.hash.slice(1) || saved);
+			sel.addEventListener('change', () => { history.replaceState(null, '', `#${sel.value}`); pick(sel.value); });
 			addEventListener('hashchange', () => pick(location.hash.slice(1)));
 			// 고르면 스크롤이 패널로 튀지 않게 (해시만 바꿈)
 			for (const t of tabs) t.addEventListener('click', (e) => {
@@ -402,6 +414,17 @@ const first = 'konjiam';
 	}
 	.cam-pick a[aria-current] .cam-pick-wx {
 		color: rgb(255 255 255 / 0.8);
+	}
+	.cam-select {
+		display: none;
+		width: 100%;
+		min-height: 48px;
+		padding: 0 40px 0 14px;
+		background-color: var(--white);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		font: 700 16px 'Noto Sans KR', sans-serif;
+		color: var(--black);
 	}
 	.cam-panel {
 		padding: clamp(18px, 2.5vw, 28px);
@@ -595,14 +618,10 @@ const first = 'konjiam';
 	}
 	@media (max-width: 720px) {
 		.cam-pick {
-			gap: 6px;
+			display: none;
 		}
-		.cam-pick a {
-			padding: 9px 13px;
-			gap: 7px;
-		}
-		.cam-pick-name {
-			font-size: 14px;
+		.cam-select {
+			display: block;
 		}
 		.cam-grid {
 			grid-template-columns: 1fr;

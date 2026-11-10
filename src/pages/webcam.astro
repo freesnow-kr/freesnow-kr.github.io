@@ -6,32 +6,74 @@ import '../styles/ride.css';
 const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없이 (scripts/session.ts 참고)
 
 // 각 스키장 공식 웹캠 페이지 (2026-10 확인). 주소 바뀌면 여기만 수정
-// embed: 펼치면 공식 페이지를 그 자리에 띄움 (지산은 사이트가 iframe을 막아서 링크로)
+// embed: 공식 페이지를 이 페이지 안에 띄움 (지산은 사이트가 iframe을 막아서 링크로)
+// cams: 영상(HLS)을 이 페이지에서 바로 재생 (사용자 결정 2026-11-10: 스키장 허락 없이 공식 웹캠 영상 주소를 씀 — 막히면 끊김, 그땐 cams를 빼면 공식 페이지 embed로 돌아감)
+// 지역 → 스키장. id는 src/data/resorts.json(날씨)과 같음. 화면은 위 스키장 고르기 + 고른 스키장 하나 (사용자 요구 2026-11-10: snowthing.org처럼)
+// 캠 목록: [이름, 주소]. .m3u8은 이 페이지에서 영상(HLS)으로, 그 밖(유튜브, 외부 플레이어)은 iframe으로 (snowthing.org가 쓰는 주소, 2026-11-10 확인)
+const hls = (base: string, list: [string, string][]) => list.map(([name, path]) => ({ name, src: base + path }));
 const regions = [
 	{
 		name: '강원',
 		resorts: [
-			{ name: '모나 용평', site: 'https://www.yongpyong.co.kr', embed: true, url: 'https://www.yongpyong.co.kr/kor/guide/realTimeNews/ypResortWebcam.do', note: 'HD 웹캠 5곳' },
-			{ name: '하이원', site: 'https://www.high1.com', embed: true, url: 'https://www.high1.com/ski/slopeView.do?key=748&mode=p', note: '슬로프별 웹캠 | 30초 후 자동 종료' },
-			{ name: '휘닉스 평창', site: 'https://phoenixhnr.co.kr', embed: true, url: 'https://phoenixhnr.co.kr/', note: '홈페이지 메뉴에서 웹캠 선택' },
-			{ name: '비발디파크', site: 'https://www.sonohotelsresorts.com/daemyung.vp.main.ds/dmparse.dm', embed: true, url: 'https://mice.sonohotelsresorts.com/daemyung.vp.utill.09_02_02_01.ds/dmparse.dm?areaType=S', note: '온라인캠 | 20초 후 자동 종료' },
-			{ name: '웰리힐리파크', site: 'https://wellihillipark.com', embed: true, url: 'https://wellihillipark.com/home/customer/webcam', note: '실시간 HD 웹캠' },
-			{ name: '엘리시안 강촌', site: 'https://www.elysian.co.kr', embed: true, url: 'https://www.elysian.co.kr/about-gangchon/ski#guide-to-using-slopes', note: '슬로프 이용안내 | 유튜브 라이브' },
-			{ name: '오크밸리', site: 'https://oakvalley.co.kr', embed: true, url: 'https://oakvalley.co.kr/ski/introduction/realtime', note: '스키광장 | 슬로프별 실시간' },
+			{
+				id: 'yongpyong', name: '모나 용평', site: 'https://www.yongpyong.co.kr', embed: true, url: 'https://www.yongpyong.co.kr/kor/guide/realTimeNews/ypResortWebcam.do', note: 'HD 웹캠 5곳',
+				cams: hls('https://live.yongpyong.co.kr/', [['발왕산 스카이워크', 'cam01/index.m3u8'], ['발왕산 천년주목숲길', 'cam02/index.m3u8'], ['옐로우 슬로프', 'cam11/index.m3u8'], ['베이스 전경 / 레드 슬로프', 'cam08/index.m3u8'], ['진입로', 'cam05/index.m3u8']]),
+			},
+			{ id: 'high1', name: '하이원', site: 'https://www.high1.com', embed: true, url: 'https://www.high1.com/ski/slopeView.do?key=748&mode=p', note: '슬로프별 웹캠 | 30초 후 자동 종료' },
+			{
+				id: 'phoenix', name: '휘닉스 평창', site: 'https://phoenixhnr.co.kr', embed: true, url: 'https://phoenixhnr.co.kr/', note: '슬로프별 웹캠 7곳',
+				cams: hls('https://streaming.phoenixhnr.co.kr/hls/', [['호크 / 스패로우', 'yh_02_02.m3u8'], ['도도', 'sp_01_01.m3u8'], ['불새마루', 'ht_01_01.m3u8'], ['베이스', 'bc_02_01.m3u8'], ['루지랜드', 'bc_01.m3u8'], ['스노우 빌리지', 'yh_01_01.m3u8'], ['몽블랑 정상', 'mb_03_02.m3u8']]),
+			},
+			{ id: 'vivaldi', name: '비발디파크', site: 'https://www.sonohotelsresorts.com/daemyung.vp.main.ds/dmparse.dm', embed: true, url: 'https://mice.sonohotelsresorts.com/daemyung.vp.utill.09_02_02_01.ds/dmparse.dm?areaType=S', note: '온라인캠 | 20초 후 자동 종료' },
+			{
+				id: 'welli', name: '웰리힐리파크', site: 'https://wellihillipark.com', embed: true, url: 'https://wellihillipark.com/home/customer/webcam', note: '실시간 HD 웹캠 6곳',
+				cams: hls('https://live.wellihillipark.com/wellihillipark/_definst_/', [['알파', 'cam02.stream/playlist.m3u8'], ['베이스', 'cam03.stream/playlist.m3u8'], ['슬로프 광장 / 전경', 'cam04.stream/playlist.m3u8'], ['정상 광장', 'cam05.stream/playlist.m3u8'], ['슬로프 전경', 'cam06.stream/playlist.m3u8'], ['워터플래닛', 'cam07.stream/playlist.m3u8']]),
+			},
+			{
+				id: 'gangchon', name: '엘리시안 강촌', site: 'https://www.elysian.co.kr', embed: true, url: 'https://www.elysian.co.kr/about-gangchon/ski#guide-to-using-slopes', note: '유튜브 라이브',
+				cams: [{ name: '실시간 영상', src: 'https://www.youtube.com/embed/O6_8VBu4FSA?autoplay=1&mute=1' }],
+			},
+			{
+				id: 'alpensia', name: '알펜시아', site: 'https://www.alpensia.com', embed: true, url: 'https://www.alpensia.com/guide/web-cam.do', note: '유튜브 라이브',
+				cams: [{ name: '알펜시아 라이브캠', src: 'https://www.youtube.com/embed/vvRfdby4YxI?autoplay=1&mute=1' }],
+			},
+			{
+				id: 'oak', name: '오크밸리', site: 'https://oakvalley.co.kr', embed: true, url: 'https://oakvalley.co.kr/ski/introduction/realtime', note: '스키광장 | 슬로프별 실시간',
+				cams: hls('https://cctv-oak9.ktcdn.co.kr/cctv/', [['베이스', 'ch2.stream/chunklist.m3u8'], ['I 슬로프', 'ch9.stream/chunklist.m3u8'], ['G 슬로프 하단', 'ch7.stream/chunklist.m3u8'], ['F 슬로프 상단', 'ch6.stream/chunklist.m3u8'], ['플라워 휴게소', 'ch5.stream/chunklist.m3u8']]),
+			},
 		],
 	},
 	{
 		name: '경기',
 		resorts: [
-			{ name: '곤지암', site: 'https://www.konjiamresort.co.kr', embed: true, url: 'https://m.konjiamresort.co.kr/ski/skiLveCam.dev', note: '라이브캠 5곳 | 24시간' },
-			{ name: '지산 포레스트', site: 'https://www.jisanresort.co.kr', url: 'https://www.jisanresort.co.kr/m/ski/slopes/webcam.asp', note: '탑승장 | 슬로프 웹캠' },
+			{
+				id: 'konjiam', name: '곤지암', site: 'https://www.konjiamresort.co.kr', embed: true, url: 'https://m.konjiamresort.co.kr/ski/skiLveCam.dev', note: '라이브캠 5곳 | 24시간',
+				cams: hls('https://video.fpkorea.com/konjiam/', [['정상 휴게소', 'cam01.stream/playlist.m3u8'], ['정상부 슬로프 (씽큐, 그램)', 'cam02.stream/playlist.m3u8'], ['초중급 베이스 (휘센)', 'cam03.stream/playlist.m3u8'], ['중상급 베이스 (와이낫, CNP)', 'cam04.stream/playlist.m3u8'], ['중간 슬로프 (와이낫 상단)', 'cam05.stream/playlist.m3u8']]),
+			},
+			{
+				id: 'jisan', name: '지산 포레스트', site: 'https://www.jisanresort.co.kr', url: 'https://www.jisanresort.co.kr/m/ski/slopes/webcam.asp', note: '탑승장 | 슬로프 웹캠',
+				cams: hls('https://ant.livecity.co.kr:5443/jisancam/streams/', [['레몬 탑승장', 'jisan1.m3u8'], ['오렌지 / 뉴오렌지 탑승장', 'jisan2.m3u8'], ['5번 / 6번 슬로프', 'jisan3.m3u8'], ['블루 탑승장', 'jisan4.m3u8'], ['실버 탑승장', 'jisan5.m3u8']]),
+			},
 		],
 	},
 	{
 		name: '전북',
-		resorts: [{ name: '무주 덕유산', site: 'https://www.mdysresort.com', embed: true, url: 'https://www.mdysresort.com/guide/webcam.asp', note: '1분 후 자동 종료' }],
+		resorts: [{ id: 'muju', name: '무주 덕유산', site: 'https://www.mdysresort.com', embed: true, url: 'https://www.mdysresort.com/guide/webcam.asp', note: '1분 후 자동 종료' }],
+	},
+	{
+		name: '경남',
+		resorts: [
+			{
+				id: 'eden', name: '에덴밸리', site: 'https://www.edenvalley.co.kr', url: 'https://www.edenvalley.co.kr', note: '웹캠 2곳',
+				cams: [{ name: '베이직', src: 'https://rtsp.ru/embed/nKGZGiRD/' }, { name: '슬로프 광장', src: 'https://rtsp.ru/embed/dh6R7d4k/' }],
+			},
+		],
 	},
 ];
+// 지역 순서대로, 지역 안에선 가나다. 처음엔 곤지암 (영상이 바로 나오는 곳)
+type Resort = { id: string; name: string; site: string; url: string; note: string; embed?: boolean; cams?: { name: string; src: string }[] };
+const resorts = regions.flatMap((r) => (r.resorts as Resort[]).toSorted((a, b) => a.name.localeCompare(b.name, 'ko')).map((c) => ({ ...c, region: r.name })));
+const first = 'konjiam';
 ---
 
 <html lang="ko">
@@ -72,38 +114,69 @@ const regions = [
 				<p class="lede">출발 전에 슬로프 상태 먼저. 각 스키장 공식 웹캠으로 바로 연결돼요.</p>
 			</section>
 
-			{regions.map((r) => (
-				<section class="cam-region">
-					<h2>{r.name}</h2>
-					<ul class="cam-list">
-						{r.resorts.toSorted((a, b) => a.name.localeCompare(b.name, 'ko')).map((c) => (
-							<li>
-								{'embed' in c ? (
-									<details class="cam-item">
-										<summary>
-											<span class="cam-head"><span class="cam-name">{c.name}</span><span class="cam-wx" data-resort={c.name}></span></span>
-											<span class="cam-note">{c.note}</span>
-											<span class="cam-go cam-toggle" aria-hidden="true"></span>
-										</summary>
-										<div class="cam-screen">
-											<iframe data-src={c.url} title={`${c.name} 공식 웹캠`} allow="autoplay; fullscreen"></iframe>
-										</div>
-										<a class="cam-open" href={c.url} target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
-									</details>
-								) : (
-									<a class="cam-row" href={c.url} target="_blank" rel="noopener">
-										<span class="cam-head"><span class="cam-name">{c.name}</span><span class="cam-wx" data-resort={c.name}></span></span>
-										<span class="cam-note">{c.note}</span>
-										<span class="cam-go" aria-hidden="true">↗</span>
-									</a>
-								)}
+			<section class="cam-body">
+				<nav class="cam-pick" aria-label="스키장 고르기">
+					{resorts.map((c) => (
+						<a href={`#${c.id}`} data-id={c.id} aria-current={c.id === first ? 'true' : undefined}>
+							{c.name}{c.cams && <span class="cam-count">{c.cams.length}</span>}
+						</a>
+					))}
+				</nav>
+
+				{resorts.map((c) => (
+					<article class="cam-panel" id={c.id} data-id={c.id} hidden={c.id !== first}>
+						<header class="cam-top">
+							<div>
+								<p class="cam-chips">
+									<span>{c.region}</span>
+									{c.cams ? <span>{c.cams.length > 1 ? `카메라 ${c.cams.length}개` : '실시간 영상'}</span> : <span>{c.embed ? '공식 페이지' : '공식 페이지 링크'}</span>}
+									{c.cams && <span class="on">영상 바로 보기</span>}
+								</p>
+								<h2>{c.name}</h2>
+								<p class="cam-note">{c.note}</p>
+							</div>
+							<div class="cam-side">
+								<p class="cam-wx" data-resort={c.id}></p>
+								<a class="cam-btn" href={c.url} target="_blank" rel="noopener">공식 웹캠 ↗</a>
 								{/* 스키장 공식 사이트 (슬로프 지도, 개장 현황, 셔틀버스, 리프트권은 여기서 — 사용자 요구 2026-10-29. 깊은 주소는 자주 바뀌어서 첫 화면만, 확인 2026-10) */}
-								<a class="cam-site" href={c.site} target="_blank" rel="noopener">공식 사이트 (슬로프 지도, 개장 현황, 셔틀, 리프트권) ↗</a>
-							</li>
-						))}
-					</ul>
-				</section>
-			))}
+								<a class="cam-btn" href={c.site} target="_blank" rel="noopener" title="슬로프 지도, 개장 현황, 셔틀, 리프트권">공식 사이트 ↗</a>
+							</div>
+						</header>
+
+						{c.cams ? (
+							<ul class={`cam-grid${c.cams.length === 1 ? ' one' : ''}`}>
+								{c.cams.map((v) => (
+									<li class="cam-card">
+										<p class="cam-card-head">
+											<span>{v.name}</span>
+											<button type="button" class="cam-full" aria-label={`${v.name} 전체 화면`}>⤢</button>
+										</p>
+										<div class="cam-frame">
+											{v.src.includes('.m3u8') ? (
+												<>
+													<video data-src={v.src} muted playsinline aria-label={`${c.name} ${v.name} 실시간 웹캠`}></video>
+													<p class="cam-state">연결 중…</p>
+												</>
+											) : (
+												<iframe data-src={v.src} title={`${c.name} ${v.name} 실시간 웹캠`} allow="autoplay; fullscreen" allowfullscreen></iframe>
+											)}
+										</div>
+									</li>
+								))}
+							</ul>
+						) : c.embed ? (
+							<div class="cam-card">
+								<div class="cam-screen"><iframe data-src={c.url} title={`${c.name} 공식 웹캠`} allow="autoplay; fullscreen"></iframe></div>
+							</div>
+						) : (
+							<div class="cam-card cam-link">
+								<p>{c.name}은 공식 사이트가 다른 사이트 안에서 보이는 걸 막아서 새 탭으로 열어요.</p>
+								<a class="cam-btn ink" href={c.url} target="_blank" rel="noopener">공식 웹캠 열기 ↗</a>
+							</div>
+						)}
+					</article>
+				))}
+			</section>
 
 			<p class="cam-fine">
 				웹캠은 각 스키장이 운영하며, 시즌 외 기간이나 야간에는 꺼져 있거나 어둡게 보일 수 있어요.
@@ -120,22 +193,116 @@ const regions = [
 			import '../scripts/session';
 			import { deg, sky, snow, weather } from '../scripts/weather';
 
-			// 스키장마다 날씨 한 줄 (사용자 요구 2026-10-29): 지금 + 오늘, 내일 최저/최고 + 눈. 이름은 src/data/resorts.json과 같음
+			// 스키장 날씨 (사용자 요구 2026-10-29): 지금 기온 + 오늘 최저/최고 + 눈. id는 src/data/resorts.json과 같음
 			weather().then((list) => {
 				for (const el of document.querySelectorAll<HTMLElement>('.cam-wx')) {
-					const w = list.find((r) => r.name === el.dataset.resort);
+					const w = list.find((r) => r.id === el.dataset.resort);
 					if (!w) continue;
-					const day = (d: (typeof w.days)[number], label: string) => [label, sky(d.code)[0], `${deg(d.min)} / ${deg(d.max)}`, snow(d.snow)].filter(Boolean).join(' ');
-					el.textContent = [`지금 ${sky(w.now.code)[0]} ${deg(w.now.temp)}`, ...w.days.map((d, i) => day(d, i ? '내일' : '오늘'))].join('   |   ');
+					const d = w.days[0];
+					const big = document.createElement('b');
+					big.textContent = `${sky(w.now.code)[0]} ${deg(w.now.temp)}`;
+					const small = document.createElement('small');
+					small.textContent = [sky(w.now.code)[1], d && `오늘 ${deg(d.min)} / ${deg(d.max)}`, d && snow(d.snow)].filter(Boolean).join(' | ');
+					el.replaceChildren(big, small);
 				}
 			});
 
-			// 펼칠 때만 웹캠 로드, 접으면 about:blank로 재생 중지
-			document.querySelectorAll<HTMLDetailsElement>('.cam-item').forEach((item) => {
-				const frame = item.querySelector('iframe')!;
-				item.addEventListener('toggle', () => {
-					frame.src = item.open ? frame.dataset.src! : 'about:blank';
+			// 영상(HLS) 하나: Safari, 최신 Chrome은 기본으로, 그 밖엔 hls.js (처음 쓸 때만 불러옴)
+			type Player = { start(): void; stop(): void };
+			const player = (video: HTMLVideoElement): Player => {
+				const state = video.parentElement!.querySelector<HTMLElement>('.cam-state')!;
+				let hls: { destroy(): void } | null = null;
+				let on = false;
+				const show = (text: string) => ((state.textContent = text), (state.hidden = !text));
+				const fail = () => on && show('지금은 영상을 불러오지 못했어요. 위 \'공식 웹캠\'에서 봐 주세요.');
+				video.addEventListener('playing', () => show(''));
+				video.addEventListener('error', fail);
+				const stop = () => {
+					on = false;
+					hls?.destroy();
+					hls = null;
+					video.removeAttribute('src');
+					video.load();
+				};
+				return {
+					stop,
+					async start() {
+						if (on) return;
+						on = true;
+						show('연결 중…');
+						const src = video.dataset.src!;
+						if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = src;
+						else {
+							const { default: Hls } = await import('hls.js/dist/hls.light.mjs');
+							if (!on) return;
+							if (!Hls.isSupported()) return fail();
+							const h = new Hls();
+							h.on(Hls.Events.ERROR, (_e: unknown, d: { fatal: boolean }) => d.fatal && (fail(), h.destroy()));
+							h.loadSource(src);
+							h.attachMedia(video);
+							hls = h;
+						}
+						video.play().catch(() => {});
+					},
+				};
+			};
+
+			// 유튜브, 외부 플레이어 캠: 보일 때 주소를 넣고 안 보이면 about:blank
+			const framePlayer = (frame: HTMLIFrameElement): Player => ({
+				start: () => void (frame.src !== frame.dataset.src && (frame.src = frame.dataset.src!)),
+				stop: () => void (frame.src = 'about:blank'),
+			});
+
+			// 화면에 보이는 캠만 재생 (모바일 데이터 아끼기), 안 보이면 멈추고 연결 끊음
+			const players = new Map<Element, Player>();
+			const seen = new IntersectionObserver((list) => {
+				for (const e of list) {
+					const p = players.get(e.target)!;
+					if (e.isIntersecting) p.start();
+					else p.stop();
+				}
+			}, { threshold: 0.2 });
+			for (const el of document.querySelectorAll<HTMLVideoElement | HTMLIFrameElement>('.cam-frame [data-src]')) {
+				players.set(el, el instanceof HTMLVideoElement ? player(el) : framePlayer(el));
+			}
+
+			// 전체 화면 (아이폰 Safari는 video만 전체 화면 가능)
+			for (const b of document.querySelectorAll<HTMLButtonElement>('.cam-full')) {
+				b.addEventListener('click', () => {
+					const v = b.closest('.cam-card')!.querySelector('.cam-frame [data-src]') as HTMLElement & { webkitEnterFullscreen?: () => void };
+					if (v.requestFullscreen) v.requestFullscreen().catch(() => v.webkitEnterFullscreen?.());
+					else v.webkitEnterFullscreen?.();
 				});
+			}
+
+			// 스키장 고르기: 주소 #id (공유, 뒤로 가기), 마지막으로 본 곳 기억. 고른 곳만 영상, iframe을 엶
+			const panels = [...document.querySelectorAll<HTMLElement>('.cam-panel')];
+			const tabs = [...document.querySelectorAll<HTMLAnchorElement>('.cam-pick a')];
+			const KEY = 'fs-cam';
+			const pick = (id: string) => {
+				const panel = panels.find((p) => p.dataset.id === id) ?? panels.find((p) => !p.hidden) ?? panels[0];
+				for (const p of panels) {
+					const open = p === panel;
+					p.hidden = !open;
+					for (const v of p.querySelectorAll('.cam-frame [data-src]')) {
+						if (open) seen.observe(v);
+						else (seen.unobserve(v), players.get(v)!.stop());
+					}
+					const frame = p.querySelector<HTMLIFrameElement>('.cam-screen iframe');
+					if (frame) frame.src = open ? frame.dataset.src! : 'about:blank';
+				}
+				for (const t of tabs) t.toggleAttribute('aria-current', t.dataset.id === panel.dataset.id);
+				try { localStorage.setItem(KEY, panel.dataset.id!); } catch {}
+			};
+			let saved = '';
+			try { saved = localStorage.getItem(KEY) ?? ''; } catch {}
+			pick(location.hash.slice(1) || saved);
+			addEventListener('hashchange', () => pick(location.hash.slice(1)));
+			// 고르면 스크롤이 패널로 튀지 않게 (해시만 바꿈)
+			for (const t of tabs) t.addEventListener('click', (e) => {
+				e.preventDefault();
+				history.replaceState(null, '', `#${t.dataset.id}`);
+				pick(t.dataset.id!);
 			});
 		</script>
 	</body>
@@ -178,133 +345,250 @@ const regions = [
 			animation: none;
 		}
 	}
-	.cam-region {
+	/* 스키장 고르기 + 고른 스키장 카드 (사용자 요구 2026-11-10: snowthing.org 배치, 색, 글꼴은 이 사이트) */
+	.cam-body {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
-		gap: 24px;
-		padding: clamp(40px, 6vw, 72px) var(--gutter) 0;
+		gap: 20px;
+		padding: clamp(28px, 4vw, 48px) var(--gutter) 0;
 	}
-	.cam-region h2 {
-		font-size: clamp(1.6rem, 3vw, 2.4rem);
+	.cam-pick {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		gap: 6px;
+		padding: 8px;
+		background: var(--white);
+		border: 1px solid var(--line);
+		border-radius: 14px;
+	}
+	.cam-pick a {
+		display: flex;
+		justify-content: center;
+		align-items: baseline;
+		gap: 6px;
+		padding: 10px 8px;
+		border-radius: 10px;
+		font-size: 15px;
+		font-weight: 700;
+		text-align: center;
+		text-decoration: none;
+		color: var(--black);
+	}
+	@media (hover: hover) {
+		.cam-pick a:hover {
+			background: var(--bone);
+		}
+	}
+	.cam-pick a[aria-current] {
+		background: var(--black);
+		color: var(--white);
+	}
+	.cam-count {
+		font-size: 12px;
+		color: var(--accent);
+	}
+	.cam-panel {
+		padding: clamp(18px, 2.5vw, 28px);
+		background: var(--white);
+		border: 1px solid var(--line);
+		border-radius: 14px;
+	}
+	.cam-top {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: flex-end;
+		gap: 16px 24px;
+		padding-bottom: 20px;
+		margin-bottom: 20px;
+		border-bottom: 1px solid var(--line);
+	}
+	.cam-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 0 0 10px;
+	}
+	.cam-chips span {
+		padding: 3px 9px;
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		font-size: 12px;
+		font-weight: 700;
+		color: #4a4d55;
+	}
+	.cam-chips .on {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.cam-top h2 {
+		margin: 0;
+		font-size: clamp(1.6rem, 3vw, 2.2rem);
 		font-weight: 900;
 		letter-spacing: -0.03em;
 	}
-	.cam-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		border-top: 1.5px solid var(--black);
-	}
-	/* 줄 구분선은 li에 (아래 '공식 사이트' 링크까지 한 칸) */
-	.cam-list > li {
-		border-bottom: 1px solid var(--line);
-	}
-	.cam-list > li > .cam-row,
-	.cam-list summary {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto auto;
-		align-items: center;
-		gap: 24px;
-		padding: 22px 0 10px;
-		text-decoration: none;
-		transition: padding 0.25s, color 0.2s;
-	}
-	.cam-list > li > a:hover,
-	.cam-list summary:hover {
-		padding-left: 16px;
-		color: var(--accent);
-	}
-	.cam-site {
-		display: inline-block;
-		margin: 0 0 18px;
+	.cam-note {
+		margin: 4px 0 0;
+		font-size: 14px;
 		color: #4a4d55;
-		font-size: 12px;
 	}
-	.cam-item[open] + .cam-site {
-		margin-top: 10px;
+	.cam-side {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: stretch;
+		gap: 8px;
 	}
-	.cam-head {
-		display: grid;
-		gap: 4px;
-		min-width: 0;
-	}
-	/* 날씨 한 줄 (scripts/weather.ts) — 비어 있으면 자리 안 차지 */
 	.cam-wx {
-		color: #4a4d55;
-		font-size: 13px;
-		white-space: pre-wrap;
+		display: grid;
+		align-content: center;
+		margin: 0;
+		padding: 6px 14px;
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		line-height: 1.3;
 	}
 	.cam-wx:empty {
 		display: none;
 	}
-	.cam-name {
-		font-size: clamp(1.2rem, 2.2vw, 1.7rem);
-		font-weight: 900;
-		letter-spacing: -0.02em;
+	.cam-wx b {
+		font-size: 20px;
 	}
-	.cam-note {
-		font-size: 14px;
+	.cam-wx small {
+		font-size: 12px;
 		color: #4a4d55;
-		text-align: right;
 	}
-	.cam-go {
-		font-size: 1.4rem;
+	.cam-btn {
+		display: inline-flex;
+		align-items: center;
+		padding: 8px 14px;
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		font-size: 14px;
+		font-weight: 700;
+		text-decoration: none;
+		color: var(--black);
 	}
-	.cam-list summary {
-		cursor: pointer;
+	.cam-btn.ink {
+		background: var(--black);
+		border-color: var(--black);
+		color: var(--white);
+	}
+	@media (hover: hover) {
+		.cam-btn:not(.ink):hover {
+			background: var(--bone);
+		}
+	}
+	.cam-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 16px;
+		margin: 0;
+		padding: 0;
 		list-style: none;
 	}
-	.cam-list summary::-webkit-details-marker {
-		display: none;
+	.cam-card {
+		overflow: hidden;
+		border: 1px solid var(--line);
+		border-radius: 12px;
 	}
-	.cam-toggle::before {
-		content: '+';
-		font-weight: 400;
+	.cam-card-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 12px;
+		margin: 0;
+		padding: 10px 8px 10px 14px;
+		border-bottom: 1px solid var(--line);
+		font-size: 15px;
+		font-weight: 700;
 	}
-	.cam-item[open] .cam-toggle::before {
-		content: '−';
+	.cam-full {
+		width: 34px;
+		height: 34px;
+		border: 0;
+		border-radius: 8px;
+		background: none;
+		font-size: 18px;
+		cursor: pointer;
 	}
-	.cam-item[open] summary {
-		border-bottom-color: transparent;
+	@media (hover: hover) {
+		.cam-full:hover {
+			background: var(--bone);
+		}
+	}
+	.cam-frame {
+		position: relative;
+		aspect-ratio: 16 / 9;
+		background: var(--black);
+	}
+	.cam-grid.one {
+		grid-template-columns: 1fr;
+	}
+	.cam-frame iframe {
+		display: block;
+		width: 100%;
+		height: 100%;
+		border: 0;
+	}
+	.cam-frame video {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.cam-state {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		margin: 0;
+		padding: 16px;
+		text-align: center;
+		font-size: 14px;
+		color: rgb(255 255 255 / 0.8);
 	}
 	.cam-screen {
 		height: min(75vh, 760px);
-		background: var(--black);
-		border: 1.5px solid var(--black);
 	}
 	.cam-screen iframe {
+		display: block;
 		width: 100%;
 		height: 100%;
 		border: 0;
 		background: var(--white);
 	}
-	.cam-open {
-		display: inline-block;
-		margin: 12px 0 24px;
-		font-size: 14px;
+	.cam-link {
+		display: grid;
+		justify-items: start;
+		gap: 16px;
+		padding: 28px;
+	}
+	.cam-link p {
+		margin: 0;
+		color: #4a4d55;
 	}
 	.cam-fine {
-		padding: 48px var(--gutter) clamp(64px, 10vw, 120px);
+		padding: 32px var(--gutter) clamp(64px, 10vw, 120px);
 		font-size: 14px;
 		color: var(--gray);
 	}
+	@media (max-width: 1000px) {
+		.cam-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
 	@media (max-width: 720px) {
-		.cam-region {
+		.cam-pick {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+		.cam-pick a {
+			padding: 10px 4px;
+			font-size: 13px;
+		}
+		.cam-grid {
 			grid-template-columns: 1fr;
-			gap: 12px;
 		}
-		.cam-list > li > a,
-		.cam-list summary {
-			grid-template-columns: minmax(0, 1fr) auto;
-			gap: 4px 16px;
-		}
-		.cam-note {
-			grid-row: 2;
-			text-align: left;
-		}
-		.cam-go {
-			grid-row: 1 / 3;
-			grid-column: 2;
+		.cam-side {
+			width: 100%;
 		}
 	}
 </style>

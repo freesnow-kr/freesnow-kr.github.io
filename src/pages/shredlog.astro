@@ -123,75 +123,8 @@ const pick = {
 					<p class="roi" aria-live="polite"></p>
 				</section>
 
-				<section class="block">
-					<h2>VISITS</h2>
-					<form class="visit-form">
-						<div class="row">
-							<label>날짜<input name="date" type="date" required min="2024-07-01" max="2027-06-30" /></label>
-							<label>스키장<input name="resort" list="resorts" required autocomplete="off" /></label>
-							{Object.entries({ slot: '시간대', snow: '설질', style: '라이딩 스타일', weather: '날씨', crew: '동행' }).map(([k, label]) => (
-								<label>
-									{label}
-									<select name={k}>
-										<option value="">-</option>
-										{pick[k as keyof typeof pick].map((o) => <option>{o}</option>)}
-									</select>
-								</label>
-							))}
-							<label>기온 (°C)<input name="temp" type="number" step="any" /></label>
-							<label>런 수<input name="runs" type="number" min="0" inputmode="numeric" /></label>
-							<label>라이딩 시간 (h)<input name="hours" type="number" min="0" step="any" /></label>
-							<label>
-								만족도
-								<select name="rating">
-									<option value="">-</option>
-									{[5, 4, 3, 2, 1].map((n) => <option value={n}>{'★'.repeat(n)}</option>)}
-								</select>
-							</label>
-							<label class="wide">데크 / 바인딩 세팅<input name="gear" maxlength="100" /></label>
-							<label class="wide">슬로프 메모<input name="memo" maxlength="300" /></label>
-						</div>
-						<details>
-							<summary>당일 지출 같이 기록</summary>
-							<div class="row">
-								{cats.map((c) => <label>{c}<input name={`cost:${c}`} type="number" min="0" step="1" inputmode="numeric" /></label>)}
-							</div>
-						</details>
-						<button class="btn btn-ink" type="submit">출격 기록 추가</button>
-					</form>
-					<div class="scroll"><table class="visit-table"><thead><tr><th>날짜</th><th>스키장</th><th>시간대</th><th>설질</th><th>스타일</th><th>날씨</th><th>동행</th><th>기온</th><th>런</th><th>스노우라이브</th><th>시간</th><th>만족도</th><th>당일 지출</th><th>세팅</th><th>메모</th><th></th></tr></thead><tbody></tbody></table></div>
-				</section>
 
-				<section class="block">
-					<h2>EXPENSES</h2>
-					<form class="expense-form">
-						<div class="row">
-							<label>날짜<input name="date" type="date" required min="2024-07-01" max="2027-06-30" /></label>
-							<label class="wide">분류<select name="cat">{cats.map((c) => <option>{c}</option>)}</select></label>
-							<label>금액 (원)<input name="amount" type="number" min="1" step="1" required inputmode="numeric" /></label>
-							<label class="wide">메모<input name="memo" maxlength="100" placeholder="예: 시즌방 1/N" /></label>
-						</div>
-						<button class="btn btn-ink" type="submit">지출 추가</button>
-					</form>
-					<p class="by-cat"></p>
-					<div class="scroll"><table class="expense-table"><thead><tr><th>날짜</th><th>분류</th><th>금액</th><th>메모</th><th></th></tr></thead><tbody></tbody></table></div>
-					<button class="btn btn-line-dark csv" type="button">이 시즌 지출 CSV 받기</button>
-				</section>
 
-				<!-- 장비 관리 (사용자 요구 2026-10-29): 왁싱, 엣지, 튠업 기록 + '마지막 왁싱 후 N회 출격' 안내. 시즌과 상관없이 전체 -->
-				<section class="block">
-					<h2>GEAR CARE</h2>
-					<p class="care-tip" aria-live="polite"></p>
-					<form class="care-form">
-						<div class="row">
-							<label>날짜<input name="date" type="date" required min="2024-07-01" max="2027-06-30" /></label>
-							<label>종류<select name="kind"><option>왁싱</option><option>엣지</option><option>튠업</option><option>기타</option></select></label>
-							<label class="wide">메모<input name="memo" maxlength="100" placeholder="예: 핫왁스, 엣지 88도" /></label>
-						</div>
-						<button class="btn btn-ink" type="submit">관리 기록 추가</button>
-					</form>
-					<div class="scroll"><table class="care-table"><thead><tr><th>날짜</th><th>종류</th><th>메모</th><th></th></tr></thead><tbody></tbody></table></div>
-				</section>
 
 				<section class="block">
 					<h2>COMPARE</h2>
@@ -202,6 +135,83 @@ const pick = {
 						</table>
 					</div>
 				</section>
+
+				<!-- 출격, 지출, 장비 관리 기록: 맨 아래 접는 칸 (사용자 요구 2026-11-10). 처음엔 접힘, 연 칸은 브라우저에 기억. 제목 줄에 건수 -->
+				<div class="folds">
+					<details class="fold" data-fold="visits">
+						<summary><h2>VISITS</h2><span class="fold-sub" data-sub="visits">출격 기록</span><span class="fold-mark" aria-hidden="true"></span></summary>
+						<div class="block fold-body">
+							<form class="visit-form">
+								<div class="row">
+									<label>날짜<input name="date" type="date" required min="2024-07-01" max="2027-06-30" /></label>
+									<label>스키장<input name="resort" list="resorts" required autocomplete="off" /></label>
+									{Object.entries({ slot: '시간대', snow: '설질', style: '라이딩 스타일', weather: '날씨', crew: '동행' }).map(([k, label]) => (
+										<label>
+											{label}
+											<select name={k}>
+												<option value="">-</option>
+												{pick[k as keyof typeof pick].map((o) => <option>{o}</option>)}
+											</select>
+										</label>
+									))}
+									<label>기온 (°C)<input name="temp" type="number" step="any" /></label>
+									<label>런 수<input name="runs" type="number" min="0" inputmode="numeric" /></label>
+									<label>라이딩 시간 (h)<input name="hours" type="number" min="0" step="any" /></label>
+									<label>
+										만족도
+										<select name="rating">
+											<option value="">-</option>
+											{[5, 4, 3, 2, 1].map((n) => <option value={n}>{'★'.repeat(n)}</option>)}
+										</select>
+									</label>
+									<label class="wide">데크 / 바인딩 세팅<input name="gear" maxlength="100" /></label>
+									<label class="wide">슬로프 메모<input name="memo" maxlength="300" /></label>
+								</div>
+								<details>
+									<summary>당일 지출 같이 기록</summary>
+									<div class="row">
+										{cats.map((c) => <label>{c}<input name={`cost:${c}`} type="number" min="0" step="1" inputmode="numeric" /></label>)}
+									</div>
+								</details>
+								<button class="btn btn-ink" type="submit">출격 기록 추가</button>
+							</form>
+							<div class="scroll"><table class="visit-table"><thead><tr><th>날짜</th><th>스키장</th><th>시간대</th><th>설질</th><th>스타일</th><th>날씨</th><th>동행</th><th>기온</th><th>런</th><th>스노우라이브</th><th>시간</th><th>만족도</th><th>당일 지출</th><th>세팅</th><th>메모</th><th></th></tr></thead><tbody></tbody></table></div>
+						</div>
+					</details>
+					<details class="fold" data-fold="expenses">
+						<summary><h2>EXPENSES</h2><span class="fold-sub" data-sub="expenses">지출 기록</span><span class="fold-mark" aria-hidden="true"></span></summary>
+						<div class="block fold-body">
+							<form class="expense-form">
+								<div class="row">
+									<label>날짜<input name="date" type="date" required min="2024-07-01" max="2027-06-30" /></label>
+									<label class="wide">분류<select name="cat">{cats.map((c) => <option>{c}</option>)}</select></label>
+									<label>금액 (원)<input name="amount" type="number" min="1" step="1" required inputmode="numeric" /></label>
+									<label class="wide">메모<input name="memo" maxlength="100" placeholder="예: 시즌방 1/N" /></label>
+								</div>
+								<button class="btn btn-ink" type="submit">지출 추가</button>
+							</form>
+							<p class="by-cat"></p>
+							<div class="scroll"><table class="expense-table"><thead><tr><th>날짜</th><th>분류</th><th>금액</th><th>메모</th><th></th></tr></thead><tbody></tbody></table></div>
+							<button class="btn btn-line-dark csv" type="button">이 시즌 지출 CSV 받기</button>
+						</div>
+					</details>
+					<!-- 장비 관리 (사용자 요구 2026-10-29): 왁싱, 엣지, 튠업 기록 + '마지막 왁싱 후 N회 출격' 안내. 시즌과 상관없이 전체 -->
+					<details class="fold" data-fold="care">
+						<summary><h2>GEAR CARE</h2><span class="fold-sub" data-sub="care">장비 관리</span><span class="fold-mark" aria-hidden="true"></span></summary>
+						<div class="block fold-body">
+							<p class="care-tip" aria-live="polite"></p>
+							<form class="care-form">
+								<div class="row">
+									<label>날짜<input name="date" type="date" required min="2024-07-01" max="2027-06-30" /></label>
+									<label>종류<select name="kind"><option>왁싱</option><option>엣지</option><option>튠업</option><option>기타</option></select></label>
+									<label class="wide">메모<input name="memo" maxlength="100" placeholder="예: 핫왁스, 엣지 88도" /></label>
+								</div>
+								<button class="btn btn-ink" type="submit">관리 기록 추가</button>
+							</form>
+							<div class="scroll"><table class="care-table"><thead><tr><th>날짜</th><th>종류</th><th>메모</th><th></th></tr></thead><tbody></tbody></table></div>
+						</div>
+					</details>
+				</div>
 
 			</div>
 
@@ -351,6 +361,7 @@ const pick = {
 					}),
 				);
 				if (!st.visits.length) vBody.append(row([`${season} 시즌 출격 기록이 아직 없어요.`]));
+				$('[data-sub=visits]').textContent = `${season} 출격 기록 ${st.visits.length}건`;
 
 				const eBody = $('.expense-table tbody');
 				eBody.replaceChildren(
@@ -362,6 +373,7 @@ const pick = {
 					),
 				);
 				if (!st.expenses.length) eBody.append(row([`${season} 시즌 지출이 아직 없어요.`]));
+				$('[data-sub=expenses]').textContent = `${season} 지출 ${st.expenses.length}건${st.total ? ` | ${won(st.total)}` : ''}`;
 				const byCat: Record<string, number> = {};
 				st.expenses.forEach((e) => (byCat[e.cat] = (byCat[e.cat] || 0) + e.amount));
 				$('.by-cat').textContent = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, t]) => `${c} ${won(t)}`).join('   ');
@@ -383,6 +395,10 @@ const pick = {
 				const since = [...rideDays].filter((d) => !lastWax || d > lastWax).length;
 				const tip = $('.care-tip');
 				tip.classList.toggle('due', since >= WAX_EVERY);
+				// 접혀 있어도 왁싱할 때는 제목 줄에서 보이게
+				const careSub = $('[data-sub=care]');
+				careSub.textContent = since >= WAX_EVERY ? `왁싱할 때예요 (${since}회 출격)` : `장비 관리 ${data.cares.length}건`;
+				careSub.classList.toggle('due', since >= WAX_EVERY);
 				tip.textContent = !lastWax
 					? since ? `아직 왁싱 기록이 없어요. 지금까지 출격 ${since}일이에요.` : '왁싱, 엣지 관리 날짜를 남겨 두면 다음 관리 때를 알려 드려요.'
 					: since >= WAX_EVERY ? `마지막 왁싱(${lastWax}) 후 ${since}회 출격했어요. 왁싱할 때예요! 🧴` : `마지막 왁싱(${lastWax}) 후 ${since}회 출격 (${WAX_EVERY}회마다 알려 드려요)`;
@@ -492,6 +508,17 @@ const pick = {
 			});
 			// ── 저장 위치 ──
 			const log = $('.log');
+			// 접는 칸: 연 칸을 브라우저에 기억 (처음엔 모두 접힘)
+			const FOLD = 'fs-shredlog-open';
+			let opened: string[] = [];
+			try { opened = JSON.parse(localStorage.getItem(FOLD) || '[]'); } catch {}
+			for (const f of document.querySelectorAll<HTMLDetailsElement>('.fold')) {
+				f.open = opened.includes(f.dataset.fold!);
+				f.addEventListener('toggle', () => {
+					const now = [...document.querySelectorAll<HTMLDetailsElement>('.fold')].filter((x) => x.open).map((x) => x.dataset.fold!);
+					try { localStorage.setItem(FOLD, JSON.stringify(now)); } catch {}
+				});
+			}
 			const syncMsg = $('.sync-msg');
 			const loginBtn = $<HTMLAnchorElement>('.sync-login');
 			const moveBtn = $<HTMLButtonElement>('.sync-move');
@@ -787,6 +814,57 @@ const pick = {
 	}
 	details {
 		width: 100%;
+	}
+	/* 접는 칸 (출격, 지출, 장비 관리): 제목 줄 = 큰 제목 | 건수 | +/−, 칸끼리 붙여 쌓음 */
+	.folds {
+		display: grid;
+		border-top: 1.5px solid var(--black);
+	}
+	.fold {
+		border-bottom: 1.5px solid var(--black);
+	}
+	.fold > summary {
+		display: flex;
+		align-items: baseline;
+		gap: 12px 20px;
+		margin: 0;
+		padding: 18px 0;
+		list-style: none;
+	}
+	.fold > summary::-webkit-details-marker {
+		display: none;
+	}
+	.fold > summary h2 {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		font: clamp(1.6rem, 3vw, 2.2rem) var(--display);
+		font-weight: 400;
+	}
+	.fold-sub {
+		flex: 1;
+		font-size: 14px;
+		font-weight: 700;
+		color: #4a4d55;
+	}
+	.fold-sub.due {
+		color: var(--accent);
+	}
+	.fold-mark::before {
+		content: '+';
+		font-size: 1.6rem;
+		font-weight: 400;
+	}
+	.fold[open] .fold-mark::before {
+		content: '−';
+	}
+	@media (hover: hover) {
+		.fold > summary:hover h2 {
+			color: var(--accent);
+		}
+	}
+	.fold-body {
+		padding-bottom: 32px;
 	}
 	summary {
 		cursor: pointer;

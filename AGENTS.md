@@ -4,7 +4,7 @@
 
 ## 한눈에
 
-- **스택**: Astro 7 정적 사이트 (프레임워크, CSS 라이브러리 없음, 의존성 `astro` 하나). Node ≥ 22.22 (로컬 24).
+- **스택**: Astro 7 정적 사이트 (프레임워크, CSS 라이브러리 없음, 의존성 `astro` + 웹캠 영상용 `hls.js`). Node ≥ 22.22 (로컬 24).
 - **호스팅**: GitHub Pages, 저장소 `freesnow-kr/freesnow-kr.github.io` (조직 `freesnow-kr`, public), `main` push → `.github/workflows/deploy.yml` (withastro/action, `node-version: 24`).
 - **주소**: `https://freesnow.org/` — 하위 경로 없음(`astro.config.mjs`에 `base` 없음). 2026-11-05 GitHub Pages 사용자 지정 도메인으로 옮김(DNS Cloudflare, DNS only, 조직에서 도메인 인증). 예전 `freesnow-kr.github.io`는 GitHub가 넘김. 백엔드 `ALLOWED_ORIGINS`에 둘 다 둠(안드로이드 앱이 예전 주소를 열 수 있어서). 같은 도메인의 `game.freesnow.org`는 게임(freesnow-game 저장소)
 - **서버 = Cloudflare Worker `backend/` + D1**(2026-10-23 이전, 사용자 요구: Apps Script 쓰는 코드 제거). 주소 `https://api.freesnow.workers.dev`, D1 `freesnow`. 사이트는 `club.api`(`PUBLIC_API_URL`)만 부름. 자세한 건 아래 '서버 (Cloudflare Worker)'.
@@ -128,9 +128,10 @@
 
 ## 웹캠 페이지 (`/webcam`)
 
-- `regions` 배열(지역 → 스키장). 렌더링 시 지역 안에서 `localeCompare(..., 'ko')`로 가나다 정렬.
+- `regions` 배열(지역 → 스키장, `id`는 `src/data/resorts.json`과 같음). 지역 순서, 지역 안에선 가나다.
+- **화면**(사용자 요구 2026-11-10, snowthing.org 배치를 이 사이트 색, 글꼴로): 위 흰 상자에 스키장 고르기(넓으면 여러 칸, 720px 이하 3칸, 고른 곳 검정, `cams` 있으면 주황 숫자) → 고른 스키장 카드 하나(칩: 지역, 카메라 N개 또는 공식 페이지, '영상 바로 보기' | 이름, 설명 | 오른쪽 날씨 상자, '공식 웹캠', '공식 사이트' 버튼) → `cams`면 캠 카드 격자(넓으면 2칸, 휴대폰 1칸, 제목 + ⤢ 전체 화면), embed면 iframe 카드, 아니면 '공식 웹캠 열기' 버튼. 고른 곳은 주소 `#id`(공유, 뒤로 가기) + `localStorage` `fs-cam`, 처음엔 `cams` 있는 곳(곤지암). **화면에 보이는 캠만 재생**(IntersectionObserver 20%, 안 보이거나 다른 스키장으로 가면 멈추고 연결 끊음 — 모바일 데이터), iframe도 고른 스키장만 엶. 이 고르기 칸은 공통 `.filter`가 아님(사용자가 이 모양을 고름).
 - `embed: true` → `<details>` 아코디언 안 `<iframe data-src>`; 펼칠 때만 `src` 설정, 접으면 `about:blank`(재생 중지, 부하 감소).
-- **스키장 공식 페이지만 iframe/링크.** 스트림(m3u8 등) 직접 핫링크, 재송출은 하지 않기로 결정(스키장 허락 없음). 허락받은 스키장만 예외로 검토.
+- **캠별 직접 재생**(사용자 결정 2026-11-10, snowthing.org처럼, 스키장 허락 없음을 알고 정함): 리조트에 `cams: [{name, src}]` — `.m3u8`은 `<video>`(Safari, 최신 Chrome은 기본, 안 되면 `hls.js` npm, 처음 쓸 때만 `hls.light.mjs`), 그 밖(유튜브 embed, rtsp.ru)은 iframe. 주소는 snowthing이 쓰는 것(2026-11-10): 곤지암 `video.fpkorea.com`, 용평 `live.yongpyong.co.kr`, 휘닉스 `streaming.phoenixhnr.co.kr`, 웰리힐리 `live.wellihillipark.com`, 오크밸리 `cctv-oak9.ktcdn.co.kr`(그날 대부분 502), 지산 `ant.livecity.co.kr:5443`(그날 404, 시즌 전), 강촌, 알펜시아 유튜브, 에덴밸리 `rtsp.ru/embed`. 모두 CORS `*`. 안 나오는 캠은 '지금은 영상을 불러오지 못했어요'. **하이원, 무주, 오투, 비발디는 snowthing도 자기 서버를 거침**(`/stream-proxy/…`, `/vivaldi.html` — 원래 주소가 http이거나 CORS가 없어서) → 우리는 아직 공식 페이지 iframe. 하려면 Worker 프록시가 필요(무료 요청 한도, 재송출 문제 — 사용자 결정 필요). `cams`를 빼면 예전 공식 페이지 iframe으로 돌아감. **하이원·무주·오투는 영상이 http + Referer 차단이라 직접 못 틀어서 `backend/src/cam.ts` HLS 중계**(사용자 요구 2026-11-10, snowthing도 자기 서버로 중계): `GET /cam/<이름>/<원본 경로>`가 원본 서버로 중계하고 m3u8 안 주소도 `/cam/…`로 바꿔 CORS로 내보냄. 켜는 법 = `CAM_SOURCES`에 `{ base: '스킴://호스트[:포트]', referer }` 채우고 webcam.astro cams에 `club.api + '/cam/<이름>/<첫 m3u8 경로>'` 추가. **아직 세 곳 base는 비어 있음(503)** — 원본 주소를 못 구함(공식 페이지가 팝업·세션·Referer로 가림, 받으면 채우면 바로 켜짐). 영상이라 요청 수가 커서 Worker 무료 10만/일 주의. 비발디는 CCTV 로그인(아이디·비번)이 필요해 제외 — 사용자가 정식 임베드를 구하는 중.
 - 지산: `X-Frame-Options: SAMEORIGIN` → 링크만. 하이원 팝업 플레이어는 `http://`라 https 페이지에서 차단됨.
 - 하이원 30초 / 비발디 20초 / 무주 1분 자동 종료는 각 스키장 설정(변경 불가).
 - 주소 확인 날짜: 2026-10. 깨지면 해당 스키장 사이트에서 새 주소 확인.
@@ -157,6 +158,7 @@
 - `action:'shredlog'` {token, op?: 'add'|'delete'} → `{visits, expenses, pass}`(본인 것만). add = {visits?, expenses?, pass?: {'25-26': {price, day}}}, 같은 ID는 건너뜀(옮기기 재시도해도 중복 없음). delete = {visit?(묶인 지출도), expense?} — **연락처가 본인인 줄만** 지움. `LockService` 잠금, 회원당 3000줄 상한, ID, 날짜, 금액 형식 검사, 글자 칸은 `clean`(수식 주입 방지).
 - 탭(같은 스프레드시트, 없으면 자동 생성): **'출격기록'** `연락처|ID|날짜|스키장|시간대|설질|스타일|날씨|동행|기온|런수|라이딩시간|만족도|세팅|메모|기록일시`, **'지출기록'** `연락처|ID|날짜|분류|금액|메모|출격ID|기록일시`, **'시즌권'** `연락처|시즌|시즌권가격|일일권가격|변경일시`(회원, 시즌당 한 줄). 화면 필드 ↔ 머리글은 `LOG_VISIT_COL`.
 - 기록 수정 기능 없음(지우고 다시 추가).
+- **화면 순서**(사용자 요구 2026-11-10): 숫자 띠 → SNOWLIVE → SEASON PASS → COMPARE → 맨 아래 **접는 칸 VISITS, EXPENSES, GEAR CARE**(`details.fold`, 처음엔 접힘, 연 칸은 `localStorage` `fs-shredlog-open`, 제목 줄에 '25-26 출격 기록 N건', '지출 N건 | 금액', '장비 관리 N건' — 왁싱할 때면 주황 '왁싱할 때예요').
 - **시즌 오픈일** `SEASON_OPEN`(shredlog.astro 스크립트, 지금 `{'26-27': '2026-11-28'}` — 사용자 지정): 그 날 전에는 시즌 버튼에 'OPEN 11.28', 고르면 '아직 오픈 전이에요' 안내, 처음 열 때 지난 시즌을 보여 줌. 그 날부터 자동으로 사라짐(브라우저 날짜 기준). 오픈 전에도 기록은 가능(시즌권 미리 산 것 등). 새 시즌 추가할 때 `seasons`와 함께 갱신.
 - 시즌권 계산은 **'계산하기' 버튼을 눌러야**(사용자 요구, 자동 계산 X): 가격 저장 → 라이딩 일수로 1회당 단가, 본전. 시즌권 칸은 시즌을 바꾸거나 기록을 새로 불러올 때만 저장된 값으로 채움(입력 중 값 안 덮게).
 - **출격 일수 = SHRED LOG 출격 날짜 ∪ 스노우라이브 기록 날짜**(같은 날 한 번). 출격 칸, 1회 평균, 시즌권 1회당 단가, 비교표가 이 값을 씀(스노우라이브만 연결하고 출격을 안 적어도 단가 계산되게 — 사용자 요구).

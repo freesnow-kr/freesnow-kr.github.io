@@ -12,6 +12,7 @@ import * as push from './push.ts';
 import { snowAlert, today, weather } from './weather.ts';
 import { rideRank } from './rank.ts';
 import * as photos from './photos.ts';
+import * as cam from './cam.ts';
 import * as board from './board.ts';
 import * as teams from './teams.ts';
 
@@ -99,6 +100,9 @@ export default {
 		if (req.method === 'GET' && m) return photos.serve(env, m[1], m[2]);
 		if (req.method === 'GET' && path.startsWith('/profile/')) return serveProfile(env, path.slice(1));
 		if (req.method === 'GET' && path.startsWith('/board/')) return board.servePhoto(env, path.slice(1), new URL(req.url).searchParams);
+		// 스키장 웹캠 중계 (공개): /cam/<이름>/<원본 경로>
+		const c = /^\/cam\/([\w-]+)\/(.+)$/.exec(path);
+		if (req.method === 'GET' && c) return cam.proxy(env, c[1], c[2], new URL(req.url));
 		if (req.method !== 'POST') return json({ ok: true, service: 'Free Snow API', note: '사이트에서 POST로만 사용해요.' }, cors);
 		// 사진 올리기: multipart (사진 파일이라 JSON 대신. multipart도 CORS 사전요청 없음)
 		// 게시판 사진 올리기 (multipart)

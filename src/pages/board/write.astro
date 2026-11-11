@@ -236,6 +236,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // 끝 슬래시 없�
 				msg.hidden = true;
 				form.hidden = false;
 				setupDraftAndGreeting(sel);
+				// 다른 화면이 채워 보낸 제목, 내용 (?t=&b=, 예: SHRED LOG 데크 사이즈 '게시판에 물어보기'). 임시저장 글이 있으면 그게 먼저
+				if (!editId && !form.title.value && !body.value.trim()) {
+					const t = q.get('t');
+					const b = q.get('b');
+					if (t) form.title.value = t.slice(0, 100);
+					if (b) body.value = b.slice(0, 2000);
+				}
 			}
 
 			form.addEventListener('submit', async (e) => {

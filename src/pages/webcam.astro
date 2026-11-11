@@ -662,10 +662,14 @@ const first = 'konjiam';
 			font-size: 14px;
 		}
 		.cam-wx {
-			padding: 5px 11px;
+			display: flex; /* 모바일은 한 줄: '☀️ 5° 맑음 | 오늘 −1° / 10°' (두 줄이라 커 보여서) */
+			align-items: baseline;
+			gap: 6px;
+			padding: 6px 11px;
 		}
 		.cam-wx b {
-			font-size: 15px;
+			font-size: 14px;
+			white-space: nowrap;
 		}
 		.cam-wx small {
 			font-size: 11px;

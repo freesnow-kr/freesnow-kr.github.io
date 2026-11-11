@@ -27,3 +27,11 @@ export function deckSize(kg: number): Deck {
 
 export const wideWaist = (mm: number) => WIDE.find(([m]) => mm >= m)?.[1] ?? null;
 export const span = ([a, b]: [number, number]) => (a === b ? `${a}` : `${a}–${b}`);
+
+// 스키 길이: Rossignol 공식 'Choose my alpine skis' 가이드 (2026-11-11 확인) — 초급 키 −15~−10cm, 중급 −7~−5cm,
+// 상급 '키와 비슷하게, 종목에 따라 조금 더 길게'는 숫자가 없어서 −3~+5cm로 정함 (사용자 결정 2026-11-11)
+export const SKI_LEVELS = ['초급', '중급', '상급'] as const;
+export function skiLength(heightCm: number): [number, number][] {
+	const h = Math.round(heightCm);
+	return [[h - 15, h - 10], [h - 7, h - 5], [h - 3, h + 5]];
+}

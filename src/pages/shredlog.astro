@@ -221,35 +221,47 @@ const pick = {
 
 				<div class="log-panel" role="tabpanel" data-panel="gear" hidden>
 					<!-- 데크 사이즈 (사용자 요구 2026-11-11): Jones 공식 성인 체중표 + Burton 부츠 변환표로 직접 만든 참고 계산 -->
+					<!-- 스키 길이 (사용자 요구 2026-11-11): 같은 칸에서 '종류' 선택으로 스노보드 / 스키 바꿈, 고른 종류는 fs-gear-kind -->
 					<section class="block deck">
-						<h2>DECK SIZE</h2>
+						<h2 class="deck-title">DECK SIZE</h2>
 						<form class="deck-form">
-							<label>체중<span class="unit-in"><input name="w" type="number" min="20" max="200" step="0.1" inputmode="decimal" required /><u>kg</u></span></label>
-							<label>부츠 사이즈<span class="unit-in"><input name="b" type="number" min="200" max="340" step="5" inputmode="numeric" required /><u>mm</u></span></label>
+							<label>종류<select name="kind"><option value="board">스노보드</option><option value="ski">스키</option></select></label>
+							<label data-for="board">체중<span class="unit-in"><input name="w" type="number" min="20" max="200" step="0.1" inputmode="decimal" required /><u>kg</u></span></label>
+							<label data-for="board">부츠 사이즈<span class="unit-in"><input name="b" type="number" min="200" max="340" step="5" inputmode="numeric" required /><u>mm</u></span></label>
+							<label data-for="ski" hidden>키<span class="unit-in"><input name="h" type="number" min="120" max="210" step="1" inputmode="numeric" required /><u>cm</u></span></label>
+							<label data-for="ski" hidden>실력<select name="lv"><option value="0">초급</option><option value="1" selected>중급</option><option value="2">상급</option></select></label>
 							<button class="btn btn-ink" type="submit">계산하기</button>
 						</form>
-						<p class="deck-hint">부츠에 적힌 mm 사이즈를 넣어 주세요 (발 길이를 잰 값과는 달라요)</p>
+						<p class="deck-hint" data-for="board">부츠에 적힌 mm 사이즈를 넣어 주세요 (발 길이를 잰 값과는 달라요)</p>
+						<p class="deck-hint" data-for="ski" hidden>신발을 벗은 키를 넣어 주세요</p>
 						<div class="deck-res" hidden aria-live="polite">
-							<p class="deck-l">추천 데크 길이</p>
+							<p class="deck-l deck-res-l">추천 데크 길이</p>
 							<p class="deck-big"><b></b><small>cm</small></p>
 							<p class="deck-sub"></p>
 							<div class="deck-detail">
-								<div class="deck-bar"><i></i></div>
-								<div class="deck-scale"><span>짧게</span><span>중간</span><span>길게</span></div>
+								<div class="deck-gauge">
+									<div class="deck-bar"><i></i></div>
+									<div class="deck-scale"><span>짧게</span><span>중간</span><span>길게</span></div>
+								</div>
 								<div class="deck-picks">
-									<div><span class="deck-l">짧게</span><b data-pick="0"></b><p>돌리기 쉬워요. 그라운드 트릭, 파크, 입문</p></div>
-									<div class="on"><span class="deck-l">중간 추천</span><b data-pick="1"></b><p>어디서나 무난한 올라운드</p></div>
-									<div><span class="deck-l">길게</span><b data-pick="2"></b><p>속도, 카빙, 파우더에서 안정적</p></div>
+									<div><span class="deck-l"></span><b data-pick="0"></b><p></p></div>
+									<div><span class="deck-l"></span><b data-pick="1"></b><p></p></div>
+									<div><span class="deck-l"></span><b data-pick="2"></b><p></p></div>
 								</div>
 							</div>
 							<p class="deck-wide" hidden></p>
+							<p class="deck-note" hidden>체중이 많이 나가면 조금 길게, 가벼우면 조금 짧게 골라요. 정설 사면 위주면 짧게, 프리라이드는 길게 가는 편이에요.</p>
 							<div class="deck-acts">
 								<button class="btn-mini deck-share" type="button">결과 공유</button>
 								<a class="btn-mini deck-ask">게시판에 물어보기</a>
 								<small class="deck-share-msg">공유 링크엔 체중, 부츠 사이즈가 들어가요</small>
 							</div>
 						</div>
-						<p class="deck-src">
+						<p class="deck-src" data-for="ski" hidden>
+							기준: <a href="https://www.rossignol.com/us-en/alpine-ski-material-guide.html" target="_blank" rel="noopener">Rossignol 공식 스키 고르기 안내</a>(실력별 키 기준 길이, 상급은 키 −3~+5cm로 정함) | 2026-11-11 확인.
+							참고 범위예요. 구매 전 모델별 권장 길이를 꼭 확인해 주세요.
+						</p>
+						<p class="deck-src" data-for="board">
 							기준: <a href="https://ca.jonessnowboards.com/pages/a-guide-on-how-to-find-your-perfect-snowboard-size" target="_blank" rel="noopener">Jones 공식 사이즈 안내</a>(남녀 공용 성인 체중표),
 							부츠 변환 <a href="https://www.burton.com/en-us/products/mens-burton-swath-boa-snowboard-boots-2031816-o" target="_blank" rel="noopener">Burton 공식 사이즈표</a> | 2026-11-11 확인.
 							참고 범위예요. 구매 전 모델별 권장 체중을 꼭 확인해 주세요.
@@ -285,7 +297,7 @@ const pick = {
 
 		<script>
 			import { busy, call, loginUrl, store } from '../scripts/session';
-			import { deckSize, span, wideWaist } from '../scripts/deck';
+			import { SKI_LEVELS, deckSize, skiLength, span, wideWaist } from '../scripts/deck';
 
 			type Visit = { id: string; date: string; resort: string; [k: string]: string };
 			type Expense = { id: string; date: string; cat: string; amount: number; memo: string; visit?: string };
@@ -768,68 +780,119 @@ const pick = {
 			}
 			tabBtns.forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab!)));
 
-			// 데크 사이즈 (계산은 scripts/deck.ts — Jones 공식 성인 체중표, Burton 부츠 변환표)
+			// 데크 사이즈 / 스키 길이 (계산은 scripts/deck.ts — Jones 체중표 + Burton 부츠 변환, Rossignol 스키 안내)
 			const deckForm = $<HTMLFormElement>('.deck-form');
+			const field = (n: string) => deckForm.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement;
+			const KIND = 'fs-gear-kind';
+			const PICK_TEXT = {
+				board: [['짧게', '돌리기 쉬워요. 그라운드 트릭, 파크, 입문'], ['중간 추천', '어디서나 무난한 올라운드'], ['길게', '속도, 카빙, 파우더에서 안정적']],
+				ski: [['초급', '짧아서 다루기 쉬워요. 낮은 속도, 첫 턴'], ['중급', '다루기 쉬움과 안정감 사이 균형'], ['상급', '빠른 속도, 다양한 설질에서 안정적']],
+			};
 			let deckShare = '';
+			// 종류 바꾸기: 그 종류 칸만 보이고, 숨은 칸은 disabled(필수 검사에서 빠짐)
+			function setKind(kind: 'board' | 'ski') {
+				field('kind').value = kind;
+				document.querySelectorAll<HTMLElement>('.deck [data-for]').forEach((el) => {
+					const on = el.dataset.for === kind;
+					el.hidden = !on;
+					el.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select').forEach((x) => (x.disabled = !on));
+				});
+				$('.deck-title').textContent = kind === 'ski' ? 'SKI LENGTH' : 'DECK SIZE';
+				$('.deck-res-l').textContent = kind === 'ski' ? '추천 스키 길이' : '추천 데크 길이';
+				document.querySelectorAll<HTMLElement>('.deck-picks > div').forEach((d, i) => {
+					d.querySelector('.deck-l')!.textContent = PICK_TEXT[kind][i][0];
+					d.querySelector('p')!.textContent = PICK_TEXT[kind][i][1];
+				});
+				$('.deck-res').hidden = true; // 다른 종류의 결과가 남지 않게
+				try { localStorage.setItem(KIND, kind); } catch {}
+			}
+			field('kind').addEventListener('change', () => setKind(field('kind').value as 'board' | 'ski'));
+			// 결과 카드 공통: 큰 숫자, 설명, 세 칸(고른 칸 주황), 공유 주소, 게시판 질문
+			function showResult(o: { big: string; sub: string; picks?: [number, number][]; on: number; gauge: boolean; share: string; title: string; body: string }) {
+				$('.deck-res').hidden = false;
+				$('.deck-big b').textContent = o.big;
+				$('.deck-sub').textContent = o.sub;
+				$('.deck-detail').hidden = !o.picks;
+				$('.deck-gauge').hidden = !o.gauge;
+				o.picks?.forEach((p, i) => ($(`[data-pick="${i}"]`).textContent = span(p)));
+				document.querySelectorAll('.deck-picks > div').forEach((d, i) => d.classList.toggle('on', i === o.on));
+				$<HTMLAnchorElement>('.deck-ask').href = `${base}/board/write/?${new URLSearchParams({ c: 'free', t: o.title, b: o.body })}`;
+				deckShare = `${location.origin}${location.pathname}?${o.share}#gear`;
+				$('.deck-share-msg').textContent = '공유 링크엔 입력한 값이 들어가요';
+			}
 			function showDeck(kg: number, mm: number) {
 				const d = deckSize(kg);
 				const w = Math.round(kg);
-				$('.deck-res').hidden = false;
-				$('.deck-detail').hidden = d.kind !== 'ok';
-				const big = $('.deck-big b');
-				const sub = $('.deck-sub');
-				if (d.kind === 'kids') {
-					big.textContent = '-';
-					sub.textContent = '성인 표는 34kg부터예요. 어린이, 청소년은 Jones 키즈 표를 확인해 주세요.';
-				} else if (d.kind === 'big') {
-					big.textContent = '165+';
-					sub.textContent = `${w}kg 기준, 165cm 이상 긴 보드를 권해요`;
-				} else {
-					big.textContent = `${d.lo}–${d.hi}`;
-					sub.textContent = `${w}kg | ${mm}mm 기준 참고 범위예요`;
-					d.picks.forEach((p, i) => ($(`[data-pick="${i}"]`).textContent = span(p)));
-				}
+				const range = d.kind === 'ok' ? `${d.lo}~${d.hi}cm (중간 ${span(d.picks[1]).replace('–', '~')}cm)` : d.kind === 'big' ? '165cm 이상' : '성인 표 밖';
+				showResult({
+					big: d.kind === 'ok' ? `${d.lo}–${d.hi}` : d.kind === 'big' ? '165+' : '-',
+					sub: d.kind === 'ok' ? `${w}kg | ${mm}mm 기준 참고 범위예요` : d.kind === 'big' ? `${w}kg 기준, 165cm 이상 긴 보드를 권해요` : '성인 표는 34kg부터예요. 어린이, 청소년은 Jones 키즈 표를 확인해 주세요.',
+					picks: d.kind === 'ok' ? d.picks : undefined,
+					on: 1,
+					gauge: true,
+					share: `w=${kg}&b=${mm}`,
+					title: `데크 사이즈 질문 (${w}kg, ${mm}mm)`,
+					body: `체중 ${w}kg, 부츠 ${mm}mm예요.\n계산기 추천은 ${range}인데,\n\n타는 스타일: \n고민 중인 모델: \n\n어떤 길이가 좋을까요?`,
+				});
 				const waist = wideWaist(mm);
 				const wide = $('.deck-wide');
 				wide.hidden = !waist;
 				if (waist) wide.textContent = `부츠 ${mm}mm는 와이드 보드를 권해요. 허리 폭 ${waist}cm 이상이어야 토, 힐이 눈에 덜 끌려요.`;
-				// 게시판에 물어보기: 자유게시판 글쓰기에 제목, 내용을 채워 보냄 (board/write ?t=&b=)
-				const range = d.kind === 'ok' ? `${d.lo}~${d.hi}cm (중간 ${span(d.picks[1]).replace('–', '~')}cm)` : d.kind === 'big' ? '165cm 이상' : '성인 표 밖';
-				const q = new URLSearchParams({
-					c: 'free',
-					t: `데크 사이즈 질문 (${w}kg, ${mm}mm)`,
-					b: `체중 ${w}kg, 부츠 ${mm}mm예요.\n계산기 추천은 ${range}인데,\n\n타는 스타일: \n고민 중인 모델: \n\n어떤 길이가 좋을까요?`,
+				$('.deck-note').hidden = true;
+			}
+			function showSki(cm: number, lv: number) {
+				const picks = skiLength(cm);
+				const h = Math.round(cm);
+				const mine = span(picks[lv]);
+				showResult({
+					big: mine,
+					sub: `키 ${h}cm | ${SKI_LEVELS[lv]} 기준 참고 범위예요`,
+					picks,
+					on: lv,
+					gauge: false,
+					share: `k=ski&h=${cm}&l=${lv}`,
+					title: `스키 길이 질문 (${h}cm, ${SKI_LEVELS[lv]})`,
+					body: `키 ${h}cm, ${SKI_LEVELS[lv]}이에요.\n계산기 추천은 ${mine.replace('–', '~')}cm인데,\n\n체중: \n주로 타는 곳(정설, 파크, 프리라이드): \n고민 중인 모델: \n\n어떤 길이가 좋을까요?`,
 				});
-				$<HTMLAnchorElement>('.deck-ask').href = `${base}/board/write/?${q}`;
-				deckShare = `${location.origin}${location.pathname}?w=${kg}&b=${mm}#gear`;
-				$('.deck-share-msg').textContent = '공유 링크엔 체중, 부츠 사이즈가 들어가요';
+				$('.deck-wide').hidden = true;
+				$('.deck-note').hidden = false;
 			}
 			deckForm.addEventListener('submit', (e) => {
 				e.preventDefault();
-				const f = new FormData(deckForm);
-				showDeck(Number(f.get('w')), Number(f.get('b')));
+				if (field('kind').value === 'ski') showSki(Number(field('h').value), Number(field('lv').value));
+				else showDeck(Number(field('w').value), Number(field('b').value));
 			});
 			$('.deck-share').addEventListener('click', async () => {
 				const msg = $('.deck-share-msg');
 				try {
-					if (navigator.share) return void (await navigator.share({ title: '데크 사이즈 | Freesnow', url: deckShare }));
+					if (navigator.share) return void (await navigator.share({ title: '장비 사이즈 | Freesnow', url: deckShare }));
 					await navigator.clipboard.writeText(deckShare);
 					msg.textContent = '링크를 복사했어요';
 				} catch (err) {
 					if ((err as Error).name !== 'AbortError') msg.textContent = deckShare; // 복사가 막히면 주소를 보여 줌
 				}
 			});
-			// 공유 링크로 들어오면 (?w=70&b=270) 바로 계산해서 GEAR 탭
+			// 공유 링크로 들어오면 (?w=70&b=270 또는 ?k=ski&h=175&l=1) 바로 계산해서 GEAR 탭
 			const sp = new URLSearchParams(location.search);
+			let savedKind = '';
+			try { savedKind = localStorage.getItem(KIND) ?? ''; } catch {}
 			const qw = Number(sp.get('w'));
 			const qb = Number(sp.get('b'));
-			const fromShare = qw >= 20 && qw <= 200 && qb >= 200 && qb <= 340;
-			if (fromShare) {
-				(deckForm.elements.namedItem('w') as HTMLInputElement).value = String(qw);
-				(deckForm.elements.namedItem('b') as HTMLInputElement).value = String(qb);
+			const qh = Number(sp.get('h'));
+			const ql = Number(sp.get('l'));
+			const skiShare = sp.get('k') === 'ski' && qh >= 120 && qh <= 210 && [0, 1, 2].includes(ql);
+			const boardShare = !skiShare && qw >= 20 && qw <= 200 && qb >= 200 && qb <= 340;
+			setKind(skiShare || (!boardShare && savedKind === 'ski') ? 'ski' : 'board');
+			if (skiShare) {
+				field('h').value = String(qh);
+				field('lv').value = String(ql);
+				showSki(qh, ql);
+			} else if (boardShare) {
+				field('w').value = String(qw);
+				field('b').value = String(qb);
 				showDeck(qw, qb);
 			}
-			showTab(fromShare || location.hash === '#gear' ? 'gear' : 'season');
+			showTab(skiShare || boardShare || location.hash === '#gear' ? 'gear' : 'season');
 
 			slForm.addEventListener('submit', (e) => {
 				e.preventDefault();
@@ -1430,7 +1493,8 @@ const pick = {
 	/* DECK SIZE: 입력 한 줄 + 결과 카드 (시안 1의 큰 범위 숫자 + 게이지) */
 	.deck-form {
 		display: grid;
-		grid-template-columns: 1fr 1fr auto;
+		grid-template-columns: 130px 180px 180px auto; /* PC: 종류 | 입력 두 칸 | 버튼, 칸은 짧게 (사용자 요구 2026-11-11) */
+		justify-content: start;
 		gap: 10px;
 		align-items: end;
 		justify-items: stretch;
@@ -1440,6 +1504,17 @@ const pick = {
 		gap: 6px;
 		font-size: 13px;
 		font-weight: 700;
+	}
+	.deck-form select {
+		width: 100%;
+	}
+	.deck-note {
+		margin-top: 14px;
+		padding: 10px 12px;
+		border-radius: 10px;
+		background: var(--bone);
+		font-size: 13px;
+		color: #4a4d55;
 	}
 	.unit-in {
 		position: relative;
@@ -1591,6 +1666,10 @@ const pick = {
 		}
 		.deck-form {
 			grid-template-columns: 1fr 1fr;
+			justify-content: stretch;
+		}
+		.deck-form > label:first-child {
+			grid-column: 1 / -1; /* 종류는 한 줄 전체 */
 		}
 		.deck-form .btn {
 			grid-column: 1 / -1;
